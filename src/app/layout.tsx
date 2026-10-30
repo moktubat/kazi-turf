@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/Footer";
 import { MobileActionBar } from "@/components/layout/MobileActionBar";
 import { getSessionUser } from "@/server/auth/session";
 import { connectDb } from "@/server/db/connect";
+import { Suspense } from "react";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -34,6 +35,13 @@ export const viewport: Viewport = {
   themeColor: "#0B6E4F",
 };
 
+async function HeaderWithUser() {
+  await connectDb();
+  const u = await getSessionUser();
+  const user = u ? { id: u.id, name: u.name, role: u.role } : null;
+  return <Header user={user} />;
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   await connectDb(); // opens the connection and loads live Setup values (branches, pitches, rates, policies)
   const u = await getSessionUser();
@@ -44,7 +52,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${jakarta.variable} ${vietnam.variable}`}>
       <body>
         <a href="#main" className="skip-link">Skip to content</a>
-        <Header user={user} />
+        <Suspense fallback={<Header user={null} />}>
+          <HeaderWithUser />
+        </Suspense>
         <main id="main" className="min-h-[70vh] pb-24 md:pb-0">
           {children}
         </main>

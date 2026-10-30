@@ -5,7 +5,6 @@ import { accessibleBranches } from "@/server/admin/access";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 
 export const metadata: Metadata = { title: "Bookings" };
-export const dynamic = "force-dynamic";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 

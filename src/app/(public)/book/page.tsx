@@ -12,7 +12,6 @@ import { getPitch } from "@/server/availability";
 import { connectDb } from "@/server/db/connect";
 
 export const metadata: Metadata = { title: "Book a slot" };
-export const dynamic = "force-dynamic";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 

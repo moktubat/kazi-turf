@@ -7,7 +7,6 @@ import { accessibleBranches } from "@/server/admin/access";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 
 export const metadata: Metadata = { title: "Staff Desk" };
-export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
     const user = await requireStaffPage("/admin");

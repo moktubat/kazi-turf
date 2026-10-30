@@ -2,8 +2,6 @@ import { canSetup } from "@/server/auth/permissions";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 import { AdminNav } from "@/components/layout/admin/AdminNav";
 
-export const dynamic = "force-dynamic";
-
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaffPage("/admin");
   return (

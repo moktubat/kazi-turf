@@ -7,7 +7,6 @@ import { getSessionUser } from "@/server/auth/session";
 import { listAccountBookings } from "@/server/bookings/account";
 
 export const metadata: Metadata = { title: "My account" };
-export const dynamic = "force-dynamic";
 
 const CODE = /^KT-[A-HJ-NP-Z2-9]{6}$/;
 

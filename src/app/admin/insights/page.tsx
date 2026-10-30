@@ -13,7 +13,6 @@ import { requireAdminPage } from "@/server/auth/pageGuards";
 import { AUDIT_ACTIONS } from "@/types/ops";
 
 export const metadata: Metadata = { title: "Insights" };
-export const dynamic = "force-dynamic";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 

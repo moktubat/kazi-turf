@@ -6,7 +6,6 @@ import { safeNext } from "@/lib/safeNext";
 import { getSessionUser } from "@/server/auth/session";
 
 export const metadata: Metadata = { title: "Sign in" };
-export const dynamic = "force-dynamic";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 

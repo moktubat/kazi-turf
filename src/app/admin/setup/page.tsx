@@ -4,7 +4,6 @@ import { SetupView } from "@/components/pages/admin/setup/SetupView";
 import { getSetupData } from "@/server/admin/setup";
 
 export const metadata: Metadata = { title: "Setup" };
-export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
     const user = await requireSetupPage("/admin/setup");

@@ -5,7 +5,6 @@ import { getLegalDocs, legalStatus } from "@/data/legal";
 import { connectDb } from "@/server/db/connect";
 
 export const metadata: Metadata = { title: "Terms, Privacy & Refund policy" };
-export const dynamic = "force-dynamic";
 
 export default async function LegalPage() {
     await connectDb();
