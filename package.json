@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "tsx --conditions=react-server --env-file=.env.local src/server/db/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^6.0.2",

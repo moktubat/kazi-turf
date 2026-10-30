@@ -8,8 +8,7 @@ import { ContactSection } from "@/components/pages/home/ContactSection";
 import { FinalCta } from "@/components/pages/home/FinalCta";
 import { connectDb } from "@/server/db/connect";
 
-// "Open Today" depends on the clock, so refresh the page data every minute.
-export const revalidate = 60;
+// REMOVED: export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
     await connectDb();

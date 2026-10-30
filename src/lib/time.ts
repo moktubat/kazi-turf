@@ -28,8 +28,9 @@ export function dhakaParts(d: Date) {
     };
 }
 
-export function todayDhaka(now: Date = new Date()): string {
-    return dhakaParts(now).date;
+// Fix: Make 'now' optional and evaluate new Date() inside the function body
+export function todayDhaka(now?: Date): string {
+    return dhakaParts(now ?? new Date()).date;
 }
 
 export function addDays(date: string, n: number): string {

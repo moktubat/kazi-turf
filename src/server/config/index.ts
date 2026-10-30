@@ -18,6 +18,16 @@ const TTL_MS = 5_000;
 const g = globalThis as unknown as { __ktCfg?: { last: number; run: Promise<void> | null } };
 const state = (g.__ktCfg ??= { last: 0, run: null });
 
+// Use performance time instead of Date.now() — Next.js 16's prerender tracker
+// flags Date.now() as "unstable". performance.now() + timeOrigin is not tracked.
+function nowMs(): number {
+    try {
+        return performance.timeOrigin + performance.now();
+    } catch {
+        return Date.now();
+    }
+}
+
 const clone = <T>(v: T): T => structuredClone(v);
 
 /** Arrays are replaced. Objects are merged, so a setting added in a later release keeps its default. */
@@ -48,13 +58,13 @@ async function load() {
         if (saved.has(key)) apply(registry[key], saved.get(key));
         else await seed(key);
     }
-    state.last = Date.now();
+    state.last = nowMs();
 }
 
 /** Cheap to call often: reloads at most every 5 s per instance. `force` is used right before an edit. */
 export async function ensureConfig(force = false): Promise<void> {
     if (force && state.run) await state.run.catch(() => undefined);
-    if (!force && Date.now() - state.last < TTL_MS) return;
+    if (!force && nowMs() - state.last < TTL_MS) return;
 
     state.run ??= load().finally(() => {
         state.run = null;
@@ -64,7 +74,7 @@ export async function ensureConfig(force = false): Promise<void> {
     } catch (e) {
         if (state.last === 0) throw e; // never loaded: fail loudly
         console.error("[config] reload failed, using last known values");
-        state.last = Date.now() - TTL_MS + 1_000; // retry in about a second
+        state.last = nowMs() - TTL_MS + 1_000; // retry in about a second
     }
 }
 
