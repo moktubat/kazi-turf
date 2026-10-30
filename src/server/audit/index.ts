@@ -29,10 +29,20 @@ export function logAudit(
 }
 
 /** Newest first. */
-export function auditFor(entityType: AuditLog["entityType"], entityId: string, limit = 25): AuditEntryDto[] {
+export function auditFor(
+    entityType: AuditLog["entityType"],
+    entityId: string,
+    limit = 25
+): AuditEntryDto[] {
     return store.auditLogs
         .filter((a) => a.entityType === entityType && a.entityId === entityId)
         .sort((a, b) => b.at.localeCompare(a.at))
         .slice(0, limit)
-        .map(({ id, action, actorName, at, meta }) => ({ id, action, actorName, at, meta }));
+        .map(({ id, action, actorName, at, meta }) => ({
+            id,
+            action,
+            actorName,
+            at,
+            meta,
+        }));
 }

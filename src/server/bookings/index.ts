@@ -11,6 +11,7 @@ import { quote } from "@/server/pricing";
 import { store } from "@/server/store";
 import type { ServerUser } from "@/server/auth/session";
 import type { Booking, BookingDto } from "@/types/booking";
+import { logAudit } from "../audit";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 const SETTLEABLE = ["NOT_STARTED", "FAILED", "CANCELLED"];
@@ -108,7 +109,7 @@ export function quoteSelection(pitchId: string, cellStarts: string[]) {
 }
 
 /** Expired, unpaid holds become EXPIRED and free their cells. */
-function settle(b: Booking, now: Date) {
+export function settle(b: Booking, now: Date) {
     if (
         b.bookingStatus === "PENDING_PAYMENT" &&
         SETTLEABLE.includes(b.paymentStatus) &&
@@ -170,12 +171,25 @@ export function createBooking(
         createdAt: now.toISOString(),
     };
     store.bookings.push(booking);
-    // TODO(audit): write AuditLog entry (Batch 6)
+
+    logAudit(user, {
+        action: "BOOKING_CREATED",
+        entityType: "BOOKING",
+        entityId: booking.bookingCode,
+        branchId: booking.branchId,
+        meta: {
+            pitch: v.pitch.name,
+            date: v.date,
+            slots: booking.slotCount,
+            total: q.total,
+            advance: q.advance,
+        },
+    });
 
     return toDto(booking, now);
 }
 
-function findOwned(code: string, user: ServerUser): Booking {
+export function findOwned(code: string, user: ServerUser): Booking {
     const b = store.bookings.find((x) => x.bookingCode === code);
     // Same message for "missing" and "not yours" so codes cannot be probed.
     if (!b || (b.customerId !== user.id && user.role !== "SUPER_ADMIN")) {
@@ -236,5 +250,6 @@ export function toDto(b: Booking, now: Date = new Date()): BookingDto {
         holdExpiresAt: b.holdExpiresAt,
         holdActive: b.bookingStatus === "PENDING_PAYMENT" && new Date(b.holdExpiresAt) > now,
         serverNow: now.toISOString(),
+        checkInOpensMinutes: policies.checkInOpensMinutesBefore,
     };
 }

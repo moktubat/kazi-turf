@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { Select, Textarea } from "@/components/ui/Field";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { cancellationSummary } from "@/data/bookingCopy";
-import { policies } from "@/data/site";
 import { ApiError, api } from "@/lib/api";
 import { formatBDT, formatDateLong } from "@/lib/format";
 import { changeRequestSchema, type ChangeRequestInput } from "@/schemas/account";
@@ -107,7 +106,7 @@ export function BookingSheet({
 
             {confirmed && (
                 <p className="text-sm text-evergreen/85">
-                    Show your code at the venue. Check-in opens {policies.checkInOpensMinutesBefore} minutes before your slot
+                    Show your code at the venue. Check-in opens {b.checkInOpensMinutes} minutes before your slot
                     starts and stays open until it ends. Staff may ask for the last digits of your phone number.
                 </p>
             )}

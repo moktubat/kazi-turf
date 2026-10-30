@@ -1,3 +1,4 @@
+import { shared } from "@/lib/shared";
 import type { Policies } from "@/types";
 
 export const site = {
@@ -31,7 +32,7 @@ export const legalLinks = [
 ];
 
 // Never hard-code these elsewhere. [CONFIRM] all values with the owner.
-export const policies: Policies = {
+export const policies: Policies = shared<Policies>("policies", {
     slotMinutes: 90,
     advancePercent: 40,
     holdMinutes: 10,
@@ -40,4 +41,4 @@ export const policies: Policies = {
     vatRatePercent: null,
     vatMode: "exclusive",
     vatRegistrationNo: "",
-};
+});

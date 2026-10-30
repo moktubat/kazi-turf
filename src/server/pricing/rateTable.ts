@@ -22,14 +22,35 @@ export interface RateRow {
 }
 
 export function getRateTable(pitchId: string): RateRow[] {
+    const today = new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Dhaka",
+    });
+
     const rows = new Map<string, RateRow>();
-    for (const r of pricingRules.filter((x) => x.pitchId === pitchId)) {
+
+    for (const r of pricingRules.filter(
+        (x) =>
+            x.pitchId === pitchId &&
+            (!x.effectiveFrom || today >= x.effectiveFrom) &&
+            (!x.effectiveTo || today <= x.effectiveTo)
+    )) {
         const key = [...r.days].sort((a, b) => a - b).join(",");
-        const row = rows.get(key) ?? { days: dayLabel(r.days), offPeak: null, peak: null };
-        const cell = { price: r.pricePerSlot, window: `${r.startTime}–${r.endTime}` };
+        const row = rows.get(key) ?? {
+            days: dayLabel(r.days),
+            offPeak: null,
+            peak: null,
+        };
+
+        const cell = {
+            price: r.pricePerSlot,
+            window: `${r.startTime}–${r.endTime}`,
+        };
+
         if (r.tier === "Peak") row.peak = cell;
         else row.offPeak = cell;
+
         rows.set(key, row);
     }
+
     return [...rows.values()];
 }

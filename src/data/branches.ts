@@ -1,7 +1,8 @@
 import type { Branch } from "@/types";
+import { shared } from "@/lib/shared";
 
 // Sample data [CONFIRM]: replace with verified details.
-export const branches: Branch[] = [
+export const branches: Branch[] = shared<Branch[]>("branches", [
     {
         id: "bogura",
         name: "Bogura",
@@ -26,4 +27,4 @@ export const branches: Branch[] = [
         status: "COMING_SOON",
         sports: [],
     },
-];
+]);

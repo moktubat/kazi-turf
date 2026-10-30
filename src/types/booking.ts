@@ -58,6 +58,7 @@ export interface BookingDto {
     holdExpiresAt: string;
     holdActive: boolean;
     serverNow: string;
+    checkInOpensMinutes: number;
 }
 
 export interface PitchAvailability {

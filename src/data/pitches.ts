@@ -1,7 +1,8 @@
 import type { Pitch } from "@/types";
+import { shared } from "@/lib/shared";
 
 // Sample inventory [CONFIRM]. Image must be a real venue photo or null.
-export const pitches: Pitch[] = [
+export const pitches: Pitch[] = shared<Pitch[]>("pitches", [
     {
         id: "bogura-a",
         branchId: "bogura",
@@ -47,4 +48,4 @@ export const pitches: Pitch[] = [
         image: null,
         status: "ACTIVE",
     },
-];
+]);

@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
-import { policies } from "@/data/site";
 import { ApiError, api } from "@/lib/api";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { formatBDT, formatDateLong } from "@/lib/format";
@@ -148,8 +147,7 @@ export function BookingResult({ code }: { code: string }) {
                             <Line label="Balance due at venue" value={formatBDT(b.balanceDue)} strong />
                         </dl>
                         <p className="text-sm text-evergreen/85">
-                            Arrive early. Check-in opens {policies.checkInOpensMinutesBefore} minutes before your slot starts and stays
-                            open until it ends. Staff may ask for the last digits of your phone number.
+                            Arrive early. Check-in opens {b.checkInOpensMinutes} minutes before your slot starts and stays
                         </p>
                     </Card>
 

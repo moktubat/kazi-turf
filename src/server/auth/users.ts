@@ -6,6 +6,7 @@ import { store } from "@/server/store";
 import type { SessionUser } from "@/types";
 import type { User } from "@/types/user";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "./password";
+import { logAudit } from "../audit";
 
 export function toSessionUser(u: User): SessionUser {
     return { id: u.id, name: u.name, role: u.role };
@@ -27,7 +28,7 @@ export async function authenticate(identifier: string, password: string): Promis
     return user;
 }
 
-function assertUnique(phone: string, email: string | null, selfId?: string) {
+export function assertUnique(phone: string, email: string | null, selfId?: string) {
     if (store.users.some((u) => u.id !== selfId && u.phone === phone)) {
         throw new AppError("PHONE_TAKEN", "An account with this phone already exists.", 409, {
             phone: "Already registered. Try signing in.",
@@ -77,10 +78,21 @@ export function updateProfile(userId: string, input: { name: string; phone: stri
     const email = input.email.trim() ? input.email.trim().toLowerCase() : null;
     assertUnique(phone, email, userId);
 
+    // Field names only. Phone and email values never go in the audit log.
+    const changed = [
+        user.name !== input.name.trim() && "name",
+        user.phone !== phone && "phone",
+        user.email !== email && "email",
+    ]
+        .filter(Boolean)
+        .join(", ");
+
     user.name = input.name.trim();
     user.phone = phone;
     user.email = email;
-    // TODO(audit): profile change
+    if (changed) {
+        logAudit({ id: user.id, name: user.name }, { action: "PROFILE_CHANGED", entityType: "USER", entityId: user.id, meta: { fields: changed } });
+    }
     return { name: user.name, phone: user.phone, email: user.email };
 }
 
@@ -95,5 +107,5 @@ export async function changePassword(userId: string, current: string, next: stri
         });
     }
     user.passwordHash = await hashPassword(next);
-    // TODO(audit): password change
+    logAudit({ id: user.id, name: user.name }, { action: "PASSWORD_CHANGED", entityType: "USER", entityId: user.id });
 }

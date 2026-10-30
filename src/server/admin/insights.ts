@@ -164,16 +164,21 @@ export function getAttention(user: ServerUser, branch?: string, now: Date = new 
         store.payments.filter((p) => p.bookingId === b.id && p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
     const item = (b: Booking, title: string, detail: string): AttentionItem => ({ code: b.bookingCode, title, detail });
 
+    const quiet = new Set(["CANCELLED", "ABANDONED", "CREATE_FAILED"]);
     const payments = new Map<string, AttentionItem>();
     for (const p of store.payments) {
         const b = byId.get(p.bookingId);
         if (!b) continue;
-        const failed = p.status === "FAILED";
+        const failed = p.status === "FAILED" && !quiet.has(p.failureReason ?? "");
         const stuck = p.status === "PENDING" && now.getTime() - new Date(p.createdAt).getTime() > 10 * 60_000;
-        if (!failed && !stuck) continue;
+        if (!failed && !stuck && !p.anomaly) continue;
         payments.set(
             b.bookingCode,
-            item(b, failed ? "Payment failed" : "Payment stuck in processing", `${b.customerName} · ${formatBDT(p.amount)} · ${formatDateTime(p.createdAt)}`)
+            item(
+                b,
+                p.anomaly ? "Payment needs review" : failed ? "Payment failed" : "Payment stuck in processing",
+                `${b.customerName} · ${formatBDT(p.amount)} · ${p.anomaly ?? formatDateTime(p.createdAt)}`
+            )
         );
     }
 

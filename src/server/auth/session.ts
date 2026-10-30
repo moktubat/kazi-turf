@@ -15,6 +15,7 @@ export interface ServerUser extends SessionUser {
     phone: string;
     email: string | null;
     branchIds: string[];
+    permissions: string[];
 }
 
 export function hashToken(token: string): string {
@@ -74,6 +75,7 @@ function userForToken(token: string | undefined): ServerUser | null {
         phone: user.phone,
         email: user.email,
         branchIds: user.branchIds,
+        permissions: user.permissions,
     };
 }
 

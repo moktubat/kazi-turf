@@ -7,6 +7,7 @@ import type { ServerUser } from "@/server/auth/session";
 import type { AccountBookingDto, ChangeRequest, ChangeRequestInfo, ChangeKind } from "@/types/account";
 import type { Booking } from "@/types/booking";
 import { toDto } from "./index";
+import { logAudit } from "../audit";
 
 function decorate(b: Booking, now: Date): AccountBookingDto {
     const open = store.changeRequests.find((r) => r.bookingCode === b.bookingCode && r.status === "OPEN");
@@ -65,6 +66,14 @@ export function requestChange(
         createdAt: now.toISOString(),
     };
     store.changeRequests.push(r);
-    // TODO(audit): change request created. Staff decide and process it in Batch 5.
+
+    logAudit(user, {
+        action: "CHANGE_REQUESTED",
+        entityType: "BOOKING",
+        entityId: code,
+        branchId: b.branchId,
+        meta: { kind: input.kind },
+    });
+
     return { kind: r.kind, status: r.status, createdAt: r.createdAt };
 }

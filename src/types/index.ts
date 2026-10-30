@@ -42,11 +42,13 @@ export type RateTier = "Off-peak" | "Peak";
 export interface PricingRule {
   id: string;
   pitchId: string;
-  days: number[]; // 0 = Sunday ... 6 = Saturday (Asia/Dhaka)
+  days: number[];
   startTime: string;
   endTime: string;
   pricePerSlot: number;
   tier: RateTier;
+  effectiveFrom?: string;
+  effectiveTo?: string;
 }
 
 export type ClaimState = "HELD" | "BOOKED" | "MAINTENANCE";
