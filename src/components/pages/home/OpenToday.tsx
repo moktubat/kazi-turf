@@ -6,13 +6,15 @@ import { addDays, todayDhaka } from "@/lib/time";
 import { formatBDT } from "@/lib/format";
 import { Section } from "./Section";
 
-export function OpenToday() {
+export async function OpenToday() {
     const today = todayDhaka();
     const tomorrow = addDays(today, 1);
 
-    const rows = branches
-        .filter((b) => b.status === "ACTIVE")
-        .map((branch) => ({ branch, slots: getNextOpenSlots(branch.id, today, 4) }));
+    const rows = await Promise.all(
+        branches
+            .filter((b) => b.status === "ACTIVE")
+            .map(async (branch) => ({ branch, slots: await getNextOpenSlots(branch.id, today, 4) }))
+    );
 
     // Hidden when no live data exists.
     if (rows.length === 0) return null;

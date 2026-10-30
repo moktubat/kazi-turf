@@ -9,6 +9,7 @@ import { policies } from "@/data/site";
 import { addDays, todayDhaka } from "@/lib/time";
 import { getSessionUser } from "@/server/auth/session";
 import { getPitch } from "@/server/availability";
+import { connectDb } from "@/server/db/connect";
 
 export const metadata: Metadata = { title: "Book a slot" };
 export const dynamic = "force-dynamic";

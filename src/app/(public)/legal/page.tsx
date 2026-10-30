@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { AlertTriangle } from "lucide-react";
 import { LegalTabs } from "@/components/pages/legal/LegalTabs";
 import { getLegalDocs, legalStatus } from "@/data/legal";
+import { connectDb } from "@/server/db/connect";
 
 export const metadata: Metadata = { title: "Terms, Privacy & Refund policy" };
 export const dynamic = "force-dynamic";
 
-export default function LegalPage() {
+export default async function LegalPage() {
     await connectDb();
     return (
         <div className="mx-auto max-w-3xl px-4 py-10">

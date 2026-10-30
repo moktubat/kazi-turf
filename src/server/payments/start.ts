@@ -1,9 +1,10 @@
 import "server-only";
 import { randomUUID } from "crypto";
-import { AppError } from "@/server/http";
-import { findOwned, settle } from "@/server/bookings";
+import { BookingModel, PaymentModel, SlotClaimModel } from "@/models";
 import type { ServerUser } from "@/server/auth/session";
-import { store } from "@/server/store";
+import { findOwned, settle } from "@/server/bookings";
+import { tx } from "@/server/db/connect";
+import { AppError } from "@/server/http";
 import type { Payment } from "@/types/ops";
 import { bkashConfigured, bkashCreate } from "./bkash";
 
@@ -21,8 +22,7 @@ export async function startBkashPayment(
     const base = process.env.AUTH_URL?.replace(/\/+$/, "");
     if (!base) throw new AppError("PAYMENT_UNAVAILABLE", "Online payment is not available yet.", 503);
 
-    const b = findOwned(code, user);
-    settle(b, now);
+    const b = await settle(await findOwned(code, user), now);
 
     if (b.bookingStatus !== "PENDING_PAYMENT") {
         throw new AppError("NOT_PAYABLE", "This booking is not waiting for payment.", 409);
@@ -38,12 +38,12 @@ export async function startBkashPayment(
     }
 
     // The cells must still be ours before any money moves.
-    const held = store.claims.filter((c) => c.bookingId === b.id && c.state === "HELD");
-    if (held.length !== b.cellStarts.length) {
+    const held = await SlotClaimModel.countDocuments({ bookingId: b.id, state: "HELD" });
+    if (held !== b.cellStarts.length) {
         throw new AppError("SLOT_UNAVAILABLE", "That slot is no longer held. Pick again.", 409);
     }
 
-    const attempt = store.payments.filter((p) => p.bookingId === b.id && p.provider === "BKASH").length + 1;
+    const attempt = (await PaymentModel.countDocuments({ bookingId: b.id, provider: "BKASH" })) + 1;
     const payment: Payment = {
         id: randomUUID(),
         bookingId: b.id,
@@ -56,9 +56,23 @@ export async function startBkashPayment(
         createdAt: now.toISOString(),
     };
 
-    const previous = b.paymentStatus;
-    store.payments.push(payment);
-    b.paymentStatus = "PENDING"; // set before any await: a second tap cannot start another attempt
+    // Atomic: only one concurrent tap can move the booking to PENDING and record the attempt.
+    const started = await tx(async (s) => {
+        const r = await BookingModel.updateOne(
+            {
+                id: b.id,
+                bookingStatus: "PENDING_PAYMENT",
+                paymentStatus: { $in: PAYABLE },
+                holdExpiresAt: { $gt: now.toISOString() },
+            },
+            { $set: { paymentStatus: "PENDING" } },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) return false;
+        await PaymentModel.create([payment], { session: s });
+        return true;
+    });
+    if (!started) throw new AppError("PAYMENT_IN_PROGRESS", "A payment is already being processed.", 409);
 
     try {
         const r = await bkashCreate({
@@ -67,12 +81,11 @@ export async function startBkashPayment(
             payerReference: b.phone,
             callbackURL: `${base}/api/payments/bkash/callback`,
         });
-        payment.providerPaymentId = r.paymentId;
+        await PaymentModel.updateOne({ id: payment.id }, { $set: { providerPaymentId: r.paymentId } });
         return { redirectUrl: r.redirectUrl };
     } catch (e) {
-        payment.status = "FAILED";
-        payment.failureReason = "CREATE_FAILED";
-        b.paymentStatus = previous;
+        await PaymentModel.updateOne({ id: payment.id, status: "PENDING" }, { $set: { status: "FAILED", failureReason: "CREATE_FAILED" } });
+        await BookingModel.updateOne({ id: b.id, paymentStatus: "PENDING" }, { $set: { paymentStatus: b.paymentStatus } });
         console.error("[bkash] create failed:", e instanceof Error ? e.message : "unknown error");
         throw new AppError("PAYMENT_START_FAILED", "We could not open bKash. Please try again.", 502);
     }

@@ -1,14 +1,15 @@
 // Server-side verification and settlement of a bKash advance. Idempotent: a duplicate callback,
 // a poll and the reconcile job can all call it for the same payment and get one result.
-// The "apply" functions have NO awaits, so each is one atomic step (one Mongo transaction in Batch 8).
+// The payment document's "still PENDING" condition makes this safe across serverless instances.
 import "server-only";
 import { policies } from "@/data/site";
-import { claimCells } from "@/server/admin/claims";
+import { BookingModel, PaymentModel } from "@/models";
 import { logAudit } from "@/server/audit";
-import { releaseClaims } from "@/server/bookings";
+import { findBookingById } from "@/server/bookings";
+import { confirmClaims, releaseClaims } from "@/server/claims";
+import { connectDb, tx } from "@/server/db/connect";
+import { plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
-import { store } from "@/server/store";
-import type { Booking } from "@/types/booking";
 import type { Payment } from "@/types/ops";
 import { bkashExecute, bkashQuery, type RemotePayment } from "./bkash";
 
@@ -21,15 +22,24 @@ export type SettleResult = "CONFIRMED" | "REFUND" | "FAILED" | "PENDING" | "NOT_
 const g = globalThis as unknown as { __ktInflight?: Map<string, Promise<SettleResult>> };
 const inflight = (g.__ktInflight ??= new Map());
 
-const bookingOf = (p: Payment) => store.bookings.find((b) => b.id === p.bookingId);
-
-function resultFor(p: Payment): SettleResult {
-    if (p.status === "PENDING") return "PENDING";
-    if (p.status === "FAILED") return "FAILED";
-    return bookingOf(p)?.paymentStatus === "REFUND_PENDING" ? "REFUND" : "CONFIRMED";
+async function getPayment(id: string): Promise<Payment | null> {
+    const d = await PaymentModel.findOne({ id }).lean();
+    return d ? plain<Payment>(d) : null;
 }
 
-/** One verification at a time per payment. Concurrent callers share the same result. */
+async function resultFor(p: Payment): Promise<SettleResult> {
+    if (p.status === "PENDING") return "PENDING";
+    if (p.status === "FAILED") return "FAILED";
+    const b = await findBookingById(p.bookingId);
+    return b?.paymentStatus === "REFUND_PENDING" ? "REFUND" : "CONFIRMED";
+}
+
+async function after(id: string): Promise<SettleResult> {
+    const fresh = await getPayment(id);
+    return fresh ? resultFor(fresh) : "NOT_FOUND";
+}
+
+/** One verification at a time per payment per process. Concurrent callers share the same result. */
 export function settlePayment(paymentId: string, hint: Hint, now: Date = new Date()): Promise<SettleResult> {
     const existing = inflight.get(paymentId);
     if (existing) return existing;
@@ -47,7 +57,8 @@ async function tryExecute(p: Payment): Promise<RemotePayment | null> {
 }
 
 async function doSettle(id: string, hint: Hint, now: Date): Promise<SettleResult> {
-    const p = store.payments.find((x) => x.id === id);
+    await connectDb();
+    const p = await getPayment(id);
     if (!p || p.provider !== "BKASH") return "NOT_FOUND";
     if (p.status !== "PENDING") return resultFor(p); // already settled: return the recorded result
 
@@ -76,16 +87,17 @@ async function doSettle(id: string, hint: Hint, now: Date): Promise<SettleResult
         return "PENDING"; // bKash unreachable: leave it for the reconcile job
     }
 
-    if (p.status !== "PENDING") return resultFor(p);
+    const fresh = await getPayment(id);
+    if (!fresh || fresh.status !== "PENDING") return fresh ? resultFor(fresh) : "NOT_FOUND";
 
     switch (remote.state) {
         case "COMPLETED":
-            return applyCompleted(p, remote, now);
+            return applyCompleted(fresh, remote, now);
         case "FAILED":
-            return applyFailed(p, hint === "cancel" ? "CANCELLED" : "FAILED", now);
+            return applyFailed(fresh, hint === "cancel" ? "CANCELLED" : "FAILED", now);
         case "OPEN":
-            if (hint === "failure" || hint === "cancel") return applyFailed(p, hint === "cancel" ? "CANCELLED" : "FAILED", now);
-            return age > abandonAfter ? applyFailed(p, "ABANDONED", now) : "PENDING";
+            if (hint === "failure" || hint === "cancel") return applyFailed(fresh, hint === "cancel" ? "CANCELLED" : "FAILED", now);
+            return age > abandonAfter ? applyFailed(fresh, "ABANDONED", now) : "PENDING";
         default:
             return "PENDING"; // unknown: stays visible as "stuck" in Insights after 10 minutes
     }
@@ -100,107 +112,156 @@ function mismatch(p: Payment, r: RemotePayment): string | null {
     return null;
 }
 
-function applyFailed(p: Payment, reason: NonNullable<Payment["failureReason"]>, now: Date): SettleResult {
-    p.status = "FAILED";
-    p.failureReason = reason;
-    const b = bookingOf(p);
-    if (b && b.paymentStatus === "PENDING") b.paymentStatus = reason === "CANCELLED" ? "CANCELLED" : "FAILED";
-
-    logAudit(SYSTEM, {
-        action: "PAYMENT_FAILED",
-        entityType: "BOOKING",
-        entityId: b?.bookingCode ?? p.bookingId,
-        branchId: b?.branchId ?? null,
-        meta: { reason, amount: p.amount, at: now.toISOString() },
+async function applyFailed(
+    p: Payment,
+    reason: NonNullable<Payment["failureReason"]>,
+    now: Date
+): Promise<SettleResult> {
+    const b = await findBookingById(p.bookingId);
+    await tx(async (s) => {
+        const r = await PaymentModel.updateOne(
+            { id: p.id, status: "PENDING" },
+            { $set: { status: "FAILED", failureReason: reason } },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) return; // someone else settled it first
+        await BookingModel.updateOne(
+            { id: p.bookingId, paymentStatus: "PENDING" },
+            { $set: { paymentStatus: reason === "CANCELLED" ? "CANCELLED" : "FAILED" } },
+            { session: s }
+        );
+        await logAudit(
+            SYSTEM,
+            {
+                action: "PAYMENT_FAILED",
+                entityType: "BOOKING",
+                entityId: b?.bookingCode ?? p.bookingId,
+                branchId: b?.branchId ?? null,
+                meta: { reason, amount: p.amount, at: now.toISOString() },
+            },
+            { session: s }
+        );
     });
-    return "FAILED";
+    return after(p.id);
 }
 
-/** Our held cells if they are all still ours, otherwise a fresh claim. False means the slot is gone. */
-function reclaim(b: Booking, now: Date): boolean {
-    if (new Date(b.endAt) <= now) return false; // the slot has already been played out
-
-    const mine = store.claims.filter((c) => c.bookingId === b.id);
-    if (mine.length === b.cellStarts.length && b.cellStarts.every((s) => mine.some((c) => c.cellStart === s))) {
-        // Even if the hold timer ran out, nobody replaced our claims, so they are still safe to keep.
-        for (const c of mine) {
-            c.state = "BOOKED";
-            delete c.expiresAt;
-        }
-        return true;
-    }
-
-    releaseClaims(b.id);
-    try {
-        claimCells(b.pitchId, b.cellStarts, { state: "BOOKED", bookingId: b.id }, now);
-        return true;
-    } catch (e) {
-        if (e instanceof AppError && e.code === "SLOT_UNAVAILABLE") return false;
-        throw e;
-    }
-}
-
-function applyCompleted(p: Payment, r: RemotePayment, now: Date): SettleResult {
-    const b = bookingOf(p);
+async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<SettleResult> {
+    const b = await findBookingById(p.bookingId);
     const bad = !b ? "booking not found" : mismatch(p, r);
-    const dupTxn = !!r.trxId && store.payments.some((x) => x.id !== p.id && x.providerTxnId === r.trxId);
+    const dup = !!r.trxId && !!(await PaymentModel.exists({ id: { $ne: p.id }, providerTxnId: r.trxId }));
 
-    if (bad || dupTxn || !b) {
+    if (!b || bad || dup) {
         // bKash may have taken money we cannot match. Never confirm, and flag it for a human.
-        p.status = "FAILED";
-        p.failureReason = "MISMATCH";
-        p.anomaly = `Could not verify: ${bad ?? "transaction ID already recorded"}${r.trxId ? ` (trx ${r.trxId})` : ""}. Check the bKash merchant panel.`;
-        if (b && b.paymentStatus === "PENDING") b.paymentStatus = "FAILED";
-        logAudit(SYSTEM, {
-            action: "PAYMENT_ANOMALY",
-            entityType: "BOOKING",
-            entityId: b?.bookingCode ?? p.bookingId,
-            branchId: b?.branchId ?? null,
-            meta: { problem: bad ?? "duplicate transaction ID", amount: p.amount },
+        await tx(async (s) => {
+            const note = `Could not verify: ${bad ?? "transaction ID already recorded"}${r.trxId ? ` (trx ${r.trxId})` : ""}. Check the bKash merchant panel.`;
+            const u = await PaymentModel.updateOne(
+                { id: p.id, status: "PENDING" },
+                { $set: { status: "FAILED", failureReason: "MISMATCH", anomaly: note } },
+                { session: s }
+            );
+            if (u.modifiedCount === 0) return;
+            if (b) await BookingModel.updateOne({ id: b.id, paymentStatus: "PENDING" }, { $set: { paymentStatus: "FAILED" } }, { session: s });
+            await logAudit(
+                SYSTEM,
+                {
+                    action: "PAYMENT_ANOMALY",
+                    entityType: "BOOKING",
+                    entityId: b?.bookingCode ?? p.bookingId,
+                    branchId: b?.branchId ?? null,
+                    meta: { problem: bad ?? "duplicate transaction ID", amount: p.amount },
+                },
+                { session: s }
+            );
         });
-        return "FAILED";
+        return after(p.id);
     }
 
-    // Verified: bKash confirmed amount, currency and reference for the attempt we created.
-    p.status = "SUCCESS";
-    p.providerTxnId = r.trxId;
-    p.verifiedAt = now.toISOString();
+    const verified = { status: "SUCCESS", providerTxnId: r.trxId, verifiedAt: now.toISOString() };
 
-    if (b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID") {
-        p.anomaly = "A second advance was received for an already-paid booking. Refund it.";
-        logAudit(SYSTEM, {
-            action: "PAYMENT_ANOMALY",
-            entityType: "BOOKING",
-            entityId: b.bookingCode,
-            branchId: b.branchId,
-            meta: { problem: "duplicate advance", amount: p.amount, trx: r.trxId ?? null },
+    try {
+        // Verified: bKash confirmed amount, currency and reference for the attempt we created.
+        await tx(async (s) => {
+            const claimed = await PaymentModel.findOneAndUpdate(
+                { id: p.id, status: "PENDING" },
+                { $set: verified },
+                { session: s }
+            ).lean();
+            if (!claimed) return; // someone else settled it first
+
+            const cur = plain<typeof b>(await BookingModel.findOne({ id: b.id }).session(s).lean());
+
+            if (cur.paymentStatus === "PARTIALLY_PAID" || cur.paymentStatus === "PAID") {
+                await PaymentModel.updateOne(
+                    { id: p.id },
+                    { $set: { anomaly: "A second advance was received for an already-paid booking. Refund it." } },
+                    { session: s }
+                );
+                await logAudit(
+                    SYSTEM,
+                    {
+                        action: "PAYMENT_ANOMALY",
+                        entityType: "BOOKING",
+                        entityId: cur.bookingCode,
+                        branchId: cur.branchId,
+                        meta: { problem: "duplicate advance", amount: p.amount, trx: r.trxId ?? null },
+                    },
+                    { session: s }
+                );
+                return;
+            }
+
+            const revivable = cur.bookingStatus === "PENDING_PAYMENT" || cur.bookingStatus === "EXPIRED";
+            if (!revivable) throw new AppError("SLOT_UNAVAILABLE", "Booking is no longer open.", 409);
+
+            await confirmClaims(cur, now, s); // throws SLOT_UNAVAILABLE if another booking owns a cell
+            await BookingModel.updateOne(
+                { id: b.id },
+                { $set: { bookingStatus: "CONFIRMED", paymentStatus: "PARTIALLY_PAID" } },
+                { session: s }
+            );
+            await logAudit(
+                SYSTEM,
+                {
+                    action: "PAYMENT_VERIFIED",
+                    entityType: "BOOKING",
+                    entityId: cur.bookingCode,
+                    branchId: cur.branchId,
+                    meta: { amount: p.amount, trx: r.trxId ?? null, provider: "BKASH" },
+                },
+                { session: s }
+            );
         });
-        return "CONFIRMED";
-    }
+    } catch (e) {
+        if (!(e instanceof AppError) || e.code !== "SLOT_UNAVAILABLE") throw e;
 
-    const revivable = b.bookingStatus === "PENDING_PAYMENT" || b.bookingStatus === "EXPIRED";
-    if (revivable && reclaim(b, now)) {
-        b.bookingStatus = "CONFIRMED";
-        b.paymentStatus = "PARTIALLY_PAID";
-        logAudit(SYSTEM, {
-            action: "PAYMENT_VERIFIED",
-            entityType: "BOOKING",
-            entityId: b.bookingCode,
-            branchId: b.branchId,
-            meta: { amount: p.amount, trx: r.trxId ?? null, provider: "BKASH" },
+        // Late success and the slot is gone (or the booking was cancelled). The transaction above rolled
+        // back, so record the money and flag the refund in a second one. Never silently keep the money.
+        await tx(async (s) => {
+            const claimed = await PaymentModel.findOneAndUpdate(
+                { id: p.id, status: "PENDING" },
+                { $set: verified },
+                { session: s }
+            ).lean();
+            if (!claimed) return;
+            await releaseClaims(b.id, s); // free any cell of ours that is still held
+            await BookingModel.updateOne({ id: b.id }, { $set: { paymentStatus: "REFUND_PENDING" } }, { session: s });
+            await BookingModel.updateOne(
+                { id: b.id, bookingStatus: "PENDING_PAYMENT" },
+                { $set: { bookingStatus: "EXPIRED" } },
+                { session: s }
+            );
+            await logAudit(
+                SYSTEM,
+                {
+                    action: "LATE_PAYMENT_REFUND",
+                    entityType: "BOOKING",
+                    entityId: b.bookingCode,
+                    branchId: b.branchId,
+                    meta: { amount: p.amount, trx: r.trxId ?? null, reason: "Paid after the slot was released" },
+                },
+                { session: s }
+            );
         });
-        return "CONFIRMED";
     }
-
-    // Late success and the slot is gone (or the booking was cancelled). Never silently keep the money.
-    b.paymentStatus = "REFUND_PENDING";
-    if (b.bookingStatus === "PENDING_PAYMENT") b.bookingStatus = "EXPIRED";
-    logAudit(SYSTEM, {
-        action: "LATE_PAYMENT_REFUND",
-        entityType: "BOOKING",
-        entityId: b.bookingCode,
-        branchId: b.branchId,
-        meta: { amount: p.amount, trx: r.trxId ?? null, reason: "Paid after the slot was released" },
-    });
-    return "REFUND";
+    return after(p.id);
 }

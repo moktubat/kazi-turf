@@ -36,14 +36,16 @@ export async function GET(req: NextRequest) {
             throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
         }
 
-        const pitches = getBranchPitches(branch.id, q.sport).map((p) => ({
-            id: p.id,
-            name: p.name,
-            sport: p.sport,
-            format: p.format,
-            maxConsecutiveSlots: p.maxConsecutiveSlots,
-            cells: getPitchAvailability(p.id, q.date, now),
-        }));
+        const pitches = await Promise.all(
+            getBranchPitches(branch.id, q.sport).map(async (p) => ({
+                id: p.id,
+                name: p.name,
+                sport: p.sport,
+                format: p.format,
+                maxConsecutiveSlots: p.maxConsecutiveSlots,
+                cells: await getPitchAvailability(p.id, q.date, now),
+            }))
+        );
 
         const hasOpen = pitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE"));
         const body: AvailabilityResponse = {
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
             date: q.date,
             updatedAt: now.toISOString(),
             pitches,
-            nextAvailableDate: hasOpen ? null : findNextAvailableDate(branch.id, q.sport, q.date, last, now),
+            nextAvailableDate: hasOpen ? null : await findNextAvailableDate(branch.id, q.sport, q.date, last, now),
         };
         return ok(body);
     } catch (e) {

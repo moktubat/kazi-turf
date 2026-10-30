@@ -1,9 +1,10 @@
 import { randomUUID } from "crypto";
 import type { NextRequest } from "next/server";
 import { contactSchema } from "@/schemas/contact";
+import { InquiryModel } from "@/models";
+import { connectDb } from "@/server/db/connect";
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { rateLimit } from "@/server/security/rateLimit";
-import { store } from "@/server/store";
 
 export async function POST(req: NextRequest) {
     try {
@@ -19,8 +20,9 @@ export async function POST(req: NextRequest) {
 
         const input = contactSchema.parse(raw);
 
-        // No mail provider yet: store the inquiry. Admin shows it (Batch 5).
-        store.inquiries.push({
+        // No mail provider yet: store the inquiry. Admin shows it in Insights.
+        await connectDb();
+        await InquiryModel.create({
             id: randomUUID(),
             name: input.name,
             contact: input.contact,

@@ -6,11 +6,12 @@ import { GallerySection } from "@/components/pages/home/GallerySection";
 import { FaqSection } from "@/components/pages/home/FaqSection";
 import { ContactSection } from "@/components/pages/home/ContactSection";
 import { FinalCta } from "@/components/pages/home/FinalCta";
+import { connectDb } from "@/server/db/connect";
 
 // "Open Today" depends on the clock, so refresh the page data every minute.
 export const revalidate = 60;
 
-export default function HomePage() {
+export default async function HomePage() {
     await connectDb();
     return (
         <>

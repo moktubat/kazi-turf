@@ -1,9 +1,11 @@
 import "server-only";
 import { policies } from "@/data/site";
 import { formatTime } from "@/lib/format";
+import { ChangeRequestModel, PaymentModel } from "@/models";
 import type { ServerUser } from "@/server/auth/session";
-import { settle, toDto } from "@/server/bookings";
-import { store } from "@/server/store";
+import { settle } from "@/server/bookings";
+import { toDto } from "@/server/bookings";
+import { connectDb } from "@/server/db/connect";
 import type { AdminBookingDto, CheckInState } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 
@@ -50,24 +52,16 @@ export function canCollectBalance(b: Booking): boolean {
     );
 }
 
-export function toAdminDto(b: Booking, viewer: ServerUser, now: Date = new Date()): AdminBookingDto {
-    settle(b, now); // expired unpaid holds become EXPIRED and free their cells
+export async function toAdminDto(b0: Booking, viewer: ServerUser, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await settle(b0, now); // expired unpaid holds become EXPIRED and free their cells
+    await connectDb();
+    const [openReq, pays] = await Promise.all([
+        ChangeRequestModel.findOne({ bookingCode: b.bookingCode, status: "OPEN" }).lean<any>(),
+        PaymentModel.find({ bookingId: b.id }).sort({ createdAt: 1 }).lean<any[]>(),
+    ]);
+
     const base = toDto(b, now);
     const check = checkInState(b, now);
-    const openReq = store.changeRequests.find((r) => r.bookingCode === b.bookingCode && r.status === "OPEN") ?? null;
-
-    const payments = store.payments
-        .filter((p) => p.bookingId === b.id)
-        .sort((a, c) => a.createdAt.localeCompare(c.createdAt))
-        .map((p) => ({
-            id: p.id,
-            provider: p.provider,
-            kind: p.kind,
-            amount: p.amount,
-            status: p.status,
-            reference: p.providerTxnId ?? null,
-            at: p.verifiedAt ?? p.createdAt,
-        }));
 
     return {
         ...base,
@@ -76,10 +70,16 @@ export function toAdminDto(b: Booking, viewer: ServerUser, now: Date = new Date(
         source: b.source,
         checkedInAt: b.checkedInAt ?? null,
         cancelReason: b.cancelReason ?? null,
-        payments,
-        changeRequest: openReq
-            ? { kind: openReq.kind, reason: openReq.reason, createdAt: openReq.createdAt }
-            : null,
+        payments: pays.map((p) => ({
+            id: p.id,
+            provider: p.provider,
+            kind: p.kind,
+            amount: p.amount,
+            status: p.status,
+            reference: p.providerTxnId ?? null,
+            at: p.verifiedAt ?? p.createdAt,
+        })),
+        changeRequest: openReq ? { kind: openReq.kind, reason: openReq.reason, createdAt: openReq.createdAt } : null,
         checkIn: { state: check.state, message: check.message, opensAt: check.opensAt },
         can: {
             checkIn: check.state !== "BLOCKED",

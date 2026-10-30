@@ -10,5 +10,5 @@ export default defineConfig({
             "server-only": r("./src/test/server-only.ts"),
         },
     },
-    test: { environment: "node", include: ["src/**/*.test.ts"] },
+    test: { environment: "node", include: ["src/**/*.test.ts"], testTimeout: 30_000, hookTimeout: 180_000 },
 });

@@ -1,32 +1,42 @@
-// Customer-facing booking lists and change requests. Reuses toDto() from the booking module.
+// Customer-facing booking lists and change requests.
 import "server-only";
 import { randomUUID } from "crypto";
-import { AppError } from "@/server/http";
-import { store } from "@/server/store";
+import { BookingModel, ChangeRequestModel, PaymentModel } from "@/models";
+import { logAudit } from "@/server/audit";
 import type { ServerUser } from "@/server/auth/session";
-import type { AccountBookingDto, ChangeRequest, ChangeRequestInfo, ChangeKind } from "@/types/account";
+import { connectDb } from "@/server/db/connect";
+import { plainAll } from "@/server/db/util";
+import { AppError } from "@/server/http";
+import type { AccountBookingDto, ChangeKind, ChangeRequestInfo } from "@/types/account";
 import type { Booking } from "@/types/booking";
-import { toDto } from "./index";
-import { logAudit } from "../audit";
+import type { Payment } from "@/types/ops";
+import { findBookingByCode, settle, toDto } from "./index";
 
-function decorate(b: Booking, now: Date): AccountBookingDto {
-    const open = store.changeRequests.find((r) => r.bookingCode === b.bookingCode && r.status === "OPEN");
-    return {
-        ...toDto(b, now),
-        paymentReference: null, // TODO(payments): bKash transaction reference from Payment
-        changeRequest: open ? { kind: open.kind, status: open.status, createdAt: open.createdAt } : null,
-        canRequestChange: b.bookingStatus === "CONFIRMED" && new Date(b.startAt) > now && !open,
-    };
-}
+export async function listAccountBookings(user: ServerUser, now: Date = new Date()) {
+    await connectDb();
+    const raw = plainAll<Booking>(await BookingModel.find({ customerId: user.id }).lean());
+    const mine = await Promise.all(raw.map((b) => settle(b, now))); // expired holds become EXPIRED
 
-export function listAccountBookings(user: ServerUser, now: Date = new Date()) {
-    const mine = store.bookings.filter((b) => b.customerId === user.id);
+    const codes = mine.map((b) => b.bookingCode);
+    const ids = mine.map((b) => b.id);
+    const [requests, pays] = await Promise.all([
+        ChangeRequestModel.find({ bookingCode: { $in: codes }, status: "OPEN" }).lean<any[]>(),
+        PaymentModel.find({ bookingId: { $in: ids }, provider: "BKASH", status: "SUCCESS" }).lean<any[]>(),
+    ]);
+    const reqBy = new Map(requests.map((r) => [r.bookingCode, r]));
+    const refBy = new Map((plainAll<Payment>(pays)).map((p) => [p.bookingId, p.providerTxnId ?? null]));
 
     const upcoming: AccountBookingDto[] = [];
     const history: AccountBookingDto[] = [];
 
     for (const b of mine) {
-        const dto = decorate(b, now);
+        const open = reqBy.get(b.bookingCode);
+        const dto: AccountBookingDto = {
+            ...toDto(b, now),
+            paymentReference: refBy.get(b.id) ?? null,
+            changeRequest: open ? { kind: open.kind, status: open.status, createdAt: open.createdAt } : null,
+            canRequestChange: b.bookingStatus === "CONFIRMED" && new Date(b.startAt) > now && !open,
+        };
         const live = (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN") && new Date(b.endAt) > now;
         const holding = b.bookingStatus === "PENDING_PAYMENT" && dto.holdActive;
 
@@ -40,40 +50,38 @@ export function listAccountBookings(user: ServerUser, now: Date = new Date()) {
     return { upcoming, history };
 }
 
-export function requestChange(
+export async function requestChange(
     user: ServerUser,
     code: string,
     input: { kind: ChangeKind; reason: string },
     now: Date = new Date()
-): ChangeRequestInfo {
-    const b = store.bookings.find((x) => x.bookingCode === code && x.customerId === user.id);
-    if (!b) throw new AppError("NOT_FOUND", "Booking not found.", 404);
+): Promise<ChangeRequestInfo> {
+    const b = await findBookingByCode(code);
+    if (!b || b.customerId !== user.id) throw new AppError("NOT_FOUND", "Booking not found.", 404);
 
     if (b.bookingStatus !== "CONFIRMED" || new Date(b.startAt) <= now) {
         throw new AppError("NOT_ELIGIBLE", "This booking can no longer be changed online. Please contact the venue.", 409);
     }
-    if (store.changeRequests.some((r) => r.bookingCode === code && r.status === "OPEN")) {
+    if (await ChangeRequestModel.exists({ bookingCode: code, status: "OPEN" })) {
         throw new AppError("ALREADY_REQUESTED", "You already have an open request for this booking.", 409);
     }
 
-    const r: ChangeRequest = {
+    const r = {
         id: randomUUID(),
         bookingCode: code,
         customerId: user.id,
         kind: input.kind,
         reason: input.reason,
-        status: "OPEN",
+        status: "OPEN" as const,
         createdAt: now.toISOString(),
     };
-    store.changeRequests.push(r);
-
-    logAudit(user, {
+    await ChangeRequestModel.create(r);
+    await logAudit(user, {
         action: "CHANGE_REQUESTED",
         entityType: "BOOKING",
         entityId: code,
         branchId: b.branchId,
         meta: { kind: input.kind },
     });
-
     return { kind: r.kind, status: r.status, createdAt: r.createdAt };
 }

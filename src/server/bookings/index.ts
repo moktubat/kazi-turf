@@ -1,61 +1,79 @@
-// Booking lifecycle: validate -> quote -> acquire claims -> create pending booking.
+// Booking lifecycle: validate -> quote -> acquire claims + create pending booking (one transaction).
 // Price, status and availability are always decided here, never by the browser.
 import "server-only";
 import { randomInt, randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
 import { addDays, dhakaParts, toHHMM, todayDhaka } from "@/lib/time";
-import { AppError } from "@/server/http";
-import { getPitch, getPitchAvailability } from "@/server/availability";
-import { quote } from "@/server/pricing";
-import { store } from "@/server/store";
+import { BookingModel } from "@/models";
+import { logAudit } from "@/server/audit";
 import type { ServerUser } from "@/server/auth/session";
+import { getPitch, getPitchAvailability } from "@/server/availability";
+import { insertClaims, releaseClaims } from "@/server/claims";
+import { connectDb, tx } from "@/server/db/connect";
+import { plain } from "@/server/db/util";
+import { AppError } from "@/server/http";
+import { quote } from "@/server/pricing";
 import type { Booking, BookingDto } from "@/types/booking";
-import { logAudit } from "../audit";
+
+export { releaseClaims };
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
-const SETTLEABLE = ["NOT_STARTED", "FAILED", "CANCELLED"];
+const CODE_RE = /^KT-[A-HJ-NP-Z2-9]{6}$/;
+export const SETTLEABLE = ["NOT_STARTED", "FAILED", "CANCELLED"];
 
-function newCode(): string {
+/** Random, non-guessable. The unique bookingCode index is the backstop against a collision. */
+export async function newCode(): Promise<string> {
+    await connectDb();
     for (; ;) {
         let s = "";
         for (let i = 0; i < 6; i++) s += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
         const code = `KT-${s}`;
-        if (!store.bookings.some((b) => b.bookingCode === code)) return code;
+        if (!(await BookingModel.exists({ bookingCode: code }))) return code;
     }
 }
 
-export function releaseClaims(bookingId: string) {
-    store.claims = store.claims.filter((c) => c.bookingId !== bookingId);
+export async function findBookingByCode(code: string): Promise<Booking | null> {
+    if (!CODE_RE.test(code)) return null;
+    await connectDb();
+    const d = await BookingModel.findOne({ bookingCode: code }).lean();
+    return d ? plain<Booking>(d) : null;
 }
 
-/**
- * Mirrors the Mongo transaction in spec 8.3: delete expired HELD claims for the
- * target cells, then insert all. Any existing claim means "slot unavailable".
- * Synchronous, so atomic within one process. Mongo's unique index replaces it.
- */
-function acquireClaims(pitchId: string, starts: string[], bookingId: string, expiresAt: Date, now: Date) {
-    store.claims = store.claims.filter(
-        (c) =>
-            !(
-                c.pitchId === pitchId &&
-                starts.includes(c.cellStart) &&
-                c.state === "HELD" &&
-                c.expiresAt &&
-                new Date(c.expiresAt) <= now
-            )
-    );
-
-    if (store.claims.some((c) => c.pitchId === pitchId && starts.includes(c.cellStart))) {
-        throw new AppError("SLOT_UNAVAILABLE", "Someone just took that slot. Pick another time.", 409);
-    }
-
-    for (const cellStart of starts) {
-        store.claims.push({ pitchId, cellStart, state: "HELD", bookingId, expiresAt: expiresAt.toISOString() });
-    }
+export async function findBookingById(id: string): Promise<Booking | null> {
+    await connectDb();
+    const d = await BookingModel.findOne({ id }).lean();
+    return d ? plain<Booking>(d) : null;
 }
 
-export function validateSelection(pitchId: string, cellStarts: string[], now: Date = new Date()) {
+/** Expired, unpaid holds become EXPIRED and free their cells. Returns the up-to-date booking. */
+export async function settle(b: Booking, now: Date = new Date()): Promise<Booking> {
+    if (
+        b.bookingStatus !== "PENDING_PAYMENT" ||
+        !SETTLEABLE.includes(b.paymentStatus) ||
+        new Date(b.holdExpiresAt) > now
+    ) {
+        return b;
+    }
+    const expired = await tx(async (s) => {
+        const r = await BookingModel.updateOne(
+            {
+                id: b.id,
+                bookingStatus: "PENDING_PAYMENT",
+                paymentStatus: { $in: SETTLEABLE },
+                holdExpiresAt: { $lte: now.toISOString() },
+            },
+            { $set: { bookingStatus: "EXPIRED" } },
+            { session: s }
+        );
+        if (r.modifiedCount > 0) await releaseClaims(b.id, s);
+        return r.modifiedCount > 0;
+    });
+    if (expired) return { ...b, bookingStatus: "EXPIRED" };
+    return (await findBookingById(b.id)) ?? b; // someone changed it first (for example a payment started)
+}
+
+export async function validateSelection(pitchId: string, cellStarts: string[], now: Date = new Date()) {
     const pitch = getPitch(pitchId);
     if (!pitch || pitch.status !== "ACTIVE") {
         throw new AppError("PITCH_NOT_FOUND", "This pitch is not available.", 404);
@@ -84,7 +102,7 @@ export function validateSelection(pitchId: string, cellStarts: string[], now: Da
         throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
     }
 
-    const cells = getPitchAvailability(pitchId, date, now);
+    const cells = await getPitchAvailability(pitchId, date, now);
     const picked = dates.map((d) => cells.find((c) => c.cellStart === d.toISOString()));
     if (picked.some((c) => !c)) {
         throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
@@ -96,6 +114,7 @@ export function validateSelection(pitchId: string, cellStarts: string[], now: Da
         if (gap !== step) throw new AppError("NOT_CONSECUTIVE", "Pick consecutive slots only.", 400);
     }
 
+    // Advisory check for a clear message. The unique index inside the transaction is the real guard.
     if (picked.some((c) => c!.status !== "AVAILABLE")) {
         throw new AppError("SLOT_UNAVAILABLE", "Someone just took that slot. Pick another time.", 409);
     }
@@ -103,50 +122,45 @@ export function validateSelection(pitchId: string, cellStarts: string[], now: Da
     return { pitch, branch, date, starts: dates };
 }
 
-export function quoteSelection(pitchId: string, cellStarts: string[]) {
-    const v = validateSelection(pitchId, cellStarts);
+export async function quoteSelection(pitchId: string, cellStarts: string[]) {
+    const v = await validateSelection(pitchId, cellStarts);
     return quote(pitchId, v.starts);
 }
 
-/** Expired, unpaid holds become EXPIRED and free their cells. */
-export function settle(b: Booking, now: Date) {
-    if (
-        b.bookingStatus === "PENDING_PAYMENT" &&
-        SETTLEABLE.includes(b.paymentStatus) &&
-        new Date(b.holdExpiresAt) <= now
-    ) {
-        b.bookingStatus = "EXPIRED";
-        releaseClaims(b.id);
-    }
+/** One live unpaid hold per customer: a new Continue replaces the old one. */
+async function dropStaleHolds(userId: string) {
+    await tx(async (s) => {
+        const live = await BookingModel.find(
+            { customerId: userId, bookingStatus: "PENDING_PAYMENT", paymentStatus: "NOT_STARTED" },
+            { id: 1 }
+        )
+            .session(s)
+            .lean<{ id: string }[]>();
+        if (live.length === 0) return;
+        const ids = live.map((x) => x.id);
+        await releaseClaims(ids, s);
+        await BookingModel.deleteMany({ id: { $in: ids } }, { session: s });
+    });
 }
 
-export function createBooking(
+export async function createBooking(
     user: ServerUser,
     input: { pitchId: string; cellStarts: string[]; phone: string },
     now: Date = new Date()
-): BookingDto {
-    // One live unpaid hold per customer: a new Continue replaces the old one.
-    store.bookings = store.bookings.filter((b) => {
-        const stale =
-            b.customerId === user.id && b.bookingStatus === "PENDING_PAYMENT" && b.paymentStatus === "NOT_STARTED";
-        if (stale) releaseClaims(b.id);
-        return !stale;
-    });
+): Promise<BookingDto> {
+    await dropStaleHolds(user.id);
 
-    const v = validateSelection(input.pitchId, input.cellStarts, now);
+    const v = await validateSelection(input.pitchId, input.cellStarts, now);
     const q = quote(input.pitchId, v.starts);
 
     const id = randomUUID();
     const holdExpiresAt = new Date(now.getTime() + policies.holdMinutes * 60_000);
     const startStrings = v.starts.map((d) => d.toISOString());
-
-    acquireClaims(input.pitchId, startStrings, id, holdExpiresAt, now);
-
     const endAt = new Date(v.starts[v.starts.length - 1].getTime() + policies.slotMinutes * 60_000);
 
     const booking: Booking = {
         id,
-        bookingCode: newCode(),
+        bookingCode: await newCode(),
         customerId: user.id,
         customerName: user.name,
         phone: input.phone,
@@ -170,27 +184,35 @@ export function createBooking(
         holdExpiresAt: holdExpiresAt.toISOString(),
         createdAt: now.toISOString(),
     };
-    store.bookings.push(booking);
 
-    logAudit(user, {
-        action: "BOOKING_CREATED",
-        entityType: "BOOKING",
-        entityId: booking.bookingCode,
-        branchId: booking.branchId,
-        meta: {
-            pitch: v.pitch.name,
-            date: v.date,
-            slots: booking.slotCount,
-            total: q.total,
-            advance: q.advance,
-        },
+    // Claims, booking and audit entry succeed or fail together.
+    await tx(async (s) => {
+        await insertClaims(
+            input.pitchId,
+            startStrings,
+            { state: "HELD", bookingId: id, expiresAt: holdExpiresAt.toISOString() },
+            now,
+            s
+        );
+        await BookingModel.create([booking], { session: s });
+        await logAudit(
+            user,
+            {
+                action: "BOOKING_CREATED",
+                entityType: "BOOKING",
+                entityId: booking.bookingCode,
+                branchId: booking.branchId,
+                meta: { pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, advance: q.advance },
+            },
+            { session: s }
+        );
     });
 
     return toDto(booking, now);
 }
 
-export function findOwned(code: string, user: ServerUser): Booking {
-    const b = store.bookings.find((x) => x.bookingCode === code);
+export async function findOwned(code: string, user: ServerUser): Promise<Booking> {
+    const b = await findBookingByCode(code);
     // Same message for "missing" and "not yours" so codes cannot be probed.
     if (!b || (b.customerId !== user.id && user.role !== "SUPER_ADMIN")) {
         throw new AppError("NOT_FOUND", "Booking not found.", 404);
@@ -198,22 +220,28 @@ export function findOwned(code: string, user: ServerUser): Booking {
     return b;
 }
 
-export function getBookingForUser(code: string, user: ServerUser, now: Date = new Date()): BookingDto {
-    const b = findOwned(code, user);
-    settle(b, now);
+export async function getBookingForUser(code: string, user: ServerUser, now: Date = new Date()): Promise<BookingDto> {
+    const b = await settle(await findOwned(code, user), now);
     return toDto(b, now);
 }
 
 /** Customer leaves the payment step before paying: free the cells. */
-export function releaseHold(code: string, user: ServerUser, now: Date = new Date()) {
-    const b = findOwned(code, user);
-    settle(b, now);
+export async function releaseHold(code: string, user: ServerUser, now: Date = new Date()) {
+    const b = await settle(await findOwned(code, user), now);
     if (b.bookingStatus !== "PENDING_PAYMENT") return;
     if (b.paymentStatus === "PENDING") {
         throw new AppError("PAYMENT_IN_PROGRESS", "Your payment is being processed.", 409);
     }
-    releaseClaims(b.id);
-    store.bookings = store.bookings.filter((x) => x.id !== b.id);
+    const removed = await tx(async (s) => {
+        // Conditional: if a payment started in the meantime, nothing is deleted.
+        const r = await BookingModel.deleteOne(
+            { id: b.id, bookingStatus: "PENDING_PAYMENT", paymentStatus: { $ne: "PENDING" } },
+            { session: s }
+        );
+        if (r.deletedCount > 0) await releaseClaims(b.id, s);
+        return r.deletedCount > 0;
+    });
+    if (!removed) throw new AppError("PAYMENT_IN_PROGRESS", "Your payment is being processed.", 409);
 }
 
 export function toDto(b: Booking, now: Date = new Date()): BookingDto {

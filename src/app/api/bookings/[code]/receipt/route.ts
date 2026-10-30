@@ -1,13 +1,12 @@
 // Built from trusted server data. Same generator as the staff print view (lib/printReceipt).
 import { NextResponse, type NextRequest } from "next/server";
+import { hasVerifiedPayment, receiptHtml } from "@/lib/printReceipt";
 import { toAdminDto } from "@/server/admin/dto";
 import { canAccessBranch, requireUser } from "@/server/auth/guards";
+import { findBookingByCode } from "@/server/bookings";
 import { AppError, handleError } from "@/server/http";
 import { rateLimit } from "@/server/security/rateLimit";
-import { hasVerifiedPayment, receiptHtml } from "@/lib/printReceipt";
-import { store } from "@/server/store";
 
-const CODE = /^KT-[A-HJ-NP-Z2-9]{6}$/;
 type Ctx = { params: Promise<{ code: string }> };
 
 export async function GET(req: NextRequest, { params }: Ctx) {
@@ -18,13 +17,13 @@ export async function GET(req: NextRequest, { params }: Ctx) {
         }
 
         const { code } = await params;
-        const b = CODE.test(code) ? store.bookings.find((x) => x.bookingCode === code) : undefined;
+        const b = await findBookingByCode(code);
         // Owner, staff of that branch, or Super Admin. Same "not found" for everyone else.
         if (!b || !(b.customerId === user.id || canAccessBranch(user, b.branchId))) {
             throw new AppError("NOT_FOUND", "Booking not found.", 404);
         }
 
-        const dto = toAdminDto(b, user);
+        const dto = await toAdminDto(b, user);
         // A pending, failed or refunded payment never produces a "paid" receipt.
         if (!["CONFIRMED", "CHECKED_IN", "COMPLETED"].includes(dto.bookingStatus) || !hasVerifiedPayment(dto)) {
             throw new AppError("NO_RECEIPT", "A receipt is available once your payment is verified.", 409);
