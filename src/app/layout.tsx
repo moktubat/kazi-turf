@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { MobileActionBar } from "@/components/layout/MobileActionBar";
+import { getSessionUser } from "@/server/auth/session";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -31,9 +32,10 @@ export const viewport: Viewport = {
   themeColor: "#0B6E4F",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // TODO(auth batch): replace null with the server session user.
-  const user = null;
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const u = await getSessionUser();
+  // Only what the header needs. Phone, email and branch IDs never go to the client here.
+  const user = u ? { id: u.id, name: u.name, role: u.role } : null;
 
   return (
     <html lang="en" className={`${jakarta.variable} ${vietnam.variable}`}>
