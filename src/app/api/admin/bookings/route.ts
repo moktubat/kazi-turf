@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     try {
         const user = await staffGuard(req, false);
         const q = bookingSearchSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-        const bookings = searchBookings(user, { ...q, limit: q.limit ? Number(q.limit) : undefined });
+        const bookings = await searchBookings(user, { ...q, limit: q.limit ? Number(q.limit) : undefined });
         return ok({ bookings });
     } catch (e) {
         return handleError(e);
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     try {
         const user = await staffGuard(req, true);
         const input = walkInSchema.parse(await readJson(req));
-        return ok({ booking: createWalkIn(user, input) }, 201);
+        return ok({ booking: await createWalkIn(user, input) }, 201);
     } catch (e) {
         return handleError(e);
     }

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     try {
         const user = await staffGuard(req, true);
         const input = blockSchema.parse(await readJson(req));
-        return ok(setBlock(user, input));
+        return ok(await setBlock(user, input));
     } catch (e) {
         return handleError(e);
     }

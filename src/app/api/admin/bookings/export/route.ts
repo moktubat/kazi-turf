@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     try {
         const user = await staffGuard(req, false);
         const q = bookingSearchSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-        const csv = bookingsCsv(user, { ...q, limit: undefined });
+        const csv = await bookingsCsv(user, { ...q, limit: undefined });
         return new NextResponse(csv, {
             headers: {
                 "Content-Type": "text/csv; charset=utf-8",

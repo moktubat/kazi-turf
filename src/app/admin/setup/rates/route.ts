@@ -7,7 +7,7 @@ import { handleError, ok, readJson } from "@/server/http";
 export async function POST(req: NextRequest) {
     try {
         const user = await staffGuard(req, true);
-        createRate(user, rateSchema.parse(await readJson(req)));
+        await createRate(user, rateSchema.parse(await readJson(req)));
         return ok({ saved: true }, 201);
     } catch (e) {
         return handleError(e);
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     try {
         const user = await staffGuard(req, true);
-        updateRate(user, rateUpdateSchema.parse(await readJson(req)));
+        await updateRate(user, rateUpdateSchema.parse(await readJson(req)));
         return ok({ saved: true });
     } catch (e) {
         return handleError(e);
@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     try {
         const user = await staffGuard(req, true);
-        deleteRate(user, rateDeleteSchema.parse(await readJson(req)).id);
+        await deleteRate(user, rateDeleteSchema.parse(await readJson(req)).id);
         return ok({ deleted: true });
     } catch (e) {
         return handleError(e);

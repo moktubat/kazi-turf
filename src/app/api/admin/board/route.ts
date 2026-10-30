@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
             branch: sp.get("branch") ?? undefined,
             date: sp.get("date") ?? undefined,
         });
-        return ok(getBoard(user, q.branch, q.date));
+        return ok(await getBoard(user, q.branch, q.date));
     } catch (e) {
         return handleError(e);
     }

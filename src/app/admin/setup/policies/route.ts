@@ -7,7 +7,7 @@ import { handleError, ok, readJson } from "@/server/http";
 export async function PATCH(req: NextRequest) {
     try {
         const user = await staffGuard(req, true);
-        updatePolicies(user, policySchema.parse(await readJson(req)));
+        await updatePolicies(user, policySchema.parse(await readJson(req)));
         return ok({ saved: true });
     } catch (e) {
         return handleError(e);

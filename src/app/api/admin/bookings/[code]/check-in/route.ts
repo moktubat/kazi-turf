@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         const user = await staffGuard(req, true);
         const { code } = await params;
         const input = checkInSchema.parse(await readJson(req));
-        return ok({ booking: checkIn(user, code, input) });
+        return ok({ booking: await checkIn(user, code, input) });
     } catch (e) {
         return handleError(e);
     }

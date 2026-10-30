@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         const user = await staffGuard(req, true);
         const { code } = await params;
         const input = refundSchema.parse(await readJson(req));
-        return ok({ booking: recordRefund(user, code, input.note) });
+        return ok({ booking: await recordRefund(user, code, input.note) });
     } catch (e) {
         return handleError(e);
     }

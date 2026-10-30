@@ -10,7 +10,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     try {
         const user = await staffGuard(req, true);
         const { code } = await params;
-        return ok({ booking: handleChangeRequest(user, code) });
+        return ok({ booking: await handleChangeRequest(user, code) });
     } catch (e) {
         return handleError(e);
     }

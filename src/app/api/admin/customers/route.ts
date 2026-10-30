@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     try {
         await staffGuard(req, false);
         const q = customerLookupSchema.parse({ phone: req.nextUrl.searchParams.get("phone") ?? undefined });
-        const name = findCustomerName(q.phone);
+        const name = await findCustomerName(q.phone);
         return ok({ customer: name ? { name } : null });
     } catch (e) {
         return handleError(e);

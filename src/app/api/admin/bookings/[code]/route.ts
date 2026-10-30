@@ -9,7 +9,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     try {
         const user = await staffGuard(req, false);
         const { code } = await params;
-        return ok(getBookingDetail(user, code));
+        return ok(await getBookingDetail(user, code));
     } catch (e) {
         return handleError(e);
     }

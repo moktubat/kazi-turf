@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     try {
         const user = await staffGuard(req, true);
         const input = walkInQuoteSchema.parse(await readJson(req));
-        return ok({ quote: quoteWalkIn(user, input.pitchId, input.cellStarts) });
+        return ok({ quote: await quoteWalkIn(user, input.pitchId, input.cellStarts) });
     } catch (e) {
         return handleError(e);
     }
