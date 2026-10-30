@@ -1,10 +1,10 @@
 // ONE availability function: powers Home "Open Today", /book and the Staff Desk board.
 import { pitches } from "@/data/pitches";
-import { claims } from "@/data/claims";
 import { policies } from "@/data/site";
-import { dhakaToUtc, toHHMM, toMinutes } from "@/lib/time";
+import { addDays, dhakaToUtc, toHHMM, toMinutes } from "@/lib/time";
 import { priceForCell } from "@/server/pricing";
-import type { Pitch, SlotStatus } from "@/types";
+import { store } from "@/server/store";
+import type { Pitch, SlotClaim, SlotStatus } from "@/types";
 
 export interface Cell {
     pitchId: string;
@@ -26,7 +26,7 @@ export function getBranchPitches(branchId: string, sport?: string): Pitch[] {
     );
 }
 
-/** Fixed 90-minute grid from opening time (see spec 8.3). */
+/** Fixed 90-minute grid from opening time (spec 8.3). */
 export function getPitchAvailability(pitchId: string, date: string, now: Date = new Date()): Cell[] {
     const pitch = getPitch(pitchId);
     if (!pitch) return [];
@@ -35,9 +35,9 @@ export function getPitchAvailability(pitchId: string, date: string, now: Date = 
     const open = toMinutes(pitch.openTime);
     const close = toMinutes(pitch.closeTime);
 
-    // Expired HELD claims are ignored immediately (server is authoritative).
-    const active = new Map<string, (typeof claims)[number]>();
-    for (const c of claims) {
+    // Expired HELD claims are ignored immediately. Server time is authoritative.
+    const active = new Map<string, SlotClaim>();
+    for (const c of store.claims) {
         if (c.pitchId !== pitchId) continue;
         if (c.state === "HELD" && c.expiresAt && new Date(c.expiresAt) <= now) continue;
         active.set(c.cellStart, c);
@@ -77,4 +77,21 @@ export function getNextOpenSlots(branchId: string, date: string, limit = 4, spor
         }
     }
     return out.sort((a, b) => a.cellStart.localeCompare(b.cellStart)).slice(0, limit);
+}
+
+/** First date after `afterDate` (up to `lastDate`) with at least one open slot. */
+export function findNextAvailableDate(
+    branchId: string,
+    sport: string,
+    afterDate: string,
+    lastDate: string,
+    now: Date = new Date()
+): string | null {
+    const list = getBranchPitches(branchId, sport);
+    for (let d = addDays(afterDate, 1); d <= lastDate; d = addDays(d, 1)) {
+        if (list.some((p) => getPitchAvailability(p.id, d, now).some((c) => c.status === "AVAILABLE"))) {
+            return d;
+        }
+    }
+    return null;
 }
