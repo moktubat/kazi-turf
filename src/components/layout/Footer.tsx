@@ -2,8 +2,10 @@ import Link from "next/link";
 import { branches } from "@/data/branches";
 import { footerLinks, legalLinks, site } from "@/data/site";
 
+const year = new Date().getFullYear();
+
 export function Footer() {
-    const year = new Date().getFullYear();
+    
 
     return (
         <footer className="bg-evergreen text-white">
