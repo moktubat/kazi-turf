@@ -6,7 +6,6 @@ const year = new Date().getFullYear();
 
 export function Footer() {
     
-
     return (
         <footer className="bg-evergreen text-white">
             <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3">
