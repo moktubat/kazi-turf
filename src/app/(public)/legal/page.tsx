@@ -1,10 +1,10 @@
-// src/app/(public)/legal/page.tsx
 import type { Metadata } from "next";
 import { AlertTriangle } from "lucide-react";
 import { LegalTabs } from "@/components/pages/legal/LegalTabs";
-import { legalDocs, legalStatus } from "@/data/legal";
+import { getLegalDocs, legalStatus } from "@/data/legal";
 
 export const metadata: Metadata = { title: "Terms, Privacy & Refund policy" };
+export const dynamic = "force-dynamic";
 
 export default function LegalPage() {
     return (
@@ -23,7 +23,7 @@ export default function LegalPage() {
             )}
 
             <div className="mt-6">
-                <LegalTabs docs={legalDocs} />
+                <LegalTabs docs={getLegalDocs()} />
             </div>
         </div>
     );

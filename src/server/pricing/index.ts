@@ -5,14 +5,16 @@ import { dhakaParts, toMinutes } from "@/lib/time";
 import type { PricingRule } from "@/types";
 
 export function ruleFor(pitchId: string, cellStart: Date): PricingRule | null {
-    const { dow, minutes } = dhakaParts(cellStart);
+    const { dow, minutes, date } = dhakaParts(cellStart);
     return (
         pricingRules.find(
             (r) =>
                 r.pitchId === pitchId &&
                 r.days.includes(dow) &&
                 minutes >= toMinutes(r.startTime) &&
-                minutes < toMinutes(r.endTime)
+                minutes < toMinutes(r.endTime) &&
+                (!r.effectiveFrom || date >= r.effectiveFrom) &&
+                (!r.effectiveTo || date <= r.effectiveTo)
         ) ?? null
     );
 }

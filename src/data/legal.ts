@@ -3,6 +3,7 @@
 // live in refundConfig so the page never shows invented numbers.
 import { houseRules } from "@/data/home";
 import { policies, site } from "@/data/site";
+import { shared } from "@/lib/shared";
 
 export type LegalTab = "terms" | "privacy" | "refund";
 
@@ -19,26 +20,28 @@ export interface LegalDoc {
     sections: LegalSection[];
 }
 
-export const legalStatus = { reviewed: false };
+export const legalStatus = shared("legalStatus", { reviewed: false });
 
-// [CONFIRM] Every value below is an owner decision. null / empty means "not decided yet".
-export const refundConfig: {
-    tiers: { when: string; outcome: string }[]; // e.g. { when: "More than 24 hours before start", outcome: "..." }
+export interface RefundConfig {
+    tiers: { when: string; outcome: string }[];
     method: string | null;
     timing: string | null;
     rainCheckEligibility: string | null;
     rainCheckExpiryDays: number | null;
     exceptions: string[];
-} = {
+}
+
+// [CONFIRM] Every value is an owner decision. Edited in Admin > Setup > Policies.
+export const refundConfig = shared<RefundConfig>("refundConfig", {
     tiers: [],
     method: null,
     timing: null,
     rainCheckEligibility: null,
     rainCheckExpiryDays: null,
     exceptions: [],
-};
+});
 
-const terms: LegalDoc = {
+const terms = (): LegalDoc => ({
     id: "terms",
     label: "Terms",
     intro: `These terms apply when you book a turf or court through ${site.name}.`,
@@ -92,9 +95,9 @@ const terms: LegalDoc = {
             paragraphs: [`Questions about these terms: call ${site.phone} or use the contact form on the Home page.`],
         },
     ],
-};
+});
 
-const privacy: LegalDoc = {
+const privacy = (): LegalDoc => ({
     id: "privacy",
     label: "Privacy",
     intro: `How ${site.name} handles your personal information.`,
@@ -141,7 +144,7 @@ const privacy: LegalDoc = {
             ],
         },
     ],
-};
+});
 
 function refundDoc(): LegalDoc {
     const c = refundConfig;
@@ -190,4 +193,4 @@ function refundDoc(): LegalDoc {
     };
 }
 
-export const legalDocs: LegalDoc[] = [terms, privacy, refundDoc()];
+export const getLegalDocs = (): LegalDoc[] => [terms(), privacy(), refundDoc()];

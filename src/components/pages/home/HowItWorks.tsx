@@ -1,5 +1,5 @@
 import { CalendarCheck, Wallet, Ticket } from "lucide-react";
-import { howSteps } from "@/data/home";
+import { getHowSteps } from "@/data/home";
 import { Section } from "./Section";
 
 const icons = { calendar: CalendarCheck, wallet: Wallet, ticket: Ticket };
@@ -8,7 +8,7 @@ export function HowItWorks() {
     return (
         <Section id="how" title="How it works" tone="mint">
             <ol className="grid gap-6 md:grid-cols-3">
-                {howSteps.map((s, i) => {
+                {getHowSteps().map((s, i) => {
                     const Icon = icons[s.icon];
                     return (
                         <li key={s.id} className="rounded-2xl border border-evergreen/10 bg-white p-6">

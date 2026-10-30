@@ -1,6 +1,6 @@
 import { policies } from "@/data/site";
 
-export const howSteps = [
+export const getHowSteps = () => [
     {
         id: "pick",
         icon: "calendar",

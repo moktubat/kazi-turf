@@ -15,7 +15,7 @@ export interface FaqGroup {
     items: FaqItem[];
 }
 
-export const faqGroups: FaqGroup[] = [
+export const getFaqGroups = (): FaqGroup[] => [
     {
         id: "booking",
         title: "Booking and payment",

@@ -1,22 +1,27 @@
-export type AuditAction =
-    | "WALKIN_CREATED"
-    | "BOOKING_CANCELLED"
-    | "SLOT_BLOCKED"
-    | "SLOT_UNBLOCKED"
-    | "BALANCE_COLLECTED"
-    | "CHECKED_IN"
-    | "CHECKIN_OVERRIDE"
-    | "CHECKIN_BLOCKED"
-    | "REFUND_RECORDED"
-    | "CHANGE_REQUEST_HANDLED"
-    // reserved for Setup / payments / earlier TODO(audit) markers
-    | "BOOKING_CREATED"
-    | "PROFILE_CHANGED"
-    | "PRICE_CHANGED"
-    | "ROLE_CHANGED"
-    | "POLICY_CHANGED";
+export const AUDIT_ACTIONS = [
+    "WALKIN_CREATED",
+    "BOOKING_CANCELLED",
+    "SLOT_BLOCKED",
+    "SLOT_UNBLOCKED",
+    "BALANCE_COLLECTED",
+    "CHECKED_IN",
+    "CHECKIN_OVERRIDE",
+    "CHECKIN_BLOCKED",
+    "REFUND_RECORDED",
+    "CHANGE_REQUEST_HANDLED",
+    "BOOKING_CREATED",
+    "PROFILE_CHANGED",
+    "PRICE_CHANGED",
+    "ROLE_CHANGED",
+    "POLICY_CHANGED",
+    "BRANCH_CHANGED",
+    "PITCH_CHANGED",
+    "STAFF_CREATED",
+    "PASSWORD_RESET",
+    "INQUIRY_HANDLED",
+] as const;
 
-export type AuditMeta = Record<string, string | number | boolean | null>;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export interface AuditLog {
     id: string;

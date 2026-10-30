@@ -5,21 +5,19 @@ import { ClipboardList, LayoutGrid, Settings, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Role } from "@/types";
 
-const items = [
-    { href: "/admin", label: "Desk", icon: LayoutGrid, exact: true, adminOnly: false },
-    { href: "/admin/bookings", label: "Bookings", icon: ClipboardList, exact: false, adminOnly: false },
-    { href: "/admin/setup", label: "Setup", icon: Settings, exact: false, adminOnly: true },
-    { href: "/admin/insights", label: "Insights", icon: TrendingUp, exact: false, adminOnly: true },
-];
-
 // Role-aware navigation. The server still authorizes every page and API call.
-export function AdminNav({ role }: { role: Role }) {
+export function AdminNav({ role, canSetup }: { role: Role; canSetup: boolean }) {
     const pathname = usePathname();
-    const visible = items.filter((i) => !i.adminOnly || role === "SUPER_ADMIN");
+    const items = [
+        { href: "/admin", label: "Desk", icon: LayoutGrid, exact: true, show: true },
+        { href: "/admin/bookings", label: "Bookings", icon: ClipboardList, exact: false, show: true },
+        { href: "/admin/setup", label: "Setup", icon: Settings, exact: false, show: canSetup },
+        { href: "/admin/insights", label: "Insights", icon: TrendingUp, exact: false, show: role === "SUPER_ADMIN" },
+    ].filter((i) => i.show);
 
     return (
         <nav aria-label="Admin" className="flex gap-2 overflow-x-auto py-2">
-            {visible.map(({ href, label, icon: Icon, exact }) => {
+            {items.map(({ href, label, icon: Icon, exact }) => {
                 const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
                 return (
                     <Link
