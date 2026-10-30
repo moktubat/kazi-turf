@@ -1,25 +1,27 @@
-// src/server/admin/walkin.ts
+// A walk-in is a confirmed counter booking. Claims, booking, cash payment and audit entry
+// are written in ONE transaction: all succeed or none do.
 import "server-only";
 import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
 import { formatBDT } from "@/lib/format";
 import { addDays, dhakaParts, todayDhaka } from "@/lib/time";
+import { BookingModel, PaymentModel, UserModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import { assertBranchAccess } from "@/server/auth/guards";
 import type { ServerUser } from "@/server/auth/session";
 import { getPitch, getPitchAvailability } from "@/server/availability";
 import { newCode } from "@/server/bookings";
+import { insertClaims } from "@/server/claims";
+import { connectDb, tx } from "@/server/db/connect";
 import { AppError } from "@/server/http";
 import { quote } from "@/server/pricing";
-import { store } from "@/server/store";
 import type { AdminBookingDto } from "@/types/admin";
 import type { Booking } from "@/types/booking";
-import { claimCells } from "./claims";
 import { toAdminDto } from "./dto";
 
 /** Walk-in rules: staff may book a slot already in progress; everything else matches /book. */
-export function validateWalkIn(user: ServerUser, pitchId: string, cellStarts: string[], now: Date) {
+export async function validateWalkIn(user: ServerUser, pitchId: string, cellStarts: string[], now: Date) {
     const pitch = getPitch(pitchId);
     if (!pitch || pitch.status !== "ACTIVE") throw new AppError("PITCH_NOT_FOUND", "This pitch is not available.", 404);
     assertBranchAccess(user, pitch.branchId);
@@ -48,7 +50,7 @@ export function validateWalkIn(user: ServerUser, pitchId: string, cellStarts: st
         throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
     }
 
-    const cells = getPitchAvailability(pitchId, date, now, { allowStarted: true });
+    const cells = await getPitchAvailability(pitchId, date, now, { allowStarted: true });
     const picked = dates.map((d) => cells.find((c) => c.cellStart === d.toISOString()));
     if (picked.some((c) => !c)) throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
 
@@ -57,6 +59,7 @@ export function validateWalkIn(user: ServerUser, pitchId: string, cellStarts: st
         const gap = new Date(picked[i]!.cellStart).getTime() - new Date(picked[i - 1]!.cellStart).getTime();
         if (gap !== step) throw new AppError("NOT_CONSECUTIVE", "Pick consecutive slots only.", 400);
     }
+    // Advisory check for a clear message. The unique index inside the transaction is the real guard.
     if (picked.some((c) => c!.status !== "AVAILABLE")) {
         throw new AppError("SLOT_UNAVAILABLE", "That slot is no longer available. Refresh the board.", 409);
     }
@@ -64,22 +67,24 @@ export function validateWalkIn(user: ServerUser, pitchId: string, cellStarts: st
     return { pitch, branch, date, starts: dates };
 }
 
-export function quoteWalkIn(user: ServerUser, pitchId: string, cellStarts: string[], now: Date = new Date()) {
-    const v = validateWalkIn(user, pitchId, cellStarts, now);
+export async function quoteWalkIn(user: ServerUser, pitchId: string, cellStarts: string[], now: Date = new Date()) {
+    const v = await validateWalkIn(user, pitchId, cellStarts, now);
     return quote(pitchId, v.starts);
 }
 
 /** Registered customers only (never staff). Returns the name, nothing else. */
-export function findCustomerName(phone: string): string | null {
-    return store.users.find((u) => u.role === "CUSTOMER" && u.status === "ACTIVE" && u.phone === phone)?.name ?? null;
+export async function findCustomerName(phone: string): Promise<string | null> {
+    await connectDb();
+    const u = await UserModel.findOne({ role: "CUSTOMER", status: "ACTIVE", phone }, { name: 1 }).lean<{ name: string }>();
+    return u?.name ?? null;
 }
 
-export function createWalkIn(
+export async function createWalkIn(
     user: ServerUser,
     input: { pitchId: string; cellStarts: string[]; phone: string; name?: string; cashReceived: number },
     now: Date = new Date()
-): AdminBookingDto {
-    const v = validateWalkIn(user, input.pitchId, input.cellStarts, now);
+): Promise<AdminBookingDto> {
+    const v = await validateWalkIn(user, input.pitchId, input.cellStarts, now);
     const q = quote(input.pitchId, v.starts);
 
     if (input.cashReceived < q.advance || input.cashReceived > q.total) {
@@ -92,9 +97,10 @@ export function createWalkIn(
     }
 
     // Link to a registered customer when the phone matches, otherwise keep a counter-only record.
-    const existing = store.users.find(
-        (u) => u.role === "CUSTOMER" && u.status === "ACTIVE" && u.phone === input.phone
-    );
+    const existing = await UserModel.findOne(
+        { role: "CUSTOMER", status: "ACTIVE", phone: input.phone },
+        { id: 1, name: 1 }
+    ).lean<{ id: string; name: string }>();
     const customerName = existing?.name ?? input.name?.trim();
     if (!customerName || customerName.length < 2) {
         throw new AppError("VALIDATION", "Enter the customer's name.", 400, { name: "Enter the customer's name" });
@@ -102,14 +108,12 @@ export function createWalkIn(
 
     const id = randomUUID();
     const startStrings = v.starts.map((d) => d.toISOString());
-    claimCells(input.pitchId, startStrings, { state: "BOOKED", bookingId: id }, now);
-
     const endAt = new Date(v.starts[v.starts.length - 1].getTime() + policies.slotMinutes * 60_000);
     const paid = input.cashReceived;
 
     const booking: Booking = {
         id,
-        bookingCode: newCode(),
+        bookingCode: await newCode(),
         customerId: existing?.id ?? `walkin:${input.phone}`,
         customerName,
         phone: input.phone,
@@ -133,27 +137,38 @@ export function createWalkIn(
         holdExpiresAt: now.toISOString(),
         createdAt: now.toISOString(),
     };
-    store.bookings.push(booking);
 
-    store.payments.push({
-        id: randomUUID(),
-        bookingId: booking.id,
-        provider: "CASH",
-        kind: "ADVANCE",
-        amount: paid,
-        currency: "BDT",
-        status: "SUCCESS",
-        verifiedAt: now.toISOString(),
-        receivedBy: user.id,
-        createdAt: now.toISOString(),
-    });
-
-    logAudit(user, {
-        action: "WALKIN_CREATED",
-        entityType: "BOOKING",
-        entityId: booking.bookingCode,
-        branchId: booking.branchId,
-        meta: { pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, cash: paid },
+    await tx(async (s) => {
+        await insertClaims(input.pitchId, startStrings, { state: "BOOKED", bookingId: id }, now, s);
+        await BookingModel.create([booking], { session: s });
+        await PaymentModel.create(
+            [
+                {
+                    id: randomUUID(),
+                    bookingId: id,
+                    provider: "CASH",
+                    kind: "ADVANCE",
+                    amount: paid,
+                    currency: "BDT",
+                    status: "SUCCESS",
+                    verifiedAt: now.toISOString(),
+                    receivedBy: user.id,
+                    createdAt: now.toISOString(),
+                },
+            ],
+            { session: s }
+        );
+        await logAudit(
+            user,
+            {
+                action: "WALKIN_CREATED",
+                entityType: "BOOKING",
+                entityId: booking.bookingCode,
+                branchId: booking.branchId,
+                meta: { pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, cash: paid },
+            },
+            { session: s }
+        );
     });
 
     return toAdminDto(booking, user, now);

@@ -3,20 +3,21 @@ import "server-only";
 import { branches } from "@/data/branches";
 import { pitches } from "@/data/pitches";
 import { policies } from "@/data/site";
-import { formatBDT } from "@/lib/format";
-import { formatDateShort } from "@/lib/format";
+import { formatBDT, formatDateShort } from "@/lib/format";
 import { formatDateTime } from "@/lib/formatAdmin";
 import { addDays, dhakaParts, dhakaToUtc, toHHMM, toMinutes } from "@/lib/time";
+import { AuditLogModel, BookingModel, InquiryModel, PaymentModel, SlotClaimModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import type { ServerUser } from "@/server/auth/session";
-import { settle } from "@/server/bookings";
+import { settleExpired } from "@/server/bookings/expire";
+import { connectDb } from "@/server/db/connect";
+import { plainAll } from "@/server/db/util";
 import { AppError } from "@/server/http";
-import { store } from "@/server/store";
 import type { Booking } from "@/types/booking";
 import type { AttentionGroup, AttentionItem, AuditRow, InquiryDto, InsightsData } from "@/types/insights";
 import { assertSuperAdmin } from "./access";
 
-const COUNTED = new Set(["CONFIRMED", "CHECKED_IN", "COMPLETED"]);
+const COUNTED = ["CONFIRMED", "CHECKED_IN", "COMPLETED"];
 export const MAX_RANGE_DAYS = 92;
 const DAY_MS = 86_400_000;
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -25,11 +26,11 @@ const dowOf = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay();
 const spanDays = (from: string, to: string) =>
     Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS) + 1;
 
-export function getInsights(
+export async function getInsights(
     user: ServerUser,
     f: { from: string; to: string; branch?: string },
     now: Date = new Date()
-): InsightsData {
+): Promise<InsightsData> {
     assertSuperAdmin(user);
     const span = spanDays(f.from, f.to);
     if (span < 1 || span > MAX_RANGE_DAYS) {
@@ -37,27 +38,42 @@ export function getInsights(
     }
     if (f.branch && !branches.some((b) => b.id === f.branch)) throw new AppError("NOT_FOUND", "Branch not found.", 404);
 
-    for (const b of store.bookings) settle(b, now);
+    await connectDb();
+    await settleExpired({}, now);
 
     const scope = branches.filter((b) => b.status !== "COMING_SOON" && (!f.branch || b.id === f.branch));
-    const scopeIds = new Set(scope.map((b) => b.id));
-    const inScope = store.bookings.filter((b) => scopeIds.has(b.branchId));
-    const byId = new Map(inScope.map((b) => [b.id, b]));
-    const counted = inScope.filter((b) => COUNTED.has(b.bookingStatus));
-    const inRange = counted.filter((b) => b.date >= f.from && b.date <= f.to);
+    const scopeIds = scope.map((b) => b.id);
+    const fromIso = dhakaToUtc(f.from, 0).toISOString();
+    const toIso = dhakaToUtc(addDays(f.to, 1), 0).toISOString();
+
+    const [inRange, payDocs, pendingDocs, maintDocs] = await Promise.all([
+        BookingModel.find(
+            { branchId: { $in: scopeIds }, bookingStatus: { $in: COUNTED }, date: { $gte: f.from, $lte: f.to } },
+            { id: 1, branchId: 1, pitchId: 1, source: 1, paymentStatus: 1, balanceAmount: 1, cellStarts: 1 }
+        ).lean<any[]>(),
+        PaymentModel.find({ status: "SUCCESS", verifiedAt: { $gte: fromIso, $lt: toIso } }).lean<any[]>(),
+        PaymentModel.find({ status: "PENDING" }).lean<any[]>(),
+        SlotClaimModel.find({ state: "MAINTENANCE", cellStart: { $gte: fromIso, $lt: toIso } }, { pitchId: 1, cellStart: 1 }).lean<any[]>(),
+    ]);
+
+    // Join payments to their bookings, limited to the branches in scope.
+    const ids = [...new Set([...payDocs, ...pendingDocs].map((p) => p.bookingId))];
+    const bks = await BookingModel.find(
+        { id: { $in: ids }, branchId: { $in: scopeIds } },
+        { id: 1, branchId: 1, paymentStatus: 1, source: 1 }
+    ).lean<any[]>();
+    const bkById = new Map(bks.map((b) => [b.id, b]));
 
     // Collected = money actually received, by payment date. Fully refunded bookings are excluded.
-    const paid = store.payments.flatMap((p) => {
-        if (p.status !== "SUCCESS") return [];
-        const b = byId.get(p.bookingId);
+    const paid = payDocs.flatMap((p) => {
+        const b = bkById.get(p.bookingId);
         if (!b || b.paymentStatus === "REFUNDED") return [];
-        const date = dhakaParts(new Date(p.verifiedAt ?? p.createdAt)).date;
-        return date >= f.from && date <= f.to ? [{ p, b, date }] : [];
+        return [{ p, b, date: dhakaParts(new Date(p.verifiedAt)).date }];
     });
     const collected = paid.reduce((s, x) => s + x.p.amount, 0);
 
     // Pending is never counted as collected.
-    const pending = store.payments.filter((p) => p.status === "PENDING" && byId.has(p.bookingId));
+    const pending = pendingDocs.filter((p) => bkById.has(p.bookingId));
     const balanceDue = inRange.filter((b) => b.paymentStatus === "PARTIALLY_PAID").reduce((s, b) => s + b.balanceAmount, 0);
 
     /* revenue by branch and day (week buckets for long ranges) */
@@ -85,8 +101,8 @@ export function getInsights(
     /* occupancy: booked slots / available slots (maintenance excluded) */
     const step = policies.slotMinutes;
     const bookedSet = new Set<string>();
-    for (const b of counted) for (const cs of b.cellStarts) bookedSet.add(`${b.pitchId}|${cs}`);
-    const maint = new Set(store.claims.filter((c) => c.state === "MAINTENANCE").map((c) => `${c.pitchId}|${c.cellStart}`));
+    for (const b of inRange) for (const cs of b.cellStarts) bookedSet.add(`${b.pitchId}|${cs}`);
+    const maint = new Set(maintDocs.map((c) => `${c.pitchId}|${c.cellStart}`));
 
     const total = new Map<string, number>();
     const booked = new Map<string, number>();
@@ -95,7 +111,7 @@ export function getInsights(
     let bookedCells = 0;
 
     for (const p of pitches) {
-        if (p.status !== "ACTIVE" || !scopeIds.has(p.branchId)) continue;
+        if (p.status !== "ACTIVE" || !scopeIds.includes(p.branchId)) continue;
         const open = toMinutes(p.openTime);
         const close = toMinutes(p.closeTime);
         for (let d = f.from; d <= f.to; d = addDays(d, 1)) {
@@ -125,8 +141,8 @@ export function getInsights(
     );
 
     const source = { online: { bookings: 0, collected: 0 }, counter: { bookings: 0, collected: 0 } };
-    for (const b of inRange) source[b.source].bookings++;
-    for (const { p, b } of paid) source[b.source].collected += p.amount;
+    for (const b of inRange) source[b.source as "online" | "counter"].bookings++;
+    for (const { p, b } of paid) source[b.source as "online" | "counter"].collected += p.amount;
 
     return {
         from: f.from,
@@ -154,24 +170,51 @@ export function getInsights(
 }
 
 /* ---------- needs attention (current issues, not date-filtered) ---------- */
-export function getAttention(user: ServerUser, branch?: string, now: Date = new Date()): AttentionGroup[] {
+export async function getAttention(user: ServerUser, branch?: string, now: Date = new Date()): Promise<AttentionGroup[]> {
     assertSuperAdmin(user);
-    for (const b of store.bookings) settle(b, now);
+    await connectDb();
+    const scope = branch ? { branchId: branch } : {};
+    await settleExpired(scope, now);
 
-    const scope = store.bookings.filter((b) => !branch || b.branchId === branch);
-    const byId = new Map(scope.map((b) => [b.id, b]));
-    const received = (b: Booking) =>
-        store.payments.filter((p) => p.bookingId === b.id && p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
+    const nowIso = now.toISOString();
+    const tenMinAgo = new Date(now.getTime() - 10 * 60_000).toISOString();
+    const weekAgo = new Date(now.getTime() - 7 * DAY_MS).toISOString();
+    const quiet = ["CANCELLED", "ABANDONED", "CREATE_FAILED"]; // customer-cancelled or abandoned: not a problem
+
+    const [badPays, refundDocs, balanceDocs, expiredDocs] = await Promise.all([
+        PaymentModel.find({
+            $or: [
+                { status: "FAILED", failureReason: { $nin: quiet } },
+                { status: "PENDING", createdAt: { $lt: tenMinAgo } },
+                { anomaly: { $type: "string" } },
+            ],
+        })
+            .sort({ createdAt: -1 })
+            .limit(200)
+            .lean<any[]>(),
+        BookingModel.find({ ...scope, paymentStatus: "REFUND_PENDING" }).limit(200).lean(),
+        BookingModel.find({ ...scope, bookingStatus: { $in: COUNTED }, paymentStatus: "PARTIALLY_PAID", endAt: { $lt: nowIso } })
+            .limit(200)
+            .lean(),
+        BookingModel.find({ ...scope, bookingStatus: "EXPIRED", createdAt: { $gte: weekAgo } }).limit(200).lean(),
+    ]);
+
+    const payBookings = new Map(
+        plainAll<Booking>(await BookingModel.find({ ...scope, id: { $in: badPays.map((p) => p.bookingId) } }).lean()).map((b) => [b.id, b])
+    );
+    const refunds = plainAll<Booking>(refundDocs);
+    const received = new Map<string, number>();
+    for (const p of await PaymentModel.find({ bookingId: { $in: refunds.map((b) => b.id) }, status: "SUCCESS" }).lean<any[]>()) {
+        received.set(p.bookingId, (received.get(p.bookingId) ?? 0) + p.amount);
+    }
+
     const item = (b: Booking, title: string, detail: string): AttentionItem => ({ code: b.bookingCode, title, detail });
 
-    const quiet = new Set(["CANCELLED", "ABANDONED", "CREATE_FAILED"]);
     const payments = new Map<string, AttentionItem>();
-    for (const p of store.payments) {
-        const b = byId.get(p.bookingId);
+    for (const p of badPays) {
+        const b = payBookings.get(p.bookingId);
         if (!b) continue;
-        const failed = p.status === "FAILED" && !quiet.has(p.failureReason ?? "");
-        const stuck = p.status === "PENDING" && now.getTime() - new Date(p.createdAt).getTime() > 10 * 60_000;
-        if (!failed && !stuck && !p.anomaly) continue;
+        const failed = p.status === "FAILED";
         payments.set(
             b.bookingCode,
             item(
@@ -182,18 +225,15 @@ export function getAttention(user: ServerUser, branch?: string, now: Date = new 
         );
     }
 
-    const recent = (b: Booking) => now.getTime() - new Date(b.createdAt).getTime() <= 7 * DAY_MS;
-    const expired = scope
-        .filter((b) => b.bookingStatus === "EXPIRED" && recent(b))
-        .map((b) => item(b, "Hold expired", `${b.customerName} · ${b.date} · ${formatDateTime(b.createdAt)}`));
-
-    const refunds = scope
-        .filter((b) => b.paymentStatus === "REFUND_PENDING")
-        .map((b) => item(b, "Refund pending", `${b.customerName} · ${formatBDT(received(b))} to return`));
-
-    const balances = scope
-        .filter((b) => COUNTED.has(b.bookingStatus) && b.paymentStatus === "PARTIALLY_PAID" && new Date(b.endAt) < now)
-        .map((b) => item(b, "Balance unpaid", `${b.customerName} · ${formatBDT(b.balanceAmount)} · played ${b.date}`));
+    const expired = plainAll<Booking>(expiredDocs).map((b) =>
+        item(b, "Hold expired", `${b.customerName} · ${b.date} · ${formatDateTime(b.createdAt)}`)
+    );
+    const refundItems = refunds.map((b) =>
+        item(b, "Refund pending", `${b.customerName} · ${formatBDT(received.get(b.id) ?? 0)} to return`)
+    );
+    const balances = plainAll<Booking>(balanceDocs).map((b) =>
+        item(b, "Balance unpaid", `${b.customerName} · ${formatBDT(b.balanceAmount)} · played ${b.date}`)
+    );
 
     const group = (id: AttentionGroup["id"], title: string, hint: string, items: AttentionItem[]): AttentionGroup => ({
         id,
@@ -204,52 +244,60 @@ export function getAttention(user: ServerUser, branch?: string, now: Date = new 
     });
 
     return [
-        group("payments", "Failed or stuck payments", "Failed, or still processing after 10 minutes.", [...payments.values()]),
-        group("refunds", "Refunds pending", "Money received on cancelled or late bookings. Settle and record it.", refunds),
+        group("payments", "Failed or stuck payments", "Failed, flagged for review, or still processing after 10 minutes.", [...payments.values()]),
+        group("refunds", "Refunds pending", "Money received on cancelled or late bookings. Settle and record it.", refundItems),
         group("balances", "Unpaid balances on past bookings", "Slot has ended but the balance was never collected.", balances),
         group("expired", "Expired holds", "Last 7 days. Usually harmless: the customer did not pay in time.", expired),
     ];
 }
 
 /* ---------- inquiries ---------- */
-export function listInquiries(user: ServerUser): InquiryDto[] {
+export async function listInquiries(user: ServerUser): Promise<InquiryDto[]> {
     assertSuperAdmin(user);
-    return [...store.inquiries]
-        .sort((a, b) => (a.status === b.status ? b.createdAt.localeCompare(a.createdAt) : a.status === "NEW" ? -1 : 1))
-        .slice(0, 50)
-        .map(({ id, name, contact, message, status, createdAt }) => ({ id, name, contact, message, status, createdAt }));
+    await connectDb();
+    const rows = await InquiryModel.find().sort({ createdAt: -1 }).limit(100).lean<any[]>();
+    const sorted = [...rows.filter((r) => r.status === "NEW"), ...rows.filter((r) => r.status !== "NEW")];
+    return sorted.slice(0, 50).map(({ id, name, contact, message, status, createdAt }) => ({ id, name, contact, message, status, createdAt }));
 }
 
-export function markInquiryHandled(user: ServerUser, id: string) {
+export async function markInquiryHandled(user: ServerUser, id: string) {
     assertSuperAdmin(user);
-    const q = store.inquiries.find((x) => x.id === id);
-    if (!q) throw new AppError("NOT_FOUND", "Inquiry not found.", 404);
-    if (q.status === "HANDLED") return;
-    q.status = "HANDLED";
-    logAudit(user, { action: "INQUIRY_HANDLED", entityType: "INQUIRY", entityId: q.id, meta: { from: q.name } });
+    await connectDb();
+    const q = await InquiryModel.findOneAndUpdate({ id, status: "NEW" }, { $set: { status: "HANDLED" } }).lean<{ name: string }>();
+    if (q) {
+        await logAudit(user, { action: "INQUIRY_HANDLED", entityType: "INQUIRY", entityId: id, meta: { from: q.name } });
+    } else if (!(await InquiryModel.exists({ id }))) {
+        throw new AppError("NOT_FOUND", "Inquiry not found.", 404);
+    } // already handled: nothing to do
 }
 
-/* ---------- audit log (searchable) ---------- */
-export function getAuditEntries(
+/* ---------- audit log (searchable: scans the latest 1,000 matching entries) ---------- */
+export async function getAuditEntries(
     user: ServerUser,
     f: { branch?: string; q?: string; action?: string },
     limit = 100
-): AuditRow[] {
+): Promise<AuditRow[]> {
     assertSuperAdmin(user);
+    await connectDb();
     const needle = f.q?.trim().toLowerCase() ?? "";
     const nameOf = new Map(branches.map((b) => [b.id, b.name]));
 
-    return store.auditLogs
+    const docs = await AuditLogModel.find({
+        ...(f.branch ? { branchId: f.branch } : {}),
+        ...(f.action ? { action: f.action } : {}),
+    })
+        .sort({ at: -1 })
+        .limit(1000)
+        .lean<any[]>();
+
+    return docs
         .filter((a) => {
-            if (f.branch && a.branchId !== f.branch) return false;
-            if (f.action && a.action !== f.action) return false;
             if (!needle) return true;
-            const hay = [a.action.replace(/_/g, " "), a.actorName, a.entityId, ...Object.values(a.meta).map(String)]
+            const hay = [a.action.replace(/_/g, " "), a.actorName, a.entityId, ...Object.values(a.meta ?? {}).map(String)]
                 .join(" ")
                 .toLowerCase();
             return hay.includes(needle);
         })
-        .sort((a, b) => b.at.localeCompare(a.at))
         .slice(0, limit)
         .map((a) => ({
             id: a.id,
@@ -259,6 +307,6 @@ export function getAuditEntries(
             entityType: a.entityType,
             entityId: a.entityId,
             branchName: a.branchId ? (nameOf.get(a.branchId) ?? "") : "",
-            meta: a.meta,
+            meta: a.meta ?? {},
         }));
 }

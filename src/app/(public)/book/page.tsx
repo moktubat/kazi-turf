@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function BookPage({ searchParams }: { searchParams: Params }) {
+    await connectDb();
     const sp = await searchParams;
     const one = (k: string) => {
         const v = sp[k];

@@ -1,5 +1,5 @@
 // Setup rules: branches, pitches, rates, staff, policies. Authorization, validation and audit live here.
-// Edits mutate the shared config in place, so Home, /book and the Desk see them immediately.
+// Config edits mutate the shared objects in place (every reader sees them), then persist to MongoDB.
 import "server-only";
 import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
@@ -10,6 +10,7 @@ import { policies } from "@/data/site";
 import { daysLabel } from "@/lib/grid";
 import { slugify } from "@/lib/slug";
 import { dhakaParts, toHHMM, toMinutes, todayDhaka } from "@/lib/time";
+import { BookingModel, SlotClaimModel, UserModel } from "@/models";
 import type {
     BranchInput, BranchUpdateInput, PitchInput, PitchUpdateInput, PolicyInput,
     RateInput, RateUpdateInput, StaffCreateInput, StaffUpdateInput,
@@ -19,10 +20,11 @@ import { canAccessBranch } from "@/server/auth/guards";
 import { hashPassword } from "@/server/auth/password";
 import { assertPitchEditor, assertSetupAccess } from "@/server/auth/permissions";
 import { endOtherSessions, type ServerUser } from "@/server/auth/session";
-import { assertUnique } from "@/server/auth/users";
-import { settle } from "@/server/bookings";
+import { assertUnique, mapDup } from "@/server/auth/users";
+import { settleExpired } from "@/server/bookings/expire";
+import { ensureConfig, persistConfig } from "@/server/config";
+import { connectDb } from "@/server/db/connect";
 import { AppError } from "@/server/http";
-import { store } from "@/server/store";
 import type { Branch, Pitch, PricingRule } from "@/types";
 import type { AuditMeta } from "@/types/ops";
 import type { PolicyForm, SetupData, SetupRate, SetupStaff, SetupTab } from "@/types/setup";
@@ -30,6 +32,12 @@ import type { User } from "@/types/user";
 import { assertSuperAdmin } from "./access";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Every edit starts from the freshest saved config, so another instance's change is not overwritten. */
+async function begin() {
+    await connectDb();
+    await ensureConfig(true);
+}
 
 /* ---------- helpers ---------- */
 const show = (v: unknown) =>
@@ -64,8 +72,9 @@ const inRange = (r: { effectiveFrom?: string; effectiveTo?: string }, d: string)
     (!r.effectiveFrom || d >= r.effectiveFrom) && (!r.effectiveTo || d <= r.effectiveTo);
 
 /* ---------- branches ---------- */
-export function createBranch(user: ServerUser, input: BranchInput) {
+export async function createBranch(user: ServerUser, input: BranchInput) {
     assertSuperAdmin(user);
+    await begin();
     if (branches.some((b) => b.id === input.slug)) {
         throw new AppError("SLUG_TAKEN", "A branch with this slug already exists.", 409, { slug: "Already used" });
     }
@@ -82,7 +91,8 @@ export function createBranch(user: ServerUser, input: BranchInput) {
         sports: uniq(input.sports),
     };
     branches.push(b);
-    logAudit(user, {
+    await persistConfig("branches");
+    await logAudit(user, {
         action: "BRANCH_CHANGED",
         entityType: "BRANCH",
         entityId: b.id,
@@ -91,8 +101,9 @@ export function createBranch(user: ServerUser, input: BranchInput) {
     });
 }
 
-export function updateBranch(user: ServerUser, input: BranchUpdateInput) {
+export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     assertSuperAdmin(user);
+    await begin();
     const b = branches.find((x) => x.id === input.id);
     if (!b) throw new AppError("NOT_FOUND", "Branch not found.", 404);
 
@@ -117,8 +128,9 @@ export function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     };
     const changes = diff(b as unknown as Record<string, unknown>, next);
     Object.assign(b, next); // the slug/ID never changes
+    await persistConfig("branches");
     if (Object.keys(changes).length > 0) {
-        logAudit(user, { action: "BRANCH_CHANGED", entityType: "BRANCH", entityId: b.id, branchId: b.id, meta: changes });
+        await logAudit(user, { action: "BRANCH_CHANGED", entityType: "BRANCH", entityId: b.id, branchId: b.id, meta: changes });
     }
 }
 
@@ -136,14 +148,16 @@ function assertPitchRules(branch: Branch, input: { name: string; sport: string }
 }
 
 /** New hours must still fit every upcoming booking, hold and block (spec 7.8). */
-function assertScheduleSafe(pitchId: string, openTime: string, closeTime: string, now: Date) {
+async function assertScheduleSafe(pitchId: string, openTime: string, closeTime: string, now: Date) {
     const step = policies.slotMinutes;
     const open = toMinutes(openTime);
     const close = toMinutes(closeTime);
-    for (const c of store.claims) {
-        if (c.pitchId !== pitchId) continue;
+    const since = new Date(now.getTime() - step * 60_000).toISOString(); // cells that ended already are history
+
+    const claims = await SlotClaimModel.find({ pitchId, cellStart: { $gte: since } }).lean<any[]>();
+    for (const c of claims) {
         const t = new Date(c.cellStart);
-        if (t.getTime() + step * 60_000 <= now.getTime()) continue; // already past
+        if (t.getTime() + step * 60_000 <= now.getTime()) continue;
         if (c.state === "HELD" && c.expiresAt && new Date(c.expiresAt) <= now) continue;
         const { minutes } = dhakaParts(t);
         if (!(minutes >= open && minutes + step <= close && (minutes - open) % step === 0)) {
@@ -157,8 +171,9 @@ function assertScheduleSafe(pitchId: string, openTime: string, closeTime: string
     }
 }
 
-export function createPitch(user: ServerUser, input: PitchInput) {
+export async function createPitch(user: ServerUser, input: PitchInput) {
     assertPitchEditor(user, input.branchId);
+    await begin();
     const branch = branches.find((b) => b.id === input.branchId);
     if (!branch) throw new AppError("NOT_FOUND", "Branch not found.", 404);
     assertPitchRules(branch, input);
@@ -183,7 +198,8 @@ export function createPitch(user: ServerUser, input: PitchInput) {
         status: input.status,
     };
     pitches.push(p);
-    logAudit(user, {
+    await persistConfig("pitches");
+    await logAudit(user, {
         action: "PITCH_CHANGED",
         entityType: "PITCH",
         entityId: p.id,
@@ -192,7 +208,8 @@ export function createPitch(user: ServerUser, input: PitchInput) {
     });
 }
 
-export function updatePitch(user: ServerUser, input: PitchUpdateInput, now: Date = new Date()) {
+export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now: Date = new Date()) {
+    await begin();
     const p = pitches.find((x) => x.id === input.id);
     if (!p) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
     assertPitchEditor(user, p.branchId);
@@ -202,7 +219,7 @@ export function updatePitch(user: ServerUser, input: PitchUpdateInput, now: Date
     assertPitchRules(branch, input, p.id);
 
     if (p.openTime !== input.openTime || p.closeTime !== input.closeTime) {
-        assertScheduleSafe(p.id, input.openTime, input.closeTime, now);
+        await assertScheduleSafe(p.id, input.openTime, input.closeTime, now);
     }
 
     const next = {
@@ -220,8 +237,9 @@ export function updatePitch(user: ServerUser, input: PitchUpdateInput, now: Date
     };
     const changes = diff(p as unknown as Record<string, unknown>, next); // the branch never changes here
     Object.assign(p, next);
+    await persistConfig("pitches");
     if (Object.keys(changes).length > 0) {
-        logAudit(user, {
+        await logAudit(user, {
             action: "PITCH_CHANGED",
             entityType: "PITCH",
             entityId: p.id,
@@ -276,7 +294,8 @@ function ruleFields(input: RateInput) {
     };
 }
 
-export function createRate(user: ServerUser, input: RateInput) {
+export async function createRate(user: ServerUser, input: RateInput) {
+    await begin();
     const pitch = pitches.find((p) => p.id === input.pitchId);
     if (!pitch) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
     assertPitchEditor(user, pitch.branchId);
@@ -284,7 +303,8 @@ export function createRate(user: ServerUser, input: RateInput) {
 
     const rule: PricingRule = { id: `${pitch.id}-${randomUUID().slice(0, 8)}`, pitchId: pitch.id, ...ruleFields(input) };
     pricingRules.push(rule);
-    logAudit(user, {
+    await persistConfig("pricingRules");
+    await logAudit(user, {
         action: "PRICE_CHANGED",
         entityType: "PITCH",
         entityId: pitch.id,
@@ -293,7 +313,8 @@ export function createRate(user: ServerUser, input: RateInput) {
     });
 }
 
-export function updateRate(user: ServerUser, input: RateUpdateInput) {
+export async function updateRate(user: ServerUser, input: RateUpdateInput) {
+    await begin();
     const rule = pricingRules.find((r) => r.id === input.id);
     const pitch = rule && pitches.find((p) => p.id === rule.pitchId);
     if (!rule || !pitch) throw new AppError("NOT_FOUND", "Rate not found.", 404);
@@ -302,7 +323,8 @@ export function updateRate(user: ServerUser, input: RateUpdateInput) {
 
     const before = `${describeRule(rule)} ৳${rule.pricePerSlot}`;
     Object.assign(rule, ruleFields(input)); // the pitch of a rate never changes
-    logAudit(user, {
+    await persistConfig("pricingRules");
+    await logAudit(user, {
         action: "PRICE_CHANGED",
         entityType: "PITCH",
         entityId: pitch.id,
@@ -311,7 +333,8 @@ export function updateRate(user: ServerUser, input: RateUpdateInput) {
     });
 }
 
-export function deleteRate(user: ServerUser, id: string) {
+export async function deleteRate(user: ServerUser, id: string) {
+    await begin();
     const i = pricingRules.findIndex((r) => r.id === id);
     const rule = pricingRules[i];
     const pitch = rule && pitches.find((p) => p.id === rule.pitchId);
@@ -319,7 +342,8 @@ export function deleteRate(user: ServerUser, id: string) {
     assertPitchEditor(user, pitch.branchId);
 
     pricingRules.splice(i, 1);
-    logAudit(user, {
+    await persistConfig("pricingRules");
+    await logAudit(user, {
         action: "PRICE_CHANGED",
         entityType: "PITCH",
         entityId: pitch.id,
@@ -331,6 +355,7 @@ export function deleteRate(user: ServerUser, id: string) {
 /* ---------- staff ---------- */
 export async function createStaff(user: ServerUser, input: StaffCreateInput) {
     assertSuperAdmin(user);
+    await begin();
     const isAdmin = input.role === "SUPER_ADMIN";
     const branchIds = isAdmin ? [] : [...new Set(input.branchIds)];
     for (const id of branchIds) {
@@ -339,7 +364,7 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
 
     const email = input.email.trim() ? input.email.trim().toLowerCase() : null;
     const passwordHash = await hashPassword(input.password);
-    assertUnique(input.phone, email); // hash first, then check + insert with no await between
+    await assertUnique(input.phone, email);
 
     const u: User = {
         id: randomUUID(),
@@ -353,8 +378,12 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
         status: "ACTIVE",
         createdAt: new Date().toISOString(),
     };
-    store.users.push(u);
-    logAudit(user, {
+    try {
+        await UserModel.create(u);
+    } catch (e) {
+        mapDup(e); // the unique indexes decide a race
+    }
+    await logAudit(user, {
         action: "STAFF_CREATED",
         entityType: "USER",
         entityId: u.id,
@@ -364,16 +393,17 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
 
 export async function updateStaff(user: ServerUser, input: StaffUpdateInput) {
     assertSuperAdmin(user);
-    const u = store.users.find((x) => x.id === input.id && x.role !== "CUSTOMER");
+    await begin();
+    const u = await UserModel.findOne({ id: input.id, role: { $ne: "CUSTOMER" } }).lean<any>();
     if (!u) throw new AppError("NOT_FOUND", "Staff account not found.", 404);
     if (u.id === user.id) {
         throw new AppError("SELF_EDIT", "You cannot change your own role or access here. Another Super Admin can do it.", 409);
     }
 
     const losesAdmin = u.role === "SUPER_ADMIN" && (input.role !== "SUPER_ADMIN" || input.status !== "ACTIVE");
-    const otherAdmins = store.users.filter((x) => x.id !== u.id && x.role === "SUPER_ADMIN" && x.status === "ACTIVE");
-    if (losesAdmin && otherAdmins.length === 0) {
-        throw new AppError("LAST_ADMIN", "Keep at least one active Super Admin.", 409);
+    if (losesAdmin) {
+        const others = await UserModel.countDocuments({ id: { $ne: u.id }, role: "SUPER_ADMIN", status: "ACTIVE" });
+        if (others === 0) throw new AppError("LAST_ADMIN", "Keep at least one active Super Admin.", 409);
     }
 
     const isAdmin = input.role === "SUPER_ADMIN";
@@ -383,24 +413,23 @@ export async function updateStaff(user: ServerUser, input: StaffUpdateInput) {
     }
 
     const newHash = input.newPassword ? await hashPassword(input.newPassword) : null;
-
-    const before = { role: u.role, status: u.status, branches: u.branchIds.join(", "), permissions: u.permissions.join(", ") };
     const permissions = isAdmin ? [] : [...new Set(input.permissions)];
+
+    const before = { role: u.role, status: u.status, branches: (u.branchIds ?? []).join(", "), permissions: (u.permissions ?? []).join(", ") };
     const after = { role: input.role, status: input.status, branches: branchIds.join(", "), permissions: permissions.join(", ") };
     const changes = diff(before, after);
 
-    u.role = input.role;
-    u.status = input.status;
-    u.branchIds = branchIds;
-    u.permissions = permissions;
+    await UserModel.updateOne(
+        { id: u.id },
+        { $set: { role: input.role, status: input.status, branchIds, permissions, ...(newHash ? { passwordHash: newHash } : {}) } }
+    );
 
     if (Object.keys(changes).length > 0) {
-        logAudit(user, { action: "ROLE_CHANGED", entityType: "USER", entityId: u.id, meta: { name: u.name, ...changes } });
+        await logAudit(user, { action: "ROLE_CHANGED", entityType: "USER", entityId: u.id, meta: { name: u.name, ...changes } });
     }
     if (newHash) {
-        u.passwordHash = newHash;
-        endOtherSessions(u.id); // signs them out everywhere
-        logAudit(user, { action: "PASSWORD_RESET", entityType: "USER", entityId: u.id, meta: { name: u.name } });
+        await endOtherSessions(u.id); // signs them out everywhere
+        await logAudit(user, { action: "PASSWORD_RESET", entityType: "USER", entityId: u.id, meta: { name: u.name } });
     }
 }
 
@@ -426,8 +455,9 @@ export function getPolicyForm(): PolicyForm {
     };
 }
 
-export function updatePolicies(user: ServerUser, input: PolicyInput) {
+export async function updatePolicies(user: ServerUser, input: PolicyInput) {
     assertSuperAdmin(user);
+    await begin();
     const before = getPolicyForm();
 
     const scalars = {
@@ -453,9 +483,10 @@ export function updatePolicies(user: ServerUser, input: PolicyInput) {
         exceptions: input.refund.exceptions,
     });
     legalStatus.reviewed = input.legalReviewed;
+    await persistConfig("policies", "refundConfig", "legalStatus");
 
     if (Object.keys(changes).length > 0) {
-        logAudit(user, { action: "POLICY_CHANGED", entityType: "POLICY", entityId: "policies", meta: changes });
+        await logAudit(user, { action: "POLICY_CHANGED", entityType: "POLICY", entityId: "policies", meta: changes });
     }
 }
 
@@ -486,13 +517,14 @@ function gapLines(p: Pitch, today: string): string[] {
     return lines;
 }
 
-export function getSetupData(user: ServerUser, now: Date = new Date()): SetupData {
+export async function getSetupData(user: ServerUser, now: Date = new Date()): Promise<SetupData> {
     assertSetupAccess(user);
+    await connectDb();
     const isAdmin = user.role === "SUPER_ADMIN";
     const step = policies.slotMinutes;
     const today = todayDhaka(now);
 
-    for (const b of store.bookings) settle(b, now); // expired holds do not count as upcoming
+    await settleExpired({}, now); // expired holds do not count as upcoming
 
     const myBranches = branches.filter((b) => canAccessBranch(user, b.id));
     const branchIds = new Set(myBranches.map((b) => b.id));
@@ -523,23 +555,31 @@ export function getSetupData(user: ServerUser, now: Date = new Date()): SetupDat
     const coverage: Record<string, string[]> = {};
     for (const p of myPitches) coverage[p.id] = gapLines(p, today);
 
-    const staff: SetupStaff[] = isAdmin
-        ? store.users
-            .filter((u) => u.role !== "CUSTOMER")
-            .map((u) => ({
-                id: u.id,
-                name: u.name,
-                phone: u.phone,
-                email: u.email ?? "",
-                role: u.role as "STAFF" | "SUPER_ADMIN",
-                branchIds: [...u.branchIds],
-                permissions: [...u.permissions],
-                status: u.status,
-                isSelf: u.id === user.id,
-            }))
-        : [];
+    const staffDocs = isAdmin ? await UserModel.find({ role: { $ne: "CUSTOMER" } }).sort({ name: 1 }).lean<any[]>() : [];
+    const staff: SetupStaff[] = staffDocs.map((u) => ({
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email ?? "",
+        role: u.role,
+        branchIds: [...(u.branchIds ?? [])],
+        permissions: [...(u.permissions ?? [])],
+        status: u.status,
+        isSelf: u.id === user.id,
+    }));
 
-    const live = new Set(["CONFIRMED", "CHECKED_IN", "PENDING_PAYMENT"]);
+    const counts = await BookingModel.aggregate<{ _id: string; n: number }>([
+        {
+            $match: {
+                pitchId: { $in: myPitches.map((p) => p.id) },
+                bookingStatus: { $in: ["CONFIRMED", "CHECKED_IN", "PENDING_PAYMENT"] },
+                endAt: { $gt: now.toISOString() },
+            },
+        },
+        { $group: { _id: "$pitchId", n: { $sum: 1 } } },
+    ]);
+    const upcoming = new Map(counts.map((c) => [c._id, c.n]));
+
     const tabs: SetupTab[] = isAdmin ? ["branches", "pitches", "rates", "staff", "policies"] : ["pitches", "rates"];
 
     return {
@@ -547,13 +587,7 @@ export function getSetupData(user: ServerUser, now: Date = new Date()): SetupDat
         isAdmin,
         slotMinutes: step,
         branches: myBranches.map((b) => ({ ...b, sports: [...b.sports] })),
-        pitches: myPitches.map((p) => ({
-            ...p,
-            facilities: [...p.facilities],
-            upcomingBookings: store.bookings.filter(
-                (b) => b.pitchId === p.id && live.has(b.bookingStatus) && new Date(b.endAt) > now
-            ).length,
-        })),
+        pitches: myPitches.map((p) => ({ ...p, facilities: [...p.facilities], upcomingBookings: upcoming.get(p.id) ?? 0 })),
         rates,
         coverage,
         staff,

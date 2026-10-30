@@ -1,58 +1,70 @@
 // Check-in, balance, cancellation, refund state, change requests and maintenance blocks.
+// Every state change is a conditional update, so two phones tapping at once cannot both win.
 import "server-only";
 import { randomUUID } from "crypto";
+import type { ClientSession } from "mongoose";
 import { dhakaParts } from "@/lib/time";
+import { BookingModel, ChangeRequestModel, CheckInModel, PaymentModel, SlotClaimModel } from "@/models";
+import type { CheckInInput } from "@/schemas/admin";
 import { logAudit } from "@/server/audit";
 import { assertBranchAccess } from "@/server/auth/guards";
 import type { ServerUser } from "@/server/auth/session";
 import { getPitch, getPitchAvailability } from "@/server/availability";
-import { releaseClaims, settle } from "@/server/bookings";
+import { findBookingById, releaseClaims, settle } from "@/server/bookings";
+import { insertClaims } from "@/server/claims";
+import { connectDb, tx } from "@/server/db/connect";
 import { AppError } from "@/server/http";
-import { store } from "@/server/store";
-import type { CheckInInput } from "@/schemas/admin";
 import type { AdminBookingDto } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 import { assertSuperAdmin, findBookingForStaff } from "./access";
-import { claimCells } from "./claims";
 import { canCollectBalance, checkInState, toAdminDto } from "./dto";
 
-function cashIn(b: Booking, user: ServerUser, now: Date): number {
-    const amount = b.balanceAmount;
-    store.payments.push({
-        id: randomUUID(),
-        bookingId: b.id,
-        provider: "CASH",
-        kind: "BALANCE",
-        amount,
-        currency: "BDT",
-        status: "SUCCESS",
-        verifiedAt: now.toISOString(),
-        receivedBy: user.id,
-        createdAt: now.toISOString(),
-    });
-    b.paymentStatus = "PAID";
-    logAudit(user, {
-        action: "BALANCE_COLLECTED",
-        entityType: "BOOKING",
-        entityId: b.bookingCode,
-        branchId: b.branchId,
-        meta: { amount },
-    });
-    return amount;
+const fresh = async (b: Booking) => (await findBookingById(b.id)) ?? b;
+
+/** Marks the balance paid and records the cash, inside the caller's transaction. */
+async function cashIn(b: Booking, user: ServerUser, now: Date, s: ClientSession): Promise<number> {
+    const r = await BookingModel.updateOne(
+        { id: b.id, paymentStatus: "PARTIALLY_PAID", bookingStatus: { $in: ["CONFIRMED", "CHECKED_IN"] } },
+        { $set: { paymentStatus: "PAID" } },
+        { session: s }
+    );
+    if (r.modifiedCount === 0) throw new AppError("ALREADY_PAID", "The balance was already collected.", 409);
+
+    await PaymentModel.create(
+        [
+            {
+                id: randomUUID(),
+                bookingId: b.id,
+                provider: "CASH",
+                kind: "BALANCE",
+                amount: b.balanceAmount,
+                currency: "BDT",
+                status: "SUCCESS",
+                verifiedAt: now.toISOString(),
+                receivedBy: user.id,
+                createdAt: now.toISOString(),
+            },
+        ],
+        { session: s }
+    );
+    await logAudit(
+        user,
+        { action: "BALANCE_COLLECTED", entityType: "BOOKING", entityId: b.bookingCode, branchId: b.branchId, meta: { amount: b.balanceAmount } },
+        { session: s }
+    );
+    return b.balanceAmount;
 }
 
-export function collectBalance(user: ServerUser, code: string, now: Date = new Date()): AdminBookingDto {
-    const b = findBookingForStaff(user, code);
-    settle(b, now);
+export async function collectBalance(user: ServerUser, code: string, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await settle(await findBookingForStaff(user, code), now);
     if (b.paymentStatus === "PAID") throw new AppError("ALREADY_PAID", "The balance was already collected.", 409);
     if (!canCollectBalance(b)) throw new AppError("NOT_COLLECTABLE", "There is no balance to collect on this booking.", 409);
-    cashIn(b, user, now);
-    return toAdminDto(b, user, now);
+    await tx((s) => cashIn(b, user, now, s));
+    return toAdminDto(await fresh(b), user, now);
 }
 
-export function checkIn(user: ServerUser, code: string, input: CheckInInput, now: Date = new Date()): AdminBookingDto {
-    const b = findBookingForStaff(user, code);
-    settle(b, now);
+export async function checkIn(user: ServerUser, code: string, input: CheckInInput, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await settle(await findBookingForStaff(user, code), now);
     const state = checkInState(b, now);
     let result: "OK" | "OVERRIDE" = "OK";
     let overrideReason: string | undefined;
@@ -61,7 +73,7 @@ export function checkIn(user: ServerUser, code: string, input: CheckInInput, now
         // Only a Super Admin may re-check-in a booking, and only with a reason (logged).
         const allowed = b.bookingStatus === "CHECKED_IN" && user.role === "SUPER_ADMIN" && !!input.overrideReason;
         if (!allowed) {
-            logAudit(user, {
+            await logAudit(user, {
                 action: "CHECKIN_BLOCKED",
                 entityType: "BOOKING",
                 entityId: b.bookingCode,
@@ -86,36 +98,44 @@ export function checkIn(user: ServerUser, code: string, input: CheckInInput, now
         });
     }
 
-    let collected = 0;
-    if (input.collectBalance && canCollectBalance(b)) collected = cashIn(b, user, now);
+    await tx(async (s) => {
+        let collected = 0;
+        if (input.collectBalance && canCollectBalance(b)) collected = await cashIn(b, user, now, s);
 
-    if (b.bookingStatus !== "CHECKED_IN") {
-        b.bookingStatus = "CHECKED_IN";
-        b.checkedInAt = now.toISOString();
-    }
-    store.checkIns.push({
-        id: randomUUID(),
-        bookingId: b.id,
-        checkedInAt: now.toISOString(),
-        checkedInBy: user.id,
-        result,
-        balanceCollected: collected,
+        if (b.bookingStatus !== "CHECKED_IN") {
+            // Conditional: a second phone checking in the same booking changes nothing and is rejected.
+            const r = await BookingModel.updateOne(
+                { id: b.id, bookingStatus: "CONFIRMED" },
+                { $set: { bookingStatus: "CHECKED_IN", checkedInAt: now.toISOString() } },
+                { session: s }
+            );
+            if (r.modifiedCount === 0) {
+                throw new AppError("CHECKIN_BLOCKED", "This booking was just checked in or changed. Refresh to see its status.", 409);
+            }
+        }
+
+        await CheckInModel.create(
+            [{ id: randomUUID(), bookingId: b.id, checkedInAt: now.toISOString(), checkedInBy: user.id, result, balanceCollected: collected }],
+            { session: s }
+        );
+        await logAudit(
+            user,
+            {
+                action: result === "OVERRIDE" ? "CHECKIN_OVERRIDE" : "CHECKED_IN",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: { balanceCollected: collected, verifiedBy: input.identity.method, ...(overrideReason ? { reason: overrideReason } : {}) },
+            },
+            { session: s }
+        );
     });
 
-    logAudit(user, {
-        action: result === "OVERRIDE" ? "CHECKIN_OVERRIDE" : "CHECKED_IN",
-        entityType: "BOOKING",
-        entityId: b.bookingCode,
-        branchId: b.branchId,
-        meta: { balanceCollected: collected, verifiedBy: input.identity.method, ...(overrideReason ? { reason: overrideReason } : {}) },
-    });
-
-    return toAdminDto(b, user, now);
+    return toAdminDto(await fresh(b), user, now);
 }
 
-export function cancelBooking(user: ServerUser, code: string, reason: string, now: Date = new Date()): AdminBookingDto {
-    const b = findBookingForStaff(user, code);
-    settle(b, now);
+export async function cancelBooking(user: ServerUser, code: string, reason: string, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await settle(await findBookingForStaff(user, code), now);
 
     if (b.bookingStatus !== "CONFIRMED" && b.bookingStatus !== "PENDING_PAYMENT") {
         throw new AppError("NOT_CANCELLABLE", "This booking can no longer be cancelled.", 409);
@@ -126,53 +146,74 @@ export function cancelBooking(user: ServerUser, code: string, reason: string, no
 
     // Money already received is never silently kept: it goes to REFUND_PENDING for the Super Admin.
     const moneyIn = b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID";
-    const collected = store.payments
-        .filter((p) => p.bookingId === b.id && p.status === "SUCCESS")
-        .reduce((s, p) => s + p.amount, 0);
+    const received = (await PaymentModel.find({ bookingId: b.id, status: "SUCCESS" }, { amount: 1 }).lean<{ amount: number }[]>()).reduce(
+        (sum, p) => sum + p.amount,
+        0
+    );
 
-    b.bookingStatus = "CANCELLED";
-    b.cancelledAt = now.toISOString();
-    b.cancelReason = reason;
-    b.paymentStatus = moneyIn ? "REFUND_PENDING" : "CANCELLED";
-    releaseClaims(b.id);
-
-    for (const r of store.changeRequests) {
-        if (r.bookingCode === b.bookingCode && r.status === "OPEN") r.status = "HANDLED";
-    }
-
-    logAudit(user, {
-        action: "BOOKING_CANCELLED",
-        entityType: "BOOKING",
-        entityId: b.bookingCode,
-        branchId: b.branchId,
-        meta: { reason, refundPending: moneyIn, amountCollected: collected },
+    await tx(async (s) => {
+        // Must still be in exactly the state we read, or someone changed it first.
+        const r = await BookingModel.updateOne(
+            { id: b.id, bookingStatus: b.bookingStatus, paymentStatus: b.paymentStatus },
+            {
+                $set: {
+                    bookingStatus: "CANCELLED",
+                    cancelledAt: now.toISOString(),
+                    cancelReason: reason,
+                    paymentStatus: moneyIn ? "REFUND_PENDING" : "CANCELLED",
+                },
+            },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) {
+            throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+        }
+        await releaseClaims(b.id, s);
+        await ChangeRequestModel.updateMany({ bookingCode: b.bookingCode, status: "OPEN" }, { $set: { status: "HANDLED" } }, { session: s });
+        await logAudit(
+            user,
+            {
+                action: "BOOKING_CANCELLED",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: { reason, refundPending: moneyIn, amountCollected: received },
+            },
+            { session: s }
+        );
     });
-    return toAdminDto(b, user, now);
+    return toAdminDto(await fresh(b), user, now);
 }
 
-export function recordRefund(user: ServerUser, code: string, note: string | undefined, now: Date = new Date()): AdminBookingDto {
+export async function recordRefund(user: ServerUser, code: string, note: string | undefined, now: Date = new Date()): Promise<AdminBookingDto> {
     assertSuperAdmin(user);
-    const b = findBookingForStaff(user, code);
-    if (b.paymentStatus !== "REFUND_PENDING") {
-        throw new AppError("NOT_REFUNDABLE", "There is no pending refund on this booking.", 409);
-    }
-    b.paymentStatus = "REFUNDED";
-    logAudit(user, {
-        action: "REFUND_RECORDED",
-        entityType: "BOOKING",
-        entityId: b.bookingCode,
-        branchId: b.branchId,
-        meta: { note: note ?? null },
+    const b = await findBookingForStaff(user, code);
+
+    await tx(async (s) => {
+        const r = await BookingModel.updateOne(
+            { id: b.id, paymentStatus: "REFUND_PENDING" },
+            { $set: { paymentStatus: "REFUNDED" } },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) throw new AppError("NOT_REFUNDABLE", "There is no pending refund on this booking.", 409);
+        await logAudit(
+            user,
+            { action: "REFUND_RECORDED", entityType: "BOOKING", entityId: b.bookingCode, branchId: b.branchId, meta: { note: note ?? null } },
+            { session: s }
+        );
     });
-    return toAdminDto(b, user, now);
+    return toAdminDto(await fresh(b), user, now);
 }
 
-export function handleChangeRequest(user: ServerUser, code: string, now: Date = new Date()): AdminBookingDto {
-    const b = findBookingForStaff(user, code);
-    const r = store.changeRequests.find((x) => x.bookingCode === b.bookingCode && x.status === "OPEN");
+export async function handleChangeRequest(user: ServerUser, code: string, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await findBookingForStaff(user, code);
+    const r = await ChangeRequestModel.findOneAndUpdate(
+        { bookingCode: b.bookingCode, status: "OPEN" },
+        { $set: { status: "HANDLED" } }
+    ).lean<{ kind: string }>();
     if (!r) throw new AppError("NOT_FOUND", "There is no open request on this booking.", 404);
-    r.status = "HANDLED";
-    logAudit(user, {
+
+    await logAudit(user, {
         action: "CHANGE_REQUEST_HANDLED",
         entityType: "BOOKING",
         entityId: b.bookingCode,
@@ -182,7 +223,7 @@ export function handleChangeRequest(user: ServerUser, code: string, now: Date = 
     return toAdminDto(b, user, now);
 }
 
-export function setBlock(
+export async function setBlock(
     user: ServerUser,
     input: { pitchId: string; cellStart: string; block: boolean; reason?: string },
     now: Date = new Date()
@@ -194,35 +235,30 @@ export function setBlock(
     const d = new Date(input.cellStart);
     if (Number.isNaN(d.getTime())) throw new AppError("INVALID_SLOT", "Invalid slot.", 400);
     const date = dhakaParts(d).date;
-    const cell = getPitchAvailability(pitch.id, date, now, { allowStarted: true }).find(
+    const cell = (await getPitchAvailability(pitch.id, date, now, { allowStarted: true })).find(
         (c) => c.cellStart === d.toISOString()
     );
     if (!cell) throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
 
     const meta = { pitch: pitch.name, date, start: cell.start };
+    const entityId = `${pitch.id}@${cell.cellStart}`;
+    await connectDb();
 
     if (input.block) {
         if (cell.status === "PAST") throw new AppError("SLOT_PAST", "That slot has already ended.", 409);
-        claimCells(pitch.id, [cell.cellStart], { state: "MAINTENANCE", reason: input.reason }, now);
-        logAudit(user, {
-            action: "SLOT_BLOCKED",
-            entityType: "SLOT",
-            entityId: `${pitch.id}@${cell.cellStart}`,
-            branchId: pitch.branchId,
-            meta: { ...meta, reason: input.reason ?? null },
+        await tx(async (s) => {
+            await insertClaims(pitch.id, [cell.cellStart], { state: "MAINTENANCE", reason: input.reason }, now, s);
+            await logAudit(
+                user,
+                { action: "SLOT_BLOCKED", entityType: "SLOT", entityId, branchId: pitch.branchId, meta: { ...meta, reason: input.reason ?? null } },
+                { session: s }
+            );
         });
     } else {
-        const i = store.claims.findIndex(
-            (c) => c.pitchId === pitch.id && c.cellStart === cell.cellStart && c.state === "MAINTENANCE"
-        );
-        if (i < 0) throw new AppError("NOT_FOUND", "This slot is not blocked.", 404);
-        store.claims.splice(i, 1);
-        logAudit(user, {
-            action: "SLOT_UNBLOCKED",
-            entityType: "SLOT",
-            entityId: `${pitch.id}@${cell.cellStart}`,
-            branchId: pitch.branchId,
-            meta,
+        await tx(async (s) => {
+            const r = await SlotClaimModel.deleteOne({ pitchId: pitch.id, cellStart: cell.cellStart, state: "MAINTENANCE" }, { session: s });
+            if (r.deletedCount === 0) throw new AppError("NOT_FOUND", "This slot is not blocked.", 404);
+            await logAudit(user, { action: "SLOT_UNBLOCKED", entityType: "SLOT", entityId, branchId: pitch.branchId, meta }, { session: s });
         });
     }
     return { ok: true };

@@ -11,7 +11,7 @@ export default async function SetupPage() {
     return (
         <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-24">
             <h1 className="text-2xl font-extrabold md:text-3xl">Setup</h1>
-            <SetupView data={getSetupData(user)} />
+            <SetupView data={await getSetupData(user)} />
         </div>
     );
 }

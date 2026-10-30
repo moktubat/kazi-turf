@@ -11,6 +11,7 @@ import { FinalCta } from "@/components/pages/home/FinalCta";
 export const revalidate = 60;
 
 export default function HomePage() {
+    await connectDb();
     return (
         <>
             <Hero />

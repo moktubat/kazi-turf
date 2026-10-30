@@ -7,6 +7,7 @@ export const metadata: Metadata = { title: "Terms, Privacy & Refund policy" };
 export const dynamic = "force-dynamic";
 
 export default function LegalPage() {
+    await connectDb();
     return (
         <div className="mx-auto max-w-3xl px-4 py-10">
             <h1 className="text-2xl font-extrabold md:text-4xl">Legal</h1>

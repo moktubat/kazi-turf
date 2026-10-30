@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { AttentionPanel } from "@/components/admin/insights/AttentionPanel";
-import { AuditPanel } from "@/components/admin/insights/AuditPanel";
-import { KpiCards, OccupancyHeatmap, RevenueChart, SourceSplit } from "@/components/admin/insights/Charts";
-import { InquiryInbox } from "@/components/admin/insights/InquiryInbox";
+import { AttentionPanel } from "@/components/pages/admin/insights/AttentionPanel";
+import { AuditPanel } from "@/components/pages/admin/insights/AuditPanel";
+import { KpiCards, OccupancyHeatmap, RevenueChart, SourceSplit } from "@/components/pages/admin/insights/Charts";
+import { InquiryInbox } from "@/components/pages/admin/insights/InquiryInbox";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
@@ -37,10 +37,12 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
     const aq = (one("aq") ?? "").trim().slice(0, 60);
     const aa = (AUDIT_ACTIONS as readonly string[]).includes(one("aa") ?? "") ? one("aa")! : "";
 
-    const insights = getInsights(user, { from, to, branch: branch || undefined });
-    const attention = getAttention(user, branch || undefined);
-    const inquiries = listInquiries(user);
-    const audit = getAuditEntries(user, { branch: branch || undefined, q: aq, action: aa });
+    const [insights, attention, inquiries, audit] = await Promise.all([
+        getInsights(user, { from, to, branch: branch || undefined }),
+        getAttention(user, branch || undefined),
+        listInquiries(user),
+        getAuditEntries(user, { branch: branch || undefined, q: aq, action: aa }),
+    ]);
 
     return (
         <div className="mx-auto max-w-6xl space-y-8 px-4 py-5 pb-24">
