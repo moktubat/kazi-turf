@@ -1,4 +1,4 @@
-// Temporary in-memory data layer. Replaced by Mongoose models (Batch 6).
+// Temporary in-memory data layer. Replaced by Mongoose models (Batch 7).
 // globalThis keeps one copy across route bundles and dev hot reloads.
 import "server-only";
 import { claims as seedClaims } from "@/data/claims";
@@ -7,6 +7,7 @@ import { hashPasswordSync } from "@/server/auth/password";
 import type { SlotClaim } from "@/types";
 import type { ChangeRequest } from "@/types/account";
 import type { Booking, Inquiry } from "@/types/booking";
+import type { AuditLog, CheckIn, Payment } from "@/types/ops";
 import type { SessionRecord, User } from "@/types/user";
 
 interface Store {
@@ -16,6 +17,9 @@ interface Store {
     users: User[];
     sessions: SessionRecord[];
     changeRequests: ChangeRequest[];
+    payments: Payment[];
+    checkIns: CheckIn[];
+    auditLogs: AuditLog[];
 }
 
 function seedUsers(): User[] {
@@ -44,4 +48,12 @@ export const store: Store = (g.__ktStore ??= {
     users: seedUsers(),
     sessions: [],
     changeRequests: [],
+    payments: [],
+    checkIns: [],
+    auditLogs: [],
 });
+
+// Hot-reload safety: a store created by an older batch may lack newer collections.
+store.payments ??= [];
+store.checkIns ??= [];
+store.auditLogs ??= [];

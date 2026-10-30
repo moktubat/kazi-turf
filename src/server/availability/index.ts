@@ -16,6 +16,11 @@ export interface Cell {
     tier: string;
 }
 
+export interface AvailabilityOptions {
+    /** Staff only: a slot already in progress still counts as open (walk-ins). */
+    allowStarted?: boolean;
+}
+
 export function getPitch(pitchId: string): Pitch | undefined {
     return pitches.find((p) => p.id === pitchId);
 }
@@ -27,7 +32,12 @@ export function getBranchPitches(branchId: string, sport?: string): Pitch[] {
 }
 
 /** Fixed 90-minute grid from opening time (spec 8.3). */
-export function getPitchAvailability(pitchId: string, date: string, now: Date = new Date()): Cell[] {
+export function getPitchAvailability(
+    pitchId: string,
+    date: string,
+    now: Date = new Date(),
+    opts: AvailabilityOptions = {}
+): Cell[] {
     const pitch = getPitch(pitchId);
     if (!pitch) return [];
 
@@ -46,6 +56,7 @@ export function getPitchAvailability(pitchId: string, date: string, now: Date = 
     const cells: Cell[] = [];
     for (let m = open; m + step <= close; m += step) {
         const startDate = dhakaToUtc(date, m);
+        const endDate = dhakaToUtc(date, m + step);
         const iso = startDate.toISOString();
         const rate = priceForCell(pitchId, startDate);
         if (!rate) continue;
@@ -53,7 +64,7 @@ export function getPitchAvailability(pitchId: string, date: string, now: Date = 
         let status: SlotStatus = "AVAILABLE";
         const claim = active.get(iso);
         if (claim) status = claim.state;
-        else if (startDate <= now) status = "PAST";
+        else if ((opts.allowStarted ? endDate : startDate) <= now) status = "PAST";
 
         cells.push({
             pitchId,
