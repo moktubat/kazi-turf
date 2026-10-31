@@ -12,7 +12,10 @@ import type { Booking } from "@/types/booking";
 import type { Payment } from "@/types/ops";
 import { findBookingByCode, settle, toDto } from "./index";
 
-export async function listAccountBookings(user: ServerUser, now: Date = new Date()) {
+export async function listAccountBookings(
+    user: ServerUser,
+    now: Date
+) {
     await connectDb();
     const raw = plainAll<Booking>(await BookingModel.find({ customerId: user.id }).lean());
     const mine = await Promise.all(raw.map((b) => settle(b, now))); // expired holds become EXPIRED

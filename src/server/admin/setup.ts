@@ -9,7 +9,7 @@ import { pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
 import { daysLabel } from "@/lib/grid";
 import { slugify } from "@/lib/slug";
-import { dhakaParts, toHHMM, toMinutes, todayDhaka } from "@/lib/time";
+import { dhakaParts, toHHMM, toMinutes } from "@/lib/time";
 import { BookingModel, SlotClaimModel, UserModel } from "@/models";
 import type {
     BranchInput, BranchUpdateInput, PitchInput, PitchUpdateInput, PolicyInput,
@@ -30,6 +30,7 @@ import type { AuditMeta } from "@/types/ops";
 import type { PolicyForm, SetupData, SetupRate, SetupStaff, SetupTab } from "@/types/setup";
 import type { User } from "@/types/user";
 import { assertSuperAdmin } from "./access";
+import { todayDhaka } from "@/lib/time.server";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -524,7 +525,7 @@ function gapLines(p: Pitch, today: string): string[] {
     return lines;
 }
 
-export async function getSetupData(user: ServerUser, now: Date = new Date()): Promise<SetupData> {
+export async function getSetupData( user: ServerUser, now: Date ): Promise<SetupData> {
     assertSetupAccess(user);
     await connectDb();
     const isAdmin = user.role === "SUPER_ADMIN";

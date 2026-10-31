@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { StaffDesk } from "@/components/pages/admin/StaffDesk";
 import { Button } from "@/components/ui/Button";
 import { policies } from "@/data/site";
-import { addDays, todayDhaka } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { accessibleBranches } from "@/server/admin/access";
 import { requireStaffPage } from "@/server/auth/pageGuards";
+import { todayDhaka } from "@/lib/time.server";
 
 export const metadata: Metadata = { title: "Staff Desk" };
 

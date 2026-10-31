@@ -1,6 +1,6 @@
 // Admin guarantees: branch scope, one check-in per booking, one balance collection, walk-ins vs holds.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { addDays, dhakaParts, dhakaToUtc, todayDhaka } from "@/lib/time";
+import { addDays, dhakaParts, dhakaToUtc } from "@/lib/time";
 import { AuditLogModel, BookingModel, CheckInModel, PaymentModel } from "@/models";
 import { checkIn, collectBalance } from "@/server/admin/operations";
 import { getBookingDetail, searchBookings } from "@/server/admin/search";
@@ -9,6 +9,7 @@ import type { ServerUser } from "@/server/auth/session";
 import { createBooking } from "@/server/bookings";
 import type { Booking } from "@/types/booking";
 import { resetDb, startDb, stopDb } from "./helpers";
+import { todayDhaka } from "@/lib/time.server";
 
 const mkUser = (id: string, role: ServerUser["role"], branchIds: string[]): ServerUser => ({
     id, name: id, role, phone: "01700000000", email: null, branchIds, permissions: [],

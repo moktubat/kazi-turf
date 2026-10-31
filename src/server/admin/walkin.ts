@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
 import { formatBDT } from "@/lib/format";
-import { addDays, dhakaParts, todayDhaka } from "@/lib/time";
+import { addDays, dhakaParts } from "@/lib/time";
 import { BookingModel, PaymentModel, UserModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import { assertBranchAccess } from "@/server/auth/guards";
@@ -19,6 +19,7 @@ import { quote } from "@/server/pricing";
 import type { AdminBookingDto } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 import { toAdminDto } from "./dto";
+import { todayDhaka } from "@/lib/time.server";
 
 /** Walk-in rules: staff may book a slot already in progress; everything else matches /book. */
 export async function validateWalkIn(user: ServerUser, pitchId: string, cellStarts: string[], now: Date) {

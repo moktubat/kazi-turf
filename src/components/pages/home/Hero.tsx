@@ -1,8 +1,9 @@
 import { Wallet, MapPin, Percent } from "lucide-react";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
-import { addDays, todayDhaka } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { QuickFinder } from "./QuickFinder";
+import { todayDhaka } from "@/lib/time.server";
 
 export async function Hero() {
     const today = await todayDhaka();

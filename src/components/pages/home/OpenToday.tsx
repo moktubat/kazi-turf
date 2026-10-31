@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { branches } from "@/data/branches";
 import { getNextOpenSlots, getPitch } from "@/server/availability";
-import { addDays, todayDhaka } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { formatBDT } from "@/lib/format";
 import { Section } from "./Section";
+import { todayDhaka } from "@/lib/time.server";
 
 export async function OpenToday() {
     const today = await todayDhaka();

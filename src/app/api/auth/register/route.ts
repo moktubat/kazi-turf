@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         const input = registerSchema.parse(await readJson(req));
         const user = await registerCustomer(input);
 
-        const { token, expires } = createSession(user.id);
+        const { token, expires } = await createSession(user.id);
         const res = ok({ user: toSessionUser(user) }, 201);
         res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(expires));
         return res;

@@ -9,7 +9,7 @@ vi.mock("@/server/payments/bkash", () => ({
     bkashQuery: vi.fn(),
 }));
 
-import { addDays, dhakaToUtc, todayDhaka } from "@/lib/time";
+import { addDays, dhakaToUtc } from "@/lib/time";
 import { BookingModel, PaymentModel, SlotClaimModel } from "@/models";
 import type { ServerUser } from "@/server/auth/session";
 import { createBooking } from "@/server/bookings";
@@ -20,6 +20,7 @@ import { startBkashPayment } from "@/server/payments/start";
 import type { Booking } from "@/types/booking";
 import type { Payment } from "@/types/ops";
 import { resetDb, startDb, stopDb } from "./helpers";
+import { todayDhaka } from "@/lib/time.server";
 
 const user: ServerUser = {
     id: "u-test",

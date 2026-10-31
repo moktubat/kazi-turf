@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
-import { addDays, todayDhaka } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { availabilityQuerySchema } from "@/schemas/booking";
 import { findNextAvailableDate, getBranchPitches, getPitchAvailability } from "@/server/availability";
 import { AppError, clientIp, handleError, ok } from "@/server/http";
 import { rateLimit } from "@/server/security/rateLimit";
 import type { AvailabilityResponse } from "@/types/booking";
+import { todayDhaka } from "@/lib/time.server";
 
 export async function GET(req: NextRequest) {
     try {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
         }
 
         const now = new Date();
-        const today = await todayDhaka(now);          // ← await added
+        const today = await todayDhaka(now);
         const last = addDays(today, policies.bookingHorizonDays);
 
         if (q.date < today || q.date > last) {

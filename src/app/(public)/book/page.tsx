@@ -6,10 +6,11 @@ import type { FlowBranch } from "@/components/pages/booking/FilterBar";
 import { Button } from "@/components/ui/Button";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
-import { addDays, todayDhaka } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { getSessionUser } from "@/server/auth/session";
 import { getPitch } from "@/server/availability";
 import { connectDb } from "@/server/db/connect";
+import { todayDhaka } from "@/lib/time.server";
 
 export const metadata: Metadata = { title: "Book a slot" };
 

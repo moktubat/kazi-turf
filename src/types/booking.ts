@@ -1,6 +1,7 @@
 import type { BookingStatus, PaymentStatus } from "@/types";
 import type { Cell } from "@/server/availability";
 
+
 export interface Booking {
     id: string;
     bookingCode: string;
@@ -9,9 +10,9 @@ export interface Booking {
     phone: string;
     branchId: string;
     pitchId: string;
-    date: string; // Dhaka calendar date of first slot
-    startAt: string; // ISO UTC
-    endAt: string; // ISO UTC
+    date: string;
+    startAt: string;
+    endAt: string;
     cellStarts: string[];
     slotCount: number;
     bookingStatus: BookingStatus;
@@ -24,8 +25,13 @@ export interface Booking {
     advancePercentSnapshot: number;
     vatRatePercentSnapshot: number | null;
     source: "online" | "counter";
-    holdExpiresAt: string; // ISO UTC, server-authoritative
+    holdExpiresAt: string;
     createdAt: string;
+
+    // Check-in and cancellation information
+    checkedInAt?: string | null;
+    cancelledAt?: string | null;
+    cancelReason?: string | null;
 }
 
 /** What the browser is allowed to see. */

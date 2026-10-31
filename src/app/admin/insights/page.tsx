@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
 import { branches } from "@/data/branches";
-import { addDays, todayDhaka } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { getAttention, getAuditEntries, getInsights, listInquiries, MAX_RANGE_DAYS } from "@/server/admin/insights";
 import { requireAdminPage } from "@/server/auth/pageGuards";
 import { AUDIT_ACTIONS } from "@/types/ops";
+import { todayDhaka } from "@/lib/time.server";
 
 export const metadata: Metadata = { title: "Insights" };
 

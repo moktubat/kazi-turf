@@ -1,10 +1,11 @@
 // The core promise (spec §1.2): two customers can never confirm the same pitch and time.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { addDays, dhakaToUtc, todayDhaka } from "@/lib/time";
+import { addDays, dhakaToUtc } from "@/lib/time";
 import { BookingModel, SlotClaimModel } from "@/models";
 import type { ServerUser } from "@/server/auth/session";
 import { createBooking } from "@/server/bookings";
 import { resetDb, startDb, stopDb } from "./helpers";
+import { todayDhaka } from "@/lib/time.server";
 
 const PITCH = "bogura-b"; // allows 2 consecutive slots
 const user = (n: number): ServerUser => ({

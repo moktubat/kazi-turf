@@ -1,10 +1,10 @@
-// src/app/(customer)/account/page.tsx
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AccountView } from "@/components/pages/account/AccountView";
 import { getSessionUser } from "@/server/auth/session";
 import { listAccountBookings } from "@/server/bookings/account";
+import { connection } from "next/server";
 
 export const metadata: Metadata = { title: "My account" };
 
@@ -13,6 +13,7 @@ const CODE = /^KT-[A-HJ-NP-Z2-9]{6}$/;
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function AccountPage({ searchParams }: { searchParams: Params }) {
+    await connection();
     const sp = await searchParams;
     const raw = Array.isArray(sp.b) ? sp.b[0] : sp.b;
     const code = raw && CODE.test(raw) ? raw : null;
@@ -22,7 +23,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Para
 
     // Staff do not hold customer bookings (spec §3). They see their profile only.
     const showBookings = user.role !== "STAFF";
-    const { upcoming, history } = showBookings ? listAccountBookings(user) : { upcoming: [], history: [] };
+    const { upcoming, history } = showBookings ? await listAccountBookings(user, new Date()) : { upcoming: [], history: [] };
     const isStaff = user.role === "STAFF" || user.role === "SUPER_ADMIN";
 
     return (

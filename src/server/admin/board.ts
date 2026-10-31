@@ -2,7 +2,7 @@
 import "server-only";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
-import { addDays, dhakaToUtc, todayDhaka } from "@/lib/time";
+import { addDays, dhakaToUtc } from "@/lib/time";
 import { BookingModel, ChangeRequestModel, PaymentModel, SlotClaimModel } from "@/models";
 import { assertBranchAccess } from "@/server/auth/guards";
 import type { ServerUser } from "@/server/auth/session";
@@ -14,6 +14,7 @@ import { AppError } from "@/server/http";
 import type { BoardCell, BoardResponse } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 import { SlotClaim } from "@/types";
+import { todayDhaka } from "@/lib/time.server";
 
 export async function getBoard(
     user: ServerUser,

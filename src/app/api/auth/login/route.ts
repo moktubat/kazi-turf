@@ -12,18 +12,29 @@ export async function POST(req: NextRequest) {
         const input = loginSchema.parse(await readJson(req));
 
         const window = 10 * 60_000;
+
         if (
             !rateLimit(`login-ip:${clientIp(req)}`, 20, window) ||
             !rateLimit(`login-id:${input.identifier.toLowerCase()}`, 8, window)
         ) {
-            throw new AppError("RATE_LIMITED", "Too many attempts. Please wait a few minutes.", 429);
+            throw new AppError(
+                "RATE_LIMITED",
+                "Too many attempts. Please wait a few minutes.",
+                429
+            );
         }
 
         const user = await authenticate(input.identifier, input.password);
-        // One generic message, whichever part was wrong.
-        if (!user) throw new AppError("INVALID_CREDENTIALS", "Incorrect email, phone or password.", 401);
 
-        const { token, expires } = createSession(user.id);
+        if (!user) {
+            throw new AppError(
+                "INVALID_CREDENTIALS",
+                "Incorrect email, phone or password.",
+                401
+            );
+        }
+
+        const { token, expires } = await createSession(user.id);
         const res = ok({ user: toSessionUser(user) });
         res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(expires));
         return res;

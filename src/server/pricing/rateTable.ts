@@ -1,5 +1,5 @@
 import { pricingRules } from "@/data/pricing";
-import { todayDhaka } from "@/lib/time";
+import { todayDhaka } from "@/lib/time.server";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

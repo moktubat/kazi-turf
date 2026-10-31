@@ -4,7 +4,7 @@ import "server-only";
 import { randomInt, randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
-import { addDays, dhakaParts, toHHMM, todayDhaka } from "@/lib/time";
+import { addDays, dhakaParts, toHHMM } from "@/lib/time";
 import { BookingModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import type { ServerUser } from "@/server/auth/session";
@@ -15,6 +15,7 @@ import { plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import { quote } from "@/server/pricing";
 import type { Booking, BookingDto } from "@/types/booking";
+import { todayDhaka } from "@/lib/time.server";
 
 export { releaseClaims };
 

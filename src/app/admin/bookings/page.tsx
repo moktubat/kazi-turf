@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { BookingsView } from "@/components/pages/admin/BookingsView";
-import { addDays, todayDhaka } from "@/lib/time";
+import { addDays } from "@/lib/time";
 import { accessibleBranches } from "@/server/admin/access";
 import { requireStaffPage } from "@/server/auth/pageGuards";
+import { todayDhaka } from "@/lib/time.server";
 
 export const metadata: Metadata = { title: "Bookings" };
 
