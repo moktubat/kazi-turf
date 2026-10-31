@@ -18,6 +18,7 @@ type Params = Promise<Record<string, string | string[] | undefined>>;
 export default async function BookPage({ searchParams }: { searchParams: Params }) {
     await connectDb();
     const sp = await searchParams;
+
     const one = (k: string) => {
         const v = sp[k];
         return Array.isArray(v) ? v[0] : v;
@@ -25,10 +26,12 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
 
     const user = await getSessionUser();
 
-    // Step 3: result, always server-verified
+    // Step 3: result – always server-verified
     const code = one("booking");
     if (code) {
-        if (!user) redirect(`/login?next=${encodeURIComponent(`/book?booking=${code}`)}`);
+        if (!user) {
+            redirect(`/login?next=${encodeURIComponent(`/book?booking=${code}`)}`);
+        }
         return <BookingResult code={code} />;
     }
 
@@ -46,22 +49,36 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
         );
     }
 
-    // Resolve deep links safely: ignore anything invalid.
+    // Resolve deep links safely – ignore anything invalid
     const today = await todayDhaka();
     const maxDate = addDays(today, policies.bookingHorizonDays);
 
-    const pitch = one("pitch") ? getPitch(one("pitch")!) : undefined;
+    const pitchId = one("pitch");
+    const pitch = pitchId ? getPitch(pitchId) : undefined;
+
     const wantedBranch = one("branch") ?? pitch?.branchId;
     const branch = active.find((b) => b.id === wantedBranch) ?? active[0];
 
     const wantedSport = one("sport") ?? pitch?.sport;
-    const sport = wantedSport && branch.sports.includes(wantedSport) ? wantedSport : branch.sports[0];
+    const sport =
+        wantedSport && branch.sports.includes(wantedSport)
+            ? wantedSport
+            : branch.sports[0];
 
     const rawDate = one("date");
-    const date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && rawDate >= today && rawDate <= maxDate ? rawDate : today;
+    const date =
+        rawDate &&
+            /^\d{4}-\d{2}-\d{2}$/.test(rawDate) &&
+            rawDate >= today &&
+            rawDate <= maxDate
+            ? rawDate
+            : today;
 
     const slot = one("slot");
-    const validPitch = pitch && pitch.branchId === branch.id && pitch.sport === sport ? pitch : undefined;
+    const validPitch =
+        pitch && pitch.branchId === branch.id && pitch.sport === sport
+            ? pitch
+            : undefined;
 
     const initial: FlowInitial = {
         branchId: branch.id,

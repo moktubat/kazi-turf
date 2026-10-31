@@ -16,18 +16,25 @@ export const metadata: Metadata = { title: "Insights" };
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
-const validDate = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+const validDate = (v?: string) =>
+    !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
 
 export default async function InsightsPage({ searchParams }: { searchParams: Params }) {
     const sp = await searchParams;
-    const one = (k: string) => (Array.isArray(sp[k]) ? sp[k]![0] : (sp[k] as string | undefined));
+    const one = (k: string) => {
+        const v = sp[k];
+        return Array.isArray(v) ? v[0] : v;
+    };
+
     const user = await requireAdminPage("/admin/insights");
 
-    // Resolve filters safely: anything invalid falls back to a sensible default.
+    // Resolve filters safely – anything invalid falls back to a sensible default.
     const today = await todayDhaka();
     const to = validDate(one("to")) ? one("to")! : today;
     let from = validDate(one("from")) ? one("from")! : addDays(to, -29);
+
     if (from > to) from = addDays(to, -29);
+
     if (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`) >= MAX_RANGE_DAYS * 86_400_000) {
         from = addDays(to, -(MAX_RANGE_DAYS - 1));
     }
@@ -48,7 +55,11 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
             <h1 className="text-2xl font-extrabold md:text-3xl">Insights</h1>
 
             <Card>
-                <form method="get" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end" aria-label="Filters">
+                <form
+                    method="get"
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
+                    aria-label="Filters"
+                >
                     <input type="hidden" name="aq" value={aq} />
                     <input type="hidden" name="aa" value={aa} />
                     <Input label="From" type="date" name="from" defaultValue={from} max={today} />
@@ -58,12 +69,16 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
                         {branches
                             .filter((b) => b.status !== "COMING_SOON")
                             .map((b) => (
-                                <option key={b.id} value={b.id}>{b.name}</option>
+                                <option key={b.id} value={b.id}>
+                                    {b.name}
+                                </option>
                             ))}
                     </Select>
                     <Button type="submit">Apply</Button>
                 </form>
-                <p className="mt-3 text-xs text-evergreen/70">Up to {MAX_RANGE_DAYS} days. Dates are Asia/Dhaka.</p>
+                <p className="mt-3 text-xs text-evergreen/70">
+                    Up to {MAX_RANGE_DAYS} days. Dates are Asia/Dhaka.
+                </p>
             </Card>
 
             <KpiCards k={insights.kpis} />

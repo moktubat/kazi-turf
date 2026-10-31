@@ -13,6 +13,7 @@ import { plainAll } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import type { BoardCell, BoardResponse } from "@/types/admin";
 import type { Booking } from "@/types/booking";
+import { SlotClaim } from "@/types";
 
 export async function getBoard(
     user: ServerUser,
@@ -24,13 +25,13 @@ export async function getBoard(
     if (!branch || branch.status === "COMING_SOON") throw new AppError("NOT_FOUND", "Branch not found.", 404);
     assertBranchAccess(user, branch.id);
 
-    const today = todayDhaka(now);
+    const today = await todayDhaka(now);
     if (date < addDays(today, -90) || date > addDays(today, policies.bookingHorizonDays)) {
         throw new AppError("OUT_OF_RANGE", "That date is outside the range you can view.", 400);
     }
 
     await connectDb();
-    await settleExpired({ branchId: branch.id }, now); // free expired holds before reading
+    await settleExpired({ branchId: branch.id }, now);
 
     const from = dhakaToUtc(date, 0).toISOString();
     const to = dhakaToUtc(addDays(date, 1), 0).toISOString();
@@ -39,7 +40,8 @@ export async function getBoard(
     const claims = await SlotClaimModel.find({
         pitchId: { $in: list.map((p) => p.id) },
         cellStart: { $gte: from, $lt: to },
-    }).lean<any[]>();
+    }).lean<SlotClaim[]>();
+
     const claimBy = new Map(claims.map((c) => [`${c.pitchId}|${c.cellStart}`, c]));
     const bookingIds = [...new Set(claims.map((c) => c.bookingId).filter(Boolean))];
 

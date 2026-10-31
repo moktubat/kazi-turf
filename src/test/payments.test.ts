@@ -31,7 +31,12 @@ const user: ServerUser = {
     permissions: [],
 };
 
-const cell = () => dhakaToUtc(addDays(todayDhaka(), 1), 12 * 60).toISOString(); // tomorrow 12:00
+const cell = async () => {
+    const today = await todayDhaka(new Date());
+    const tomorrow = addDays(today, 1);
+
+    return dhakaToUtc(tomorrow, 12 * 60).toISOString();
+};
 
 const done = (p: Payment, over: Partial<RemotePayment> = {}): RemotePayment => ({
     state: "COMPLETED",
@@ -48,7 +53,7 @@ const getBooking = async (code: string) =>
 const getPayment = async (id: string) => plain<Payment>(await PaymentModel.findOne({ id }).lean());
 
 async function setup() {
-    const dto = await createBooking(user, { pitchId: "bogura-b", cellStarts: [cell()], phone: "01711111111" });
+    const dto = await createBooking(user, { pitchId: "bogura-b", cellStarts: [await cell()], phone: "01711111111" });
     await startBkashPayment(user, dto.code);
     const payment = plain<Payment>(await PaymentModel.findOne({}).lean());
     return { code: dto.code, payment };
@@ -150,7 +155,7 @@ describe("bKash advance", () => {
         const { code, payment } = await setup();
         await BookingModel.updateOne({ bookingCode: code }, { holdExpiresAt: new Date(Date.now() - 60_000).toISOString() });
         await SlotClaimModel.deleteMany({});
-        await SlotClaimModel.create({ pitchId: "bogura-b", cellStart: cell(), state: "BOOKED", bookingId: "someone-else" });
+        await SlotClaimModel.create({ pitchId: "bogura-b", cellStart: await cell(), state: "BOOKED", bookingId: "someone-else" });
         vi.mocked(bkashExecute).mockResolvedValue(done(payment));
 
         expect(await settlePayment(payment.id, "success")).toBe("REFUND");
@@ -178,7 +183,7 @@ describe("bKash advance", () => {
     });
 
     it("a double tap on Pay starts only one attempt", async () => {
-        const dto = await createBooking(user, { pitchId: "bogura-b", cellStarts: [cell()], phone: "01711111111" });
+        const dto = await createBooking(user, { pitchId: "bogura-b", cellStarts: [await cell()], phone: "01711111111" });
         const results = await Promise.allSettled([startBkashPayment(user, dto.code), startBkashPayment(user, dto.code)]);
 
         expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);

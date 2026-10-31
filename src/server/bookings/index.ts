@@ -96,7 +96,7 @@ export async function validateSelection(pitchId: string, cellStarts: string[], n
     });
     dates.sort((a, b) => a.getTime() - b.getTime());
 
-    const today = todayDhaka(now);
+    const today = await todayDhaka(now);
     const date = dhakaParts(dates[0]).date;
     if (date < today || date > addDays(today, policies.bookingHorizonDays)) {
         throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);

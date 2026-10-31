@@ -154,7 +154,10 @@ async function assertScheduleSafe(pitchId: string, openTime: string, closeTime: 
     const close = toMinutes(closeTime);
     const since = new Date(now.getTime() - step * 60_000).toISOString(); // cells that ended already are history
 
-    const claims = await SlotClaimModel.find({ pitchId, cellStart: { $gte: since } }).lean<any[]>();
+    const claims = await SlotClaimModel.find({
+        pitchId,
+        cellStart: { $gte: since },
+    }).lean<Array<{ cellStart: string; state: string; expiresAt?: string }>>();
     for (const c of claims) {
         const t = new Date(c.cellStart);
         if (t.getTime() + step * 60_000 <= now.getTime()) continue;
@@ -394,7 +397,11 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
 export async function updateStaff(user: ServerUser, input: StaffUpdateInput) {
     assertSuperAdmin(user);
     await begin();
-    const u = await UserModel.findOne({ id: input.id, role: { $ne: "CUSTOMER" } }).lean<any>();
+    const u = await UserModel.findOne({
+        id: input.id,
+        role: { $ne: "CUSTOMER" },
+    }).lean<User | null>();
+    
     if (!u) throw new AppError("NOT_FOUND", "Staff account not found.", 404);
     if (u.id === user.id) {
         throw new AppError("SELF_EDIT", "You cannot change your own role or access here. Another Super Admin can do it.", 409);
@@ -522,7 +529,7 @@ export async function getSetupData(user: ServerUser, now: Date = new Date()): Pr
     await connectDb();
     const isAdmin = user.role === "SUPER_ADMIN";
     const step = policies.slotMinutes;
-    const today = todayDhaka(now);
+    const today = await todayDhaka(now);
 
     await settleExpired({}, now); // expired holds do not count as upcoming
 

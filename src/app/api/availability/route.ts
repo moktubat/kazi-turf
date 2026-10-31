@@ -30,8 +30,9 @@ export async function GET(req: NextRequest) {
         }
 
         const now = new Date();
-        const today = todayDhaka(now);
+        const today = await todayDhaka(now);          // ← await added
         const last = addDays(today, policies.bookingHorizonDays);
+
         if (q.date < today || q.date > last) {
             throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
         }
@@ -48,14 +49,18 @@ export async function GET(req: NextRequest) {
         );
 
         const hasOpen = pitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE"));
+
         const body: AvailabilityResponse = {
             branchId: branch.id,
             sport: q.sport,
             date: q.date,
             updatedAt: now.toISOString(),
             pitches,
-            nextAvailableDate: hasOpen ? null : await findNextAvailableDate(branch.id, q.sport, q.date, last, now),
+            nextAvailableDate: hasOpen
+                ? null
+                : await findNextAvailableDate(branch.id, q.sport, q.date, last, now),
         };
+
         return ok(body);
     } catch (e) {
         return handleError(e);

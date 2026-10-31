@@ -17,12 +17,15 @@ export default async function AdminPage() {
             <div className="mx-auto max-w-xl px-4 py-16 text-center">
                 <h1 className="text-2xl font-extrabold">No branch assigned</h1>
                 <p className="mt-2 text-evergreen/80">Ask a Super Admin to assign you to a branch.</p>
-                <Button href="/account" className="mt-6" variant="outline">Go to my account</Button>
+                <Button href="/account" className="mt-6" variant="outline">
+                    Go to my account
+                </Button>
             </div>
         );
     }
 
     const today = await todayDhaka();
+
     return (
         <StaffDesk
             branches={branches}

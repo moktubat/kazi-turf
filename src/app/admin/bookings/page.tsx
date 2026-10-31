@@ -14,7 +14,9 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
     const branches = accessibleBranches(user).map(({ id, name }) => ({ id, name }));
 
     const today = await todayDhaka();
-    const requestOnly = (Array.isArray(sp.request) ? sp.request[0] : sp.request) === "open";
+
+    const requestParam = Array.isArray(sp.request) ? sp.request[0] : sp.request;
+    const requestOnly = requestParam === "open";
 
     return (
         <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-24">

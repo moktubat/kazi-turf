@@ -18,7 +18,9 @@ const user = (n: number): ServerUser => ({
 });
 
 // Tomorrow at the given Dhaka time. 12:00 and 13:30 and 15:00 are consecutive 90-minute cells.
-const cell = (h: number, m = 0) => dhakaToUtc(addDays(todayDhaka(), 1), h * 60 + m).toISOString();
+const tomorrow = await todayDhaka();
+const cell = (h: number, m = 0) =>
+    dhakaToUtc(addDays(tomorrow, 1), h * 60 + m).toISOString();
 const book = (n: number, cells: string[]) =>
     createBooking(user(n), { pitchId: PITCH, cellStarts: cells, phone: "01711111111" });
 
