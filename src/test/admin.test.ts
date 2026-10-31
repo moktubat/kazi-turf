@@ -32,7 +32,9 @@ const mk = (code: string, over: Partial<Booking> = {}): Booking => {
     };
 };
 const NAME = { identity: { method: "NAME" as const }, collectBalance: false };
-const cell = (h: number) => dhakaToUtc(addDays(todayDhaka(), 1), h * 60).toISOString();
+const now = new Date("2026-10-30T12:00:00Z");
+const TODAY = await todayDhaka(now);
+const cell = (h: number) => dhakaToUtc(addDays(TODAY, 1), h * 60).toISOString();
 
 beforeAll(startDb, 180_000);
 afterAll(stopDb);

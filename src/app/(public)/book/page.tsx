@@ -47,7 +47,7 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
     }
 
     // Resolve deep links safely: ignore anything invalid.
-    const today = todayDhaka();
+    const today = await todayDhaka();
     const maxDate = addDays(today, policies.bookingHorizonDays);
 
     const pitch = one("pitch") ? getPitch(one("pitch")!) : undefined;

@@ -22,7 +22,7 @@ export default async function AdminPage() {
         );
     }
 
-    const today = todayDhaka();
+    const today = await todayDhaka();
     return (
         <StaffDesk
             branches={branches}

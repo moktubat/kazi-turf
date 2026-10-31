@@ -1,5 +1,5 @@
-// Builds the public rate table from the same pricing data used by quote().
 import { pricingRules } from "@/data/pricing";
+import { todayDhaka } from "@/lib/time";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -21,10 +21,8 @@ export interface RateRow {
     peak: RateCell | null;
 }
 
-export function getRateTable(pitchId: string): RateRow[] {
-    const today = new Date().toLocaleDateString("en-CA", {
-        timeZone: "Asia/Dhaka",
-    });
+export async function getRateTable(pitchId: string): Promise<RateRow[]> {
+    const today = await todayDhaka();
 
     const rows = new Map<string, RateRow>();
 

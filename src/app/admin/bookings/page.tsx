@@ -13,7 +13,7 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
     const user = await requireStaffPage("/admin/bookings");
     const branches = accessibleBranches(user).map(({ id, name }) => ({ id, name }));
 
-    const today = todayDhaka();
+    const today = await todayDhaka();
     const requestOnly = (Array.isArray(sp.request) ? sp.request[0] : sp.request) === "open";
 
     return (

@@ -4,8 +4,8 @@ import { policies } from "@/data/site";
 import { addDays, todayDhaka } from "@/lib/time";
 import { QuickFinder } from "./QuickFinder";
 
-export function Hero() {
-    const today = todayDhaka();
+export async function Hero() {
+    const today = await todayDhaka();
     const active = branches
         .filter((b) => b.status === "ACTIVE" && b.sports.length > 0)
         .map(({ id, name, sports }) => ({ id, name, sports }));

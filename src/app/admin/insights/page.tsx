@@ -24,7 +24,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
     const user = await requireAdminPage("/admin/insights");
 
     // Resolve filters safely: anything invalid falls back to a sensible default.
-    const today = todayDhaka();
+    const today = await todayDhaka();
     const to = validDate(one("to")) ? one("to")! : today;
     let from = validDate(one("from")) ? one("from")! : addDays(to, -29);
     if (from > to) from = addDays(to, -29);

@@ -7,7 +7,7 @@ import { formatBDT } from "@/lib/format";
 import { Section } from "./Section";
 
 export async function OpenToday() {
-    const today = todayDhaka();
+    const today = await todayDhaka();
     const tomorrow = addDays(today, 1);
 
     const rows = await Promise.all(

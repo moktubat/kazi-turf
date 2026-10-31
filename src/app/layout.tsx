@@ -43,10 +43,7 @@ async function HeaderWithUser() {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  await connectDb(); // opens the connection and loads live Setup values (branches, pitches, rates, policies)
-  const u = await getSessionUser();
-  // Only what the header needs. Phone, email and branch IDs never go to the client here.
-  const user = u ? { id: u.id, name: u.name, role: u.role } : null;
+  await connectDb(); // keep this if you still need the side-effect of loading Setup
 
   return (
     <html lang="en" className={`${jakarta.variable} ${vietnam.variable}`}>

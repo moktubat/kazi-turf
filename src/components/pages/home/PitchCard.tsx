@@ -11,8 +11,8 @@ const facilityIcon: Record<string, React.ElementType> = {
     Washroom: Droplets,
 };
 
-export function PitchCard({ pitch }: { pitch: Pitch }) {
-    const rows = getRateTable(pitch.id);
+export async function PitchCard({ pitch }: { pitch: Pitch }) {
+    const rows = await getRateTable(pitch.id);
     // Hide placeholder text until a real, verified size is entered.
     const sizeKnown = pitch.dimensions && !/verified/i.test(pitch.dimensions);
 
