@@ -1,4 +1,4 @@
-import { connection } from "next/server";
+import { headers } from "next/headers";
 
 // Asia/Dhaka is a fixed UTC+6 (no DST). Timestamps are stored/handled in UTC.
 const OFFSET_MS = 6 * 60 * 60 * 1000;
@@ -31,16 +31,22 @@ export function dhakaParts(d: Date) {
 }
 
 /**
+ * Request-time "now". Reading headers() marks the render as dynamic, which is what
+ * Cache Components needs before reading the clock. Use this instead of new Date()
+ * in any Server Component, page, or route handler.
+ */
+export async function requestNow(): Promise<Date> {
+    await headers();
+    return new Date();
+}
+
+/**
  * Returns today's date in Asia/Dhaka as "YYYY-MM-DD".
- * When no `now` is supplied the function opts into request-time evaluation
- * (required by Cache Components).
+ * Pass `now` when you already have it (routes, tests, server logic).
  */
 export async function todayDhaka(now?: Date): Promise<string> {
-    if (!now) {
-        await connection(); // marks everything after this as request-time
-        now = new Date();
-    }
-    return dhakaParts(now).date;
+    const at = now ?? (await requestNow());
+    return dhakaParts(at).date;
 }
 
 /**

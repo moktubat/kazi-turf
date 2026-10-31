@@ -2,10 +2,8 @@ import Link from "next/link";
 import { branches } from "@/data/branches";
 import { footerLinks, legalLinks, site } from "@/data/site";
 
-const year = new Date().getFullYear();
+export async function Footer() {
 
-export function Footer() {
-    
     return (
         <footer className="bg-evergreen text-white">
             <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3">
@@ -72,7 +70,7 @@ export function Footer() {
             </div>
 
             <div className="border-t border-white/10 py-4 text-center text-xs text-white/70">
-                © {year} {site.name}. All rights reserved.
+                © 2026 {site.name}. All rights reserved.
             </div>
         </footer>
     );
