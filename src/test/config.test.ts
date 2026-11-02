@@ -32,7 +32,7 @@ describe("persistent Setup", () => {
     it("staff need pitches.edit, and only for their own branches", async () => {
         const id = pricingRules[0].id; // a Bogura rate
         await expect(deleteRate(mk("s1", "STAFF", ["bogura"]), id)).rejects.toMatchObject({ code: "FORBIDDEN" });
-        await expect(deleteRate(mk("s2", "STAFF", ["dhaka"], ["pitches.edit"]), id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+        await expect(deleteRate(mk("s2", "STAFF", [], ["pitches.edit"]), id)).rejects.toMatchObject({ code: "FORBIDDEN" });
 
         const before = pricingRules.length;
         await deleteRate(mk("s3", "STAFF", ["bogura"], ["pitches.edit"]), id);

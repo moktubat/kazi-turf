@@ -19,40 +19,27 @@ function datesBetween(min: string, max: string) {
 }
 
 export function FilterBar({
-    branches,
-    branchId,
+    branch,
     sport,
     date,
     minDate,
     maxDate,
-    onBranch,
     onSport,
     onDate,
 }: {
-    branches: FlowBranch[];
-    branchId: string;
+    branch: FlowBranch;
     sport: string;
     date: string;
     minDate: string;
     maxDate: string;
-    onBranch: (id: string) => void;
     onSport: (s: string) => void;
     onDate: (d: string) => void;
 }) {
-    const branch = branches.find((b) => b.id === branchId);
-
     return (
         <div className="space-y-4 rounded-2xl border border-evergreen/10 bg-white p-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-                <Select label="Branch" value={branchId} onChange={(e) => onBranch(e.target.value)}>
-                    {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                            {b.name}
-                        </option>
-                    ))}
-                </Select>
+            <div className="grid gap-4 sm:grid-cols-2">
                 <Select label="Sport" value={sport} onChange={(e) => onSport(e.target.value)}>
-                    {(branch?.sports ?? []).map((s) => (
+                    {branch.sports.map((s) => (
                         <option key={s} value={s}>
                             {s}
                         </option>

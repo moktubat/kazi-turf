@@ -17,7 +17,7 @@ export function AuditPanel({
     rows: AuditRow[];
     q: string;
     action: string;
-    keep: { from: string; to: string; branch: string };
+    keep: { from: string; to: string };
 }) {
     return (
         <section aria-labelledby="audit-title" className="space-y-3">
@@ -27,7 +27,6 @@ export function AuditPanel({
                 <form method="get" className="grid gap-4 sm:grid-cols-[2fr_1.5fr_auto] sm:items-end" aria-label="Search audit log">
                     <input type="hidden" name="from" value={keep.from} />
                     <input type="hidden" name="to" value={keep.to} />
-                    <input type="hidden" name="branch" value={keep.branch} />
                     <Input label="Search" type="search" name="aq" defaultValue={q} placeholder="Actor, booking code, detail…" />
                     <Select label="Action" name="aa" defaultValue={action}>
                         <option value="">All actions</option>

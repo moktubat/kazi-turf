@@ -153,15 +153,12 @@ function StaffForm({ user, branches, onDone }: { user: SetupStaff | null; branch
             {!isAdmin && (
                 <>
                     <fieldset>
-                        <legend className="mb-1 text-sm font-semibold">Assigned branches</legend>
-                        {branches.map((b) => (
-                            <Check
-                                key={b.id}
-                                label={b.name}
-                                checked={f.branchIds.includes(b.id)}
-                                onChange={(on) => set("branchIds", on ? [...f.branchIds, b.id] : f.branchIds.filter((x) => x !== b.id))}
-                            />
-                        ))}
+                        <legend className="mb-1 text-sm font-semibold">Assigned branch</legend>
+                        <Check
+                            label={branches[0]?.name ?? "Bogura"}
+                            checked={f.branchIds.includes(branches[0]?.id ?? "bogura")}
+                            onChange={(on) => set("branchIds", on ? [branches[0]?.id ?? "bogura"] : [])}
+                        />
                         {fields.branchIds && <p role="alert" className="text-sm font-medium text-booked">{fields.branchIds}</p>}
                     </fieldset>
                     <Check label="Can edit pitches and rates (assigned branches only)" checked={f.canEditPitches} onChange={(v) => set("canEditPitches", v)} />

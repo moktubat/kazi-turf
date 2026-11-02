@@ -36,19 +36,23 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
         return <BookingResult code={code} />;
     }
 
-    const active: FlowBranch[] = branches
-        .filter((b) => b.status === "ACTIVE" && b.sports.length > 0)
-        .map(({ id, name, address, mapUrl, sports }) => ({ id, name, address, mapUrl, sports }));
-
-    if (active.length === 0) {
+    const branchDoc = branches.find((b) => b.status === "ACTIVE" && b.sports.length > 0);
+    if (!branchDoc) {
         return (
             <div className="mx-auto max-w-xl px-4 py-16 text-center">
                 <h1 className="text-2xl font-extrabold">Bookings open soon</h1>
-                <p className="mt-2 text-evergreen/80">No branch is taking online bookings yet.</p>
+                <p className="mt-2 text-evergreen/80">The branch is not taking online bookings yet.</p>
                 <Button href="/" className="mt-6">Back to Home</Button>
             </div>
         );
     }
+    const branch: FlowBranch = {
+        id: branchDoc.id,
+        name: branchDoc.name,
+        address: branchDoc.address,
+        mapUrl: branchDoc.mapUrl,
+        sports: branchDoc.sports,
+    };
 
     // Resolve deep links safely – ignore anything invalid
     const today = await todayDhaka();
@@ -56,9 +60,6 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
 
     const pitchId = one("pitch");
     const pitch = pitchId ? getPitch(pitchId) : undefined;
-
-    const wantedBranch = one("branch") ?? pitch?.branchId;
-    const branch = active.find((b) => b.id === wantedBranch) ?? active[0];
 
     const wantedSport = one("sport") ?? pitch?.sport;
     const sport =
@@ -82,17 +83,16 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
             : undefined;
 
     const initial: FlowInitial = {
-        branchId: branch.id,
         sport,
         date,
         pitchId: validPitch?.id,
         slot: slot && /^\d{2}:\d{2}$/.test(slot) ? slot : undefined,
-        restore: !one("branch") && !one("pitch"),
+        restore: !one("pitch"),
     };
 
     return (
         <BookingFlow
-            branches={active}
+            branch={branch}
             initial={initial}
             minDate={today}
             maxDate={maxDate}

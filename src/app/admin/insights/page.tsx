@@ -5,8 +5,7 @@ import { KpiCards, OccupancyHeatmap, RevenueChart, SourceSplit } from "@/compone
 import { InquiryInbox } from "@/components/pages/admin/insights/InquiryInbox";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input, Select } from "@/components/ui/Field";
-import { branches } from "@/data/branches";
+import { Input } from "@/components/ui/Field";
 import { addDays } from "@/lib/time";
 import { getAttention, getAuditEntries, getInsights, listInquiries, MAX_RANGE_DAYS } from "@/server/admin/insights";
 import { requireAdminPage } from "@/server/auth/pageGuards";
@@ -29,7 +28,6 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
 
     const user = await requireAdminPage("/admin/insights");
 
-    // Resolve filters safely – anything invalid falls back to a sensible default.
     const today = await todayDhaka();
     const to = validDate(one("to")) ? one("to")! : today;
     let from = validDate(one("from")) ? one("from")! : addDays(to, -29);
@@ -40,15 +38,14 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
         from = addDays(to, -(MAX_RANGE_DAYS - 1));
     }
 
-    const branch = branches.some((b) => b.id === one("branch")) ? one("branch")! : "";
     const aq = (one("aq") ?? "").trim().slice(0, 60);
     const aa = (AUDIT_ACTIONS as readonly string[]).includes(one("aa") ?? "") ? one("aa")! : "";
 
     const [insights, attention, inquiries, audit] = await Promise.all([
-        getInsights(user, { from, to, branch: branch || undefined }),
-        getAttention(user, branch || undefined),
+        getInsights(user, { from, to }),
+        getAttention(user),
         listInquiries(user),
-        getAuditEntries(user, { branch: branch || undefined, q: aq, action: aa }),
+        getAuditEntries(user, { q: aq, action: aa }),
     ]);
 
     return (
@@ -58,23 +55,13 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
             <Card>
                 <form
                     method="get"
-                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end"
                     aria-label="Filters"
                 >
                     <input type="hidden" name="aq" value={aq} />
                     <input type="hidden" name="aa" value={aa} />
                     <Input label="From" type="date" name="from" defaultValue={from} max={today} />
                     <Input label="To" type="date" name="to" defaultValue={to} max={today} />
-                    <Select label="Branch" name="branch" defaultValue={branch}>
-                        <option value="">All branches</option>
-                        {branches
-                            .filter((b) => b.status !== "COMING_SOON")
-                            .map((b) => (
-                                <option key={b.id} value={b.id}>
-                                    {b.name}
-                                </option>
-                            ))}
-                    </Select>
                     <Button type="submit">Apply</Button>
                 </form>
                 <p className="mt-3 text-xs text-evergreen/70">
@@ -93,7 +80,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
 
             <AttentionPanel groups={attention} role={user.role} />
             <InquiryInbox items={inquiries} />
-            <AuditPanel rows={audit} q={aq} action={aa} keep={{ from, to, branch }} />
+            <AuditPanel rows={audit} q={aq} action={aa} keep={{ from, to }} />
         </div>
     );
 }

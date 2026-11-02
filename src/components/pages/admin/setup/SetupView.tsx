@@ -9,7 +9,7 @@ import { RatesTab } from "./RatesTab";
 import { StaffTab } from "./StaffTab";
 
 const LABELS: Record<SetupTab, string> = {
-    branches: "Branches",
+    branch: "Branch",
     pitches: "Pitches",
     rates: "Rates",
     staff: "Staff",
@@ -18,7 +18,6 @@ const LABELS: Record<SetupTab, string> = {
 
 export function SetupView({ data }: { data: SetupData }) {
     const [tab, setTab] = useState<SetupTab>(data.tabs[0]);
-
     return (
         <>
             <Tabs
@@ -28,7 +27,7 @@ export function SetupView({ data }: { data: SetupData }) {
                 onChange={(id) => setTab(id as SetupTab)}
             />
             <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={0} className="mt-6">
-                {tab === "branches" && <BranchesTab branches={data.branches} />}
+                {tab === "branch" && data.branch && <BranchesTab branch={data.branch} />}
                 {tab === "pitches" && <PitchesTab pitches={data.pitches} branches={data.branches} slotMinutes={data.slotMinutes} />}
                 {tab === "rates" && (
                     <RatesTab rates={data.rates} pitches={data.pitches} coverage={data.coverage} slotMinutes={data.slotMinutes} />

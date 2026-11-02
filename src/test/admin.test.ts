@@ -15,7 +15,6 @@ const mkUser = (id: string, role: ServerUser["role"], branchIds: string[]): Serv
     id, name: id, role, phone: "01700000000", email: null, branchIds, permissions: [],
 });
 const staff = mkUser("staff-bogura", "STAFF", ["bogura"]);
-const staffDhaka = mkUser("staff-dhaka", "STAFF", ["dhaka"]);
 const admin = mkUser("admin", "SUPER_ADMIN", []);
 const customer = mkUser("cust", "CUSTOMER", []);
 
@@ -53,9 +52,10 @@ describe("branch scope", () => {
         expect(await searchBookings(admin, {})).toHaveLength(2);
     });
 
-    it("staff cannot act on another branch's slots", async () => {
+    it("staff with no branch access cannot create walk-ins", async () => {
+        const stranger = mkUser("stranger", "STAFF", []);
         await expect(
-            createWalkIn(staffDhaka, { pitchId: "bogura-b", cellStarts: [cell(12)], phone: "01733334444", name: "Karim", cashReceived: 2000 })
+            createWalkIn(stranger, { pitchId: "bogura-b", cellStarts: [cell(12)], phone: "01733334444", name: "Karim", cashReceived: 2000 })
         ).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
 });

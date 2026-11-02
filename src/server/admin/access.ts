@@ -6,9 +6,9 @@ import { findBookingByCode } from "@/server/bookings";
 import { AppError } from "@/server/http";
 import type { Booking } from "@/types/booking";
 
-/** Branches the user may operate (Coming Soon branches have no pitches yet). */
+/** Branches the user may operate. */
 export function accessibleBranches(user: ServerUser) {
-    return branches.filter((b) => b.status !== "COMING_SOON" && canAccessBranch(user, b.id));
+    return branches.filter((b) => canAccessBranch(user, b.id));
 }
 
 export function assertSuperAdmin(user: ServerUser) {

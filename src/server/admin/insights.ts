@@ -28,7 +28,7 @@ const spanDays = (from: string, to: string) =>
 
 export async function getInsights(
     user: ServerUser,
-    f: { from: string; to: string; branch?: string },
+    f: { from: string; to: string },
     now: Date = new Date()
 ): Promise<InsightsData> {
     assertSuperAdmin(user);
@@ -36,12 +36,11 @@ export async function getInsights(
     if (span < 1 || span > MAX_RANGE_DAYS) {
         throw new AppError("OUT_OF_RANGE", `Choose a range of up to ${MAX_RANGE_DAYS} days.`, 400);
     }
-    if (f.branch && !branches.some((b) => b.id === f.branch)) throw new AppError("NOT_FOUND", "Branch not found.", 404);
 
     await connectDb();
     await settleExpired({}, now);
 
-    const scope = branches.filter((b) => b.status !== "COMING_SOON" && (!f.branch || b.id === f.branch));
+    const scope = branches;
     const scopeIds = scope.map((b) => b.id);
     const fromIso = dhakaToUtc(f.from, 0).toISOString();
     const toIso = dhakaToUtc(addDays(f.to, 1), 0).toISOString();
@@ -147,7 +146,7 @@ export async function getInsights(
     return {
         from: f.from,
         to: f.to,
-        branch: f.branch ?? null,
+        branch: null,
         kpis: {
             bookings: inRange.length,
             collected,
@@ -170,10 +169,10 @@ export async function getInsights(
 }
 
 /* ---------- needs attention (current issues, not date-filtered) ---------- */
-export async function getAttention(user: ServerUser, branch?: string, now: Date = new Date()): Promise<AttentionGroup[]> {
+export async function getAttention(user: ServerUser, now: Date = new Date()): Promise<AttentionGroup[]> {
     assertSuperAdmin(user);
     await connectDb();
-    const scope = branch ? { branchId: branch } : {};
+    const scope = {};
     await settleExpired(scope, now);
 
     const nowIso = now.toISOString();
@@ -274,7 +273,7 @@ export async function markInquiryHandled(user: ServerUser, id: string) {
 /* ---------- audit log (searchable: scans the latest 1,000 matching entries) ---------- */
 export async function getAuditEntries(
     user: ServerUser,
-    f: { branch?: string; q?: string; action?: string },
+    f: { q?: string; action?: string },
     limit = 100
 ): Promise<AuditRow[]> {
     assertSuperAdmin(user);
@@ -283,7 +282,6 @@ export async function getAuditEntries(
     const nameOf = new Map(branches.map((b) => [b.id, b.name]));
 
     const docs = await AuditLogModel.find({
-        ...(f.branch ? { branchId: f.branch } : {}),
         ...(f.action ? { action: f.action } : {}),
     })
         .sort({ at: -1 })

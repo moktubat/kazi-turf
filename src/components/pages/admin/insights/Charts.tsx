@@ -58,15 +58,7 @@ export function RevenueChart({ data }: { data: InsightsData["revenue"] }) {
                 <h2 className="text-lg font-bold">Collected revenue by {data.bucket}</h2>
                 <p className="text-xs text-evergreen/70">By the date the payment was received. Not counting fully refunded bookings.</p>
             </div>
-
-            <ul className="flex flex-wrap gap-3 text-xs font-semibold" aria-label="Branch legend">
-                {data.branches.map((b, i) => (
-                    <li key={b.id} className="inline-flex items-center gap-1.5">
-                        <span aria-hidden className={`size-3 rounded-sm ${PALETTE[i % PALETTE.length]}`} /> {b.name}
-                    </li>
-                ))}
-            </ul>
-
+            
             {data.total === 0 ? (
                 <p className="text-sm text-evergreen/70">No collected payments in this range.</p>
             ) : (

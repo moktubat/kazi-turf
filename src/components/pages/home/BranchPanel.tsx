@@ -7,15 +7,6 @@ import type { Branch } from "@/types";
 import { PitchCard } from "./PitchCard";
 
 export function BranchPanel({ branch }: { branch: Branch }) {
-    if (branch.status !== "ACTIVE") {
-        return (
-            <Card>
-                <h3 className="text-xl font-bold">{branch.name}: Coming Soon</h3>
-                <p className="mt-1 text-evergreen/80">This branch is not open for bookings yet.</p>
-            </Card>
-        );
-    }
-
     const pitches = getBranchPitches(branch.id);
     const facilities = [...new Set(pitches.flatMap((p) => p.facilities))];
 

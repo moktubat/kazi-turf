@@ -6,7 +6,7 @@ export interface SessionUser {
   role: Role;
 }
 
-export type BranchStatus = "ACTIVE" | "COMING_SOON" | "DISABLED";
+export type BranchStatus = "ACTIVE" | "DISABLED";
 
 export interface Branch {
   id: string;

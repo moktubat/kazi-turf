@@ -18,12 +18,11 @@ import { SummaryBar } from "./SummaryBar";
 import { SummaryCard, type Amounts, type SelectionInfo } from "./SummaryCard";
 
 export interface FlowInitial {
-    branchId: string;
     sport: string;
     date: string;
     pitchId?: string;
-    slot?: string; // "19:30" Dhaka
-    restore: boolean; // no URL filters: use remembered branch/sport
+    slot?: string; // "19:30" Asia/Dhaka
+    restore: boolean; // no URL filters: use remembered sport
 }
 
 interface Sel {
@@ -33,18 +32,18 @@ interface Sel {
 
 type QuoteState = { status: "idle" | "loading" | "ready" | "error"; quote?: Quote; error?: string };
 
-const STORE_KEY = "kt:finder"; // same key as the Home finder
+const STORE_KEY = "kt:finder:sport"; // same key as the Home finder
 const REFRESH_MS = 30_000;
 
 export function BookingFlow({
-    branches,
+    branch,
     initial,
     minDate,
     maxDate,
     user,
     policy,
 }: {
-    branches: FlowBranch[];
+    branch: FlowBranch;
     initial: FlowInitial;
     minDate: string;
     maxDate: string;
@@ -53,7 +52,6 @@ export function BookingFlow({
 }) {
     const router = useRouter();
 
-    const [branchId, setBranchId] = useState(initial.branchId);
     const [sport, setSport] = useState(initial.sport);
     const [date, setDate] = useState(initial.date);
 
@@ -71,8 +69,6 @@ export function BookingFlow({
     const abortRef = useRef<AbortController | null>(null);
     const preselected = useRef(false);
 
-    const branch = branches.find((b) => b.id === branchId) ?? branches[0];
-
     /* ---------- availability ---------- */
     const load = useCallback(
         async (silent = false) => {
@@ -83,7 +79,7 @@ export function BookingFlow({
             else setStatus("loading");
 
             try {
-                const qs = new URLSearchParams({ branch: branchId, sport, date });
+                const qs = new URLSearchParams({ branch: branch.id, sport, date });
                 const res = await api<AvailabilityResponse>(`/api/availability?${qs}`, { signal: ctrl.signal });
                 setData(res);
                 setStatus("ready");
@@ -96,11 +92,12 @@ export function BookingFlow({
                 if (abortRef.current === ctrl) setRefreshing(false);
             }
         },
-        [branchId, sport, date]
+        [branch.id, sport, date]
     );
 
+    // are not synchronous within the effect body.
     useEffect(() => {
-        load();
+        queueMicrotask(() => load());
         return () => abortRef.current?.abort();
     }, [load]);
 
@@ -117,25 +114,14 @@ export function BookingFlow({
     useEffect(() => {
         if (!initial.restore) return;
         try {
-            const saved = JSON.parse(localStorage.getItem(STORE_KEY) ?? "null");
-            const b = branches.find((x) => x.id === saved?.branch);
-            if (b) {
-                setBranchId(b.id);
-                setSport(b.sports.includes(saved.sport) ? saved.sport : b.sports[0]);
-            }
-        } catch {
-            /* storage unavailable */
-        }
-        // run once
+            const saved = localStorage.getItem(STORE_KEY);
+            if (saved && branch.sports.includes(saved)) queueMicrotask(() => setSport(saved));
+        } catch { /* storage unavailable */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    function remember(b: string, s: string) {
-        try {
-            localStorage.setItem(STORE_KEY, JSON.stringify({ branch: b, sport: s }));
-        } catch {
-            /* ignore */
-        }
+    function remember(s: string) {
+        try { localStorage.setItem(STORE_KEY, s); } catch { /* ignore */ }
     }
 
     /* ---------- filter handlers (reset selection, never lose filters on errors) ---------- */
@@ -145,22 +131,11 @@ export function BookingFlow({
         setNotice(null);
     }
 
-    function changeBranch(id: string) {
-        const b = branches.find((x) => x.id === id);
-        if (!b) return;
-        const nextSport = b.sports.includes(sport) ? sport : b.sports[0];
-        setBranchId(id);
-        setSport(nextSport);
-        setData(null);
-        resetSelection();
-        remember(id, nextSport);
-    }
-
     function changeSport(s: string) {
         setSport(s);
         setData(null);
         resetSelection();
-        remember(branchId, s);
+        remember(s);
     }
 
     function changeDate(d: string) {
@@ -175,7 +150,7 @@ export function BookingFlow({
         preselected.current = true;
         const p = data.pitches.find((x) => x.id === initial.pitchId);
         const cell = p?.cells.find((c) => c.start === initial.slot && c.status === "AVAILABLE");
-        if (p && cell) setSel({ pitchId: p.id, cellStarts: [cell.cellStart] });
+        if (p && cell) queueMicrotask(() => setSel({ pitchId: p.id, cellStarts: [cell.cellStart] }));
     }, [data, initial.pitchId, initial.slot]);
 
     /* ---------- drop slots that were taken in the meantime ---------- */
@@ -186,8 +161,10 @@ export function BookingFlow({
             ? sel.cellStarts.filter((s) => p.cells.find((c) => c.cellStart === s)?.status === "AVAILABLE")
             : [];
         if (stillOpen.length !== sel.cellStarts.length) {
-            setSel({ pitchId: stillOpen.length ? sel.pitchId : null, cellStarts: stillOpen });
-            setNotice("A slot you picked was just taken. Your filters are kept. Pick another time.");
+            queueMicrotask(() => {
+                setSel({ pitchId: stillOpen.length ? sel.pitchId : null, cellStarts: stillOpen });
+                setNotice("A slot you picked was just taken. Your filters are kept. Pick another time.");
+            });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
@@ -195,10 +172,10 @@ export function BookingFlow({
     /* ---------- live server quote ---------- */
     useEffect(() => {
         if (!sel.pitchId || sel.cellStarts.length === 0) {
-            setQuoteState({ status: "idle" });
+            queueMicrotask(() => setQuoteState({ status: "idle" }));
             return;
         }
-        setQuoteState((s) => ({ status: "loading", quote: s.quote }));
+        queueMicrotask(() => setQuoteState((s) => ({ status: "loading", quote: s.quote })));
         const ctrl = new AbortController();
         const t = setTimeout(async () => {
             try {
@@ -328,13 +305,11 @@ export function BookingFlow({
                             <h1 className="text-2xl font-extrabold md:text-3xl">Choose your slot</h1>
 
                             <FilterBar
-                                branches={branches}
-                                branchId={branchId}
+                                branch={branch}
                                 sport={sport}
                                 date={date}
                                 minDate={minDate}
                                 maxDate={maxDate}
-                                onBranch={changeBranch}
                                 onSport={changeSport}
                                 onDate={changeDate}
                             />

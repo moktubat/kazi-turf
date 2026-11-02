@@ -44,7 +44,6 @@ export function BookingsView({
 }) {
     const [from, setFrom] = useState(defaults.from);
     const [to, setTo] = useState(defaults.to);
-    const [branch, setBranch] = useState("");
     const [bookingStatus, setBookingStatus] = useState("");
     const [paymentStatus, setPaymentStatus] = useState("");
     const [source, setSource] = useState("");
@@ -61,18 +60,16 @@ export function BookingsView({
         const p = new URLSearchParams();
         if (from) p.set("from", from);
         if (to) p.set("to", to);
-        if (branch) p.set("branch", branch);
         if (bookingStatus) p.set("bookingStatus", bookingStatus);
         if (paymentStatus) p.set("paymentStatus", paymentStatus);
         if (source) p.set("source", source);
         if (q.trim().length >= 3) p.set("q", q.trim());
         if (requestOnly) p.set("request", "open");
         return p.toString();
-    }, [from, to, branch, bookingStatus, paymentStatus, source, q, requestOnly]);
+    }, [from, to, bookingStatus, paymentStatus, source, q, requestOnly]);
 
     useEffect(() => {
         const ctrl = new AbortController();
-        setLoading(true);
         const t = setTimeout(async () => {
             try {
                 const r = await api<{ bookings: AdminBookingDto[] }>(`/api/admin/bookings?${params}`, { signal: ctrl.signal });
@@ -94,7 +91,6 @@ export function BookingsView({
     function clear() {
         setFrom(defaults.from);
         setTo(defaults.to);
-        setBranch("");
         setBookingStatus("");
         setPaymentStatus("");
         setSource("");
@@ -112,10 +108,10 @@ export function BookingsView({
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Input label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
                     <Input label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-                    <Select label="Branch" value={branch} onChange={(e) => setBranch(e.target.value)}>
-                        <option value="">{branches.length > 1 ? "All my branches" : branches[0]?.name}</option>
-                        {branches.length > 1 && branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </Select>
+                    <div>
+                        <p className="text-sm font-semibold">Branch</p>
+                        <p className="flex min-h-11 items-center font-heading font-bold">{branches[0]?.name}</p>
+                    </div>
                     <Select label="Source" value={source} onChange={(e) => setSource(e.target.value)}>
                         <option value="">Online and counter</option>
                         <option value="online">Online</option>

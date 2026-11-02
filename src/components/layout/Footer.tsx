@@ -3,6 +3,7 @@ import { branches } from "@/data/branches";
 import { footerLinks, legalLinks, site } from "@/data/site";
 
 export async function Footer() {
+    const branch = branches[0];
 
     return (
         <footer className="bg-evergreen text-white">
@@ -15,29 +16,21 @@ export async function Footer() {
                 </div>
 
                 <div>
-                    <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">Branches</h2>
-                    <ul className="mt-3 space-y-4 text-sm">
-                        {branches.map((b) => (
-                            <li key={b.id}>
-                                <p className="font-semibold">{b.name}</p>
-                                {b.status === "ACTIVE" ? (
-                                    <>
-                                        <p className="text-white/80">{b.address}</p>
-                                        <p className="text-white/80">{b.hours}</p>
-                                        <p className="flex flex-wrap gap-x-4">
-                                            <a href={`tel:${b.phone}`} className="underline underline-offset-2">
-                                                {b.phone}
-                                            </a>
-                                            <a href={b.mapUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-                                                Open in Maps
-                                            </a>
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-white/70">Coming Soon</p>
-                                )}
-                            </li>
-                        ))}
+                    <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">{branch.name}</h2>
+                    <ul className="mt-3 space-y-1 text-sm">
+                        <li>
+                            <p className="font-semibold">{branch.name}</p>
+                            <p className="text-white/80">{branch.address}</p>
+                            <p className="text-white/80">{branch.hours}</p>
+                            <p className="flex flex-wrap gap-x-4">
+                                <a href={`tel:${branch.phone}`} className="underline underline-offset-2">
+                                    {branch.phone}
+                                </a>
+                                <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                                    Open in Maps
+                                </a>
+                            </p>
+                        </li>
                     </ul>
                 </div>
 

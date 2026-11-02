@@ -1,6 +1,6 @@
 import type { Branch, Pitch, PricingRule } from "@/types";
 
-export type SetupTab = "branches" | "pitches" | "rates" | "staff" | "policies";
+export type SetupTab = "branch" | "pitches" | "rates" | "staff" | "policies";
 
 export interface SetupPitch extends Pitch {
     upcomingBookings: number;
@@ -55,6 +55,7 @@ export interface SetupData {
     isAdmin: boolean;
     slotMinutes: number;
     branches: Branch[];
+    branch: Branch | null;
     pitches: SetupPitch[];
     rates: SetupRate[];
     coverage: Record<string, string[]>; // pitchId -> "Fri: no price at 06:00, 07:30"

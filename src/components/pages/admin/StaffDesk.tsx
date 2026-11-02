@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AlertTriangle, Banknote, ChevronLeft, ChevronRight, Inbox, LogIn, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input, Select } from "@/components/ui/Field";
+import { Input } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
 import { ApiError, api, isAbort } from "@/lib/api";
 import { formatBDT, formatTime } from "@/lib/format";
@@ -22,7 +22,6 @@ type Drawer =
     | { kind: "block"; pitchId: string; cellStart: string }
     | { kind: "booking"; code: string };
 
-const STORE_KEY = "kt:desk";
 const REFRESH_MS = 30_000;
 
 function Stat({
@@ -64,8 +63,9 @@ export function StaffDesk({
     maxDate: string;
     role: Role;
 }) {
-    const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
+    const branchId = branches[0]?.id ?? "";
     const [date, setDate] = useState(today);
+
     const [board, setBoard] = useState<BoardResponse | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
     const [error, setError] = useState("");
@@ -74,18 +74,6 @@ export function StaffDesk({
     const abortRef = useRef<AbortController | null>(null);
 
     const minDate = addDays(today, -90);
-
-    // Remember the last branch.
-    useEffect(() => {
-        try {
-            const saved = localStorage.getItem(STORE_KEY);
-            if (saved && branches.some((b) => b.id === saved)) setBranchId(saved);
-        } catch {
-            /* storage unavailable */
-        }
-        // run once
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     const load = useCallback(
         async (silent = false) => {
@@ -125,16 +113,6 @@ export function StaffDesk({
         return () => clearInterval(id);
     }, [load]);
 
-    function changeBranch(id: string) {
-        setBoard(null);
-        setBranchId(id);
-        try {
-            localStorage.setItem(STORE_KEY, id);
-        } catch {
-            /* ignore */
-        }
-    }
-
     function changeDate(d: string) {
         if (d < minDate || d > maxDate) return;
         setBoard(null);
@@ -154,18 +132,10 @@ export function StaffDesk({
 
             <Card className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
                 <div className="grid gap-4 sm:grid-cols-2">
-                    {branches.length > 1 ? (
-                        <Select label="Branch" value={branchId} onChange={(e) => changeBranch(e.target.value)}>
-                            {branches.map((b) => (
-                                <option key={b.id} value={b.id}>{b.name}</option>
-                            ))}
-                        </Select>
-                    ) : (
-                        <div>
-                            <p className="text-sm font-semibold">Branch</p>
-                            <p className="flex min-h-11 items-center font-heading font-bold">{branches[0]?.name}</p>
-                        </div>
-                    )}
+                    <div>
+                        <p className="text-sm font-semibold">Branch</p>
+                        <p className="flex min-h-11 items-center font-heading font-bold">{branches[0]?.name}</p>
+                    </div>
                     <Input
                         label="Date"
                         type="date"

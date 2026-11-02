@@ -11,7 +11,7 @@ export interface FinderBranch {
     sports: string[];
 }
 
-const STORE_KEY = "kt:finder"; // remembers last branch + sport only
+const STORE_KEY = "kt:finder:sport"; // remembers last sport only
 
 export function QuickFinder({
     branches,
@@ -25,59 +25,39 @@ export function QuickFinder({
     maxDate: string;
 }) {
     const router = useRouter();
-    const first = branches[0];
-    const [branchId, setBranchId] = useState(first?.id ?? "");
-    const [sport, setSport] = useState(first?.sports[0] ?? "");
+    const branch = branches[0];
+    const [sport, setSport] = useState(branch?.sports[0] ?? "");
     const [date, setDate] = useState(defaultDate);
 
-    // Restore remembered context after hydration.
+    // Restore remembered sport after hydration.
     useEffect(() => {
         try {
-            const saved = JSON.parse(localStorage.getItem(STORE_KEY) ?? "null");
-            const b = branches.find((x) => x.id === saved?.branch);
-            if (b) {
-                setBranchId(b.id);
-                setSport(b.sports.includes(saved.sport) ? saved.sport : b.sports[0]);
-            }
+            const saved = localStorage.getItem(STORE_KEY);
+            if (saved && branch?.sports.includes(saved)) setSport(saved);
         } catch {
-            /* storage unavailable: keep defaults */
+            /* storage unavailable: keep default */
         }
-    }, [branches]);
-
-    const current = branches.find((b) => b.id === branchId);
-
-    function onBranchChange(id: string) {
-        setBranchId(id);
-        const b = branches.find((x) => x.id === id);
-        if (b && !b.sports.includes(sport)) setSport(b.sports[0] ?? "");
-    }
+    }, [branch]);
 
     function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         try {
-            localStorage.setItem(STORE_KEY, JSON.stringify({ branch: branchId, sport }));
+            localStorage.setItem(STORE_KEY, sport);
         } catch {
             /* ignore */
         }
-        const q = new URLSearchParams({ branch: branchId, sport, date });
+        const q = new URLSearchParams({ branch: branch.id, sport, date });
         router.push(`/book?${q.toString()}`);
     }
 
-    if (!first) {
+    if (!branch) {
         return <p className="text-sm text-evergreen/80">Bookings open soon. Check back shortly.</p>;
     }
 
     return (
-        <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-4 md:items-end" aria-label="Find slots">
-            <Select label="Branch" value={branchId} onChange={(e) => onBranchChange(e.target.value)}>
-                {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                        {b.name}
-                    </option>
-                ))}
-            </Select>
+        <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-3 md:items-end" aria-label="Find slots">
             <Select label="Sport" value={sport} onChange={(e) => setSport(e.target.value)}>
-                {(current?.sports ?? []).map((s) => (
+                {branch.sports.map((s) => (
                     <option key={s} value={s}>
                         {s}
                     </option>

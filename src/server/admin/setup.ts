@@ -12,7 +12,7 @@ import { slugify } from "@/lib/slug";
 import { dhakaParts, toHHMM, toMinutes } from "@/lib/time";
 import { BookingModel, SlotClaimModel, UserModel } from "@/models";
 import type {
-    BranchInput, BranchUpdateInput, PitchInput, PitchUpdateInput, PolicyInput,
+    BranchUpdateInput, PitchInput, PitchUpdateInput, PolicyInput,
     RateInput, RateUpdateInput, StaffCreateInput, StaffUpdateInput,
 } from "@/schemas/setup";
 import { logAudit } from "@/server/audit";
@@ -72,35 +72,6 @@ const waDigits = (v: string) => {
 const inRange = (r: { effectiveFrom?: string; effectiveTo?: string }, d: string) =>
     (!r.effectiveFrom || d >= r.effectiveFrom) && (!r.effectiveTo || d <= r.effectiveTo);
 
-/* ---------- branches ---------- */
-export async function createBranch(user: ServerUser, input: BranchInput) {
-    assertSuperAdmin(user);
-    await begin();
-    if (branches.some((b) => b.id === input.slug)) {
-        throw new AppError("SLUG_TAKEN", "A branch with this slug already exists.", 409, { slug: "Already used" });
-    }
-    const b: Branch = {
-        id: input.slug,
-        slug: input.slug,
-        name: input.name,
-        address: input.address,
-        phone: tel(input.phone),
-        whatsapp: waDigits(input.whatsapp),
-        mapUrl: input.mapUrl,
-        hours: input.hours,
-        status: input.status,
-        sports: uniq(input.sports),
-    };
-    branches.push(b);
-    await persistConfig("branches");
-    await logAudit(user, {
-        action: "BRANCH_CHANGED",
-        entityType: "BRANCH",
-        entityId: b.id,
-        branchId: b.id,
-        meta: { change: "created", name: b.name, status: b.status },
-    });
-}
 
 export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     assertSuperAdmin(user);
@@ -402,7 +373,7 @@ export async function updateStaff(user: ServerUser, input: StaffUpdateInput) {
         id: input.id,
         role: { $ne: "CUSTOMER" },
     }).lean<User | null>();
-    
+
     if (!u) throw new AppError("NOT_FOUND", "Staff account not found.", 404);
     if (u.id === user.id) {
         throw new AppError("SELF_EDIT", "You cannot change your own role or access here. Another Super Admin can do it.", 409);
@@ -525,7 +496,7 @@ function gapLines(p: Pitch, today: string): string[] {
     return lines;
 }
 
-export async function getSetupData( user: ServerUser, now: Date ): Promise<SetupData> {
+export async function getSetupData(user: ServerUser, now: Date): Promise<SetupData> {
     assertSetupAccess(user);
     await connectDb();
     const isAdmin = user.role === "SUPER_ADMIN";
@@ -588,12 +559,13 @@ export async function getSetupData( user: ServerUser, now: Date ): Promise<Setup
     ]);
     const upcoming = new Map(counts.map((c) => [c._id, c.n]));
 
-    const tabs: SetupTab[] = isAdmin ? ["branches", "pitches", "rates", "staff", "policies"] : ["pitches", "rates"];
+    const tabs: SetupTab[] = isAdmin ? ["branch", "pitches", "rates", "staff", "policies"] : ["pitches", "rates"];
 
     return {
         tabs,
         isAdmin,
         slotMinutes: step,
+        branch: myBranches[0] ?? null,
         branches: myBranches.map((b) => ({ ...b, sports: [...b.sports] })),
         pitches: myPitches.map((p) => ({ ...p, facilities: [...p.facilities], upcomingBookings: upcoming.get(p.id) ?? 0 })),
         rates,

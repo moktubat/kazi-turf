@@ -16,15 +16,15 @@ export default async function AdminPage() {
     if (branches.length === 0) {
         return (
             <div className="mx-auto max-w-xl px-4 py-16 text-center">
-                <h1 className="text-2xl font-extrabold">No branch assigned</h1>
-                <p className="mt-2 text-evergreen/80">Ask a Super Admin to assign you to a branch.</p>
+                <h1 className="text-2xl font-extrabold">No branch access</h1>
+                <p className="mt-2 text-evergreen/80">Ask a Super Admin to grant you access to the Bogura branch.</p>
                 <Button href="/account" className="mt-6" variant="outline">
                     Go to my account
                 </Button>
             </div>
         );
     }
-
+    
     const today = await todayDhaka();
 
     return (

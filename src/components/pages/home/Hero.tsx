@@ -7,14 +7,11 @@ import { todayDhaka } from "@/lib/time.server";
 
 export async function Hero() {
     const today = await todayDhaka();
-    const active = branches
-        .filter((b) => b.status === "ACTIVE" && b.sports.length > 0)
-        .map(({ id, name, sports }) => ({ id, name, sports }));
-
+    
     // Trust chips come from real data only.
     const chips = [
         { icon: Wallet, text: "bKash advance payment" },
-        { icon: MapPin, text: `${active.length} ${active.length === 1 ? "branch" : "branches"}` },
+        { icon: MapPin, text: `${branches[0].name} branch` },
         { icon: Percent, text: `${policies.advancePercent}% advance, balance at venue` },
     ];
 
@@ -45,7 +42,7 @@ export async function Hero() {
 
                 <div className="mt-8 rounded-2xl bg-white p-4 text-evergreen shadow-xl md:p-6">
                     <QuickFinder
-                        branches={active}
+                        branches={branches}
                         defaultDate={today}
                         minDate={today}
                         maxDate={addDays(today, policies.bookingHorizonDays)}

@@ -49,43 +49,35 @@ export function PitchesTab({
                 </Button>
             </div>
 
-            {branches.map((b) => {
-                const list = pitches.filter((p) => p.branchId === b.id);
-                return (
-                    <section key={b.id} aria-label={`${b.name} pitches`} className="space-y-3">
-                        <h3 className="text-base font-bold">{b.name}</h3>
-                        {list.length === 0 ? (
-                            <p className="text-sm text-evergreen/70">No pitches yet.</p>
-                        ) : (
-                            <ul className="grid gap-4 md:grid-cols-2">
-                                {list.map((p) => (
-                                    <li key={p.id}>
-                                        <Card className="space-y-3">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div>
-                                                    <h4 className="text-lg font-bold">{p.name}</h4>
-                                                    <p className="text-sm text-evergreen/80">
-                                                        {p.sport} · {p.format} · {p.openTime}–{p.closeTime} · max {p.maxConsecutiveSlots} slots
-                                                    </p>
-                                                </div>
-                                                <Badge tone={p.status === "ACTIVE" ? "success" : "maint"}>
-                                                    {p.status === "ACTIVE" ? "Active" : "Disabled"}
-                                                </Badge>
-                                            </div>
-                                            <p className="text-sm text-evergreen/80">
-                                                {p.upcomingBookings} upcoming {p.upcomingBookings === 1 ? "booking" : "bookings"}
-                                            </p>
-                                            <Button variant="outline" onClick={() => setEditing(p)}>
-                                                <Pencil size={16} aria-hidden /> Edit
-                                            </Button>
-                                        </Card>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </section>
-                );
-            })}
+            {pitches.length === 0 ? (
+                <p className="text-sm text-evergreen/70">No pitches yet.</p>
+            ) : (
+                <ul className="grid gap-4 md:grid-cols-2">
+                    {pitches.map((p) => (
+                        <li key={p.id}>
+                            <Card className="space-y-3">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <h4 className="text-lg font-bold">{p.name}</h4>
+                                        <p className="text-sm text-evergreen/80">
+                                            {p.sport} · {p.format} · {p.openTime}–{p.closeTime} · max {p.maxConsecutiveSlots} slots
+                                        </p>
+                                    </div>
+                                    <Badge tone={p.status === "ACTIVE" ? "success" : "maint"}>
+                                        {p.status === "ACTIVE" ? "Active" : "Disabled"}
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-evergreen/80">
+                                    {p.upcomingBookings} upcoming {p.upcomingBookings === 1 ? "booking" : "bookings"}
+                                </p>
+                                <Button variant="outline" onClick={() => setEditing(p)}>
+                                    <Pencil size={16} aria-hidden /> Edit
+                                </Button>
+                            </Card>
+                        </li>
+                    ))}
+                </ul>
+            )}
 
             <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add pitch" : "Edit pitch"}>
                 {editing && (

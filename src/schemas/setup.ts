@@ -21,16 +21,9 @@ const optionalEmail = z
     .max(120, "Too long")
     .refine((v) => v === "" || z.string().email().safeParse(v).success, "Enter a valid email");
 
-/* ---------- Branches ---------- */
+/* ---------- Branche ---------- */
 const branchBase = z.object({
     name: z.string().trim().min(2, "Enter a name").max(60, "Too long"),
-    slug: z
-        .string()
-        .trim()
-        .toLowerCase()
-        .min(2, "Too short")
-        .max(40, "Too long")
-        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Lowercase letters, numbers and hyphens only"),
     address: z.string().trim().min(3, "Enter an address").max(200, "Too long"),
     phone: tel,
     whatsapp: tel,
@@ -40,7 +33,7 @@ const branchBase = z.object({
         .max(300, "Too long")
         .refine((v) => v === "" || /^https:\/\/\S+$/.test(v), "Must start with https://"),
     hours: z.string().trim().max(60, "Too long"),
-    status: z.enum(["ACTIVE", "COMING_SOON", "DISABLED"]),
+    status: z.enum(["ACTIVE", "DISABLED"]),
     sports: list(10),
 });
 
@@ -56,9 +49,9 @@ const branchActiveRules = (v: z.infer<typeof branchBase>, ctx: z.RefinementCtx) 
     if (v.sports.length === 0) ctx.addIssue({ code: "custom", path: ["sports"], message: "Add at least one sport" });
 };
 
-export const branchSchema = branchBase.superRefine(branchActiveRules);
-export const branchUpdateSchema = branchBase.extend({ id: z.string().min(1).max(60) }).superRefine(branchActiveRules);
-export type BranchInput = z.infer<typeof branchSchema>;
+export const branchUpdateSchema = branchBase
+    .extend({ id: z.string().min(1).max(60) })
+    .superRefine(branchActiveRules);
 export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>;
 
 /* ---------- Pitches ---------- */

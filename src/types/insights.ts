@@ -64,8 +64,8 @@ export interface AuditRow {
     action: AuditAction;
     actorName: string;
     at: string;
+    branchName: string;
     entityType: string;
     entityId: string;
-    branchName: string;
     meta: AuditMeta;
 }
