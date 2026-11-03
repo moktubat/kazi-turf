@@ -53,17 +53,17 @@ function Stat({
 }
 
 export function StaffDesk({
-    branches,
+    venue,
     today,
     maxDate,
     role,
 }: {
-    branches: { id: string; name: string }[];
+    venue: { id: string; name: string };
     today: string;
     maxDate: string;
     role: Role;
 }) {
-    const branchId = branches[0]?.id ?? "";
+    const venueId = venue.id;
     const [date, setDate] = useState(today);
 
     const [board, setBoard] = useState<BoardResponse | null>(null);
@@ -77,7 +77,7 @@ export function StaffDesk({
 
     const load = useCallback(
         async (silent = false) => {
-            if (!branchId) return;
+            if (!venueId) return;
             abortRef.current?.abort();
             const ctrl = new AbortController();
             abortRef.current = ctrl;
@@ -85,7 +85,7 @@ export function StaffDesk({
             else setStatus("loading");
             try {
                 const r = await api<BoardResponse>(
-                    `/api/admin/board?${new URLSearchParams({ branch: branchId, date })}`,
+                    `/api/admin/board?${new URLSearchParams({ branch: venueId, date })}`,
                     { signal: ctrl.signal }
                 );
                 setBoard(r);
@@ -98,7 +98,7 @@ export function StaffDesk({
                 if (abortRef.current === ctrl) setRefreshing(false);
             }
         },
-        [branchId, date]
+        [venueId, date]
     );
 
     useEffect(() => {
@@ -131,20 +131,14 @@ export function StaffDesk({
             <h1 className="text-2xl font-extrabold md:text-3xl">Staff Desk</h1>
 
             <Card className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <p className="text-sm font-semibold">Branch</p>
-                        <p className="flex min-h-11 items-center font-heading font-bold">{branches[0]?.name}</p>
-                    </div>
-                    <Input
-                        label="Date"
-                        type="date"
-                        value={date}
-                        min={minDate}
-                        max={maxDate}
-                        onChange={(e) => e.target.value && changeDate(e.target.value)}
-                    />
-                </div>
+                <Input
+                    label="Date"
+                    type="date"
+                    value={date}
+                    min={minDate}
+                    max={maxDate}
+                    onChange={(e) => e.target.value && changeDate(e.target.value)}
+                />
                 <div className="flex gap-2">
                     <Button variant="outline" aria-label="Previous day" onClick={() => changeDate(addDays(date, -1))} disabled={date <= minDate}>
                         <ChevronLeft size={18} aria-hidden />
@@ -193,7 +187,7 @@ export function StaffDesk({
             )}
 
             {board && board.pitches.length === 0 && (
-                <Card><p className="font-semibold">No active pitches at {board.branchName}.</p></Card>
+                <Card><p className="font-semibold">No active pitches today.</p></Card>
             )}
 
             {board && board.pitches.length > 0 && (
@@ -211,7 +205,7 @@ export function StaffDesk({
                         pitch={pitch}
                         cellStart={drawer.cellStart}
                         date={date}
-                        branchName={board.branchName}
+                        venueName={board.branchName}
                         onCreated={() => load(true)}
                         onClose={() => setDrawer(null)}
                     />

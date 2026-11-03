@@ -12,7 +12,8 @@ type Params = Promise<Record<string, string | string[] | undefined>>;
 export default async function AdminBookingsPage({ searchParams }: { searchParams: Params }) {
     const sp = await searchParams;
     const user = await requireStaffPage("/admin/bookings");
-    const branches = accessibleBranches(user).map(({ id, name }) => ({ id, name }));
+    const mine = accessibleBranches(user);
+    const venue = mine[0];
 
     const today = await todayDhaka();
 
@@ -23,10 +24,9 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
         <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-24">
             <h1 className="text-2xl font-extrabold md:text-3xl">Bookings</h1>
             <BookingsView
-                branches={branches}
+                venue={venue ? { id: venue.id, name: venue.name } : { id: "", name: "" }}
                 role={user.role}
                 defaults={{
-                    // Open requests can be on any date, so widen the range for that link.
                     from: requestOnly ? addDays(today, -90) : addDays(today, -7),
                     to: addDays(today, 30),
                     requestOnly,

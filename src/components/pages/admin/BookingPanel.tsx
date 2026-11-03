@@ -148,7 +148,6 @@ export function BookingPanel({
                         </a>
                     }
                 />
-                <Line label="Branch" value={b.branchName} />
                 <Line label="Pitch" value={`${b.pitchName} · ${b.sport}`} />
                 <Line label="Date" value={formatDateLong(b.date)} />
                 <Line label="Time" value={`${b.start}–${b.end}`} />

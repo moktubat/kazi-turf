@@ -84,7 +84,6 @@ export function BookingSheet({
             )}
 
             <dl className="space-y-1.5 text-sm">
-                <Line label="Branch" value={b.branchName} />
                 <Line label="Pitch" value={`${b.pitchName} · ${b.sport}`} />
                 <Line label="Date" value={formatDateLong(b.date)} />
                 <Line label="Time" value={`${b.start}–${b.end}`} />

@@ -11,7 +11,7 @@ import type { Cell } from "@/server/availability";
 import type { Quote } from "@/server/pricing";
 import type { AvailabilityResponse, BookingDto } from "@/types/booking";
 import { ConfirmStep, type FlowUser } from "./ConfirmStep";
-import { FilterBar, type FlowBranch } from "./FilterBar";
+import { FilterBar, type FlowVenue } from "./FilterBar";
 import { SlotGrid } from "./SlotGrid";
 import { Stepper } from "./Stepper";
 import { SummaryBar } from "./SummaryBar";
@@ -36,14 +36,14 @@ const STORE_KEY = "kt:finder:sport"; // same key as the Home finder
 const REFRESH_MS = 30_000;
 
 export function BookingFlow({
-    branch,
+    venue,
     initial,
     minDate,
     maxDate,
     user,
     policy,
 }: {
-    branch: FlowBranch;
+    venue: FlowVenue;
     initial: FlowInitial;
     minDate: string;
     maxDate: string;
@@ -79,7 +79,7 @@ export function BookingFlow({
             else setStatus("loading");
 
             try {
-                const qs = new URLSearchParams({ branch: branch.id, sport, date });
+                const qs = new URLSearchParams({ branch: venue.id, sport, date });
                 const res = await api<AvailabilityResponse>(`/api/availability?${qs}`, { signal: ctrl.signal });
                 setData(res);
                 setStatus("ready");
@@ -92,7 +92,7 @@ export function BookingFlow({
                 if (abortRef.current === ctrl) setRefreshing(false);
             }
         },
-        [branch.id, sport, date]
+        [venue.id, sport, date]
     );
 
     // are not synchronous within the effect body.
@@ -115,7 +115,7 @@ export function BookingFlow({
         if (!initial.restore) return;
         try {
             const saved = localStorage.getItem(STORE_KEY);
-            if (saved && branch.sports.includes(saved)) queueMicrotask(() => setSport(saved));
+            if (saved && venue.sports.includes(saved)) queueMicrotask(() => setSport(saved));
         } catch { /* storage unavailable */ }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -211,7 +211,7 @@ export function BookingFlow({
             .sort((a, b) => a.cellStart.localeCompare(b.cellStart));
         if (cells.length === 0) return null;
         return {
-            branchName: branch.name,
+            branchName: venue.name,
             pitchName: p.name,
             sport: p.sport,
             date,
@@ -220,7 +220,7 @@ export function BookingFlow({
             slotCount: cells.length,
             minutes: cells.length * policy.slotMinutes,
         };
-    }, [data, sel, branch.name, date, policy.slotMinutes]);
+    }, [data, sel, venue.name, date, policy.slotMinutes]);
 
     // After the hold exists, show the server's saved amounts, not the preview.
     const amounts: Amounts | null = hold
@@ -305,7 +305,7 @@ export function BookingFlow({
                             <h1 className="text-2xl font-extrabold md:text-3xl">Choose your slot</h1>
 
                             <FilterBar
-                                branch={branch}
+                                venue={venue}
                                 sport={sport}
                                 date={date}
                                 minDate={minDate}
@@ -340,7 +340,7 @@ export function BookingFlow({
 
                             {data && data.pitches.length === 0 && (
                                 <Card>
-                                    <p className="font-semibold">No pitches for this sport at {branch.name} yet.</p>
+                                    <p className="font-semibold">No pitches for this sport yet.</p>
                                 </Card>
                             )}
 

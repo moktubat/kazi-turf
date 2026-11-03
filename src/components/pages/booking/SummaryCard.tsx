@@ -52,7 +52,6 @@ export function SummaryCard({
             ) : (
                 <>
                     <dl className="space-y-1.5 text-sm">
-                        <Row label="Branch" value={info.branchName} />
                         <Row label="Pitch" value={`${info.pitchName} · ${info.sport}`} />
                         <Row label="Date" value={formatDateLong(info.date)} />
                         <Row label="Time" value={`${info.start}–${info.end}`} />

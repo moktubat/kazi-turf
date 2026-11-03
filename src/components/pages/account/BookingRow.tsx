@@ -16,7 +16,7 @@ export function BookingRow({ b, onOpen }: { b: AccountBookingDto; onOpen: () => 
                     {formatDateLong(b.date)} · {b.start}–{b.end}
                 </p>
                 <p className="truncate text-sm text-evergreen/80">
-                    {b.branchName} · {b.pitchName} · <span className="font-mono">{b.code}</span>
+                    {b.pitchName} · {b.sport} · <span className="font-mono">{b.code}</span>
                 </p>
                 <div className="flex flex-wrap gap-2">
                     <BookingStatusBadge status={b.bookingStatus} />

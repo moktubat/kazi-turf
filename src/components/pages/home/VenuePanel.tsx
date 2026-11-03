@@ -6,27 +6,27 @@ import { getBranchPitches } from "@/server/availability";
 import type { Branch } from "@/types";
 import { PitchCard } from "./PitchCard";
 
-export function BranchPanel({ branch }: { branch: Branch }) {
-    const pitches = getBranchPitches(branch.id);
+export function VenuePanel({ venue }: { venue: Branch }) {
+    const pitches = getBranchPitches(venue.id);
     const facilities = [...new Set(pitches.flatMap((p) => p.facilities))];
 
     return (
         <div className="space-y-6">
             <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
-                    <h3 className="text-xl font-bold">{branch.name} branch</h3>
+                    <h3 className="text-xl font-bold">{venue.name}</h3>
                     <p className="flex items-center gap-2 text-sm">
-                        <MapPin size={16} aria-hidden className="text-teal" /> {branch.address}
+                        <MapPin size={16} aria-hidden className="text-teal" /> {venue.address}
                     </p>
                     <p className="flex items-center gap-2 text-sm">
-                        <Clock size={16} aria-hidden className="text-teal" /> Open {branch.hours}
+                        <Clock size={16} aria-hidden className="text-teal" /> Open {venue.hours}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <Button href={branch.mapUrl} variant="outline">
+                    <Button href={venue.mapUrl} variant="outline">
                         <MapPin size={18} aria-hidden /> Open in Maps
                     </Button>
-                    <Button href={`tel:${branch.phone}`} variant="secondary">
+                    <Button href={`tel:${venue.phone}`} variant="secondary">
                         <Phone size={18} aria-hidden /> Call
                     </Button>
                 </div>

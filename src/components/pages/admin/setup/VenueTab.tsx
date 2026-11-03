@@ -18,31 +18,31 @@ interface FormState {
     sports: string[];
 }
 
-export function BranchesTab({ branch }: { branch: Branch }) {
+export function VenueTab({ venue }: { venue: Branch }) {
     return (
         <div className="space-y-4">
             <div>
-                <h2 className="text-xl font-bold">Branch details</h2>
+                <h2 className="text-xl font-bold">Venue details</h2>
                 <p className="mt-1 text-sm text-evergreen/80">
-                    Your venue has a single branch. Edit its details below.
+                    Your venue&apos;s contact information, location and operating status.
                 </p>
             </div>
 
-            <BranchForm branch={branch} />
+            <VenueForm venue={venue} />
         </div>
     );
 }
 
-function BranchForm({ branch }: { branch: Branch }) {
+function VenueForm({ venue }: { venue: Branch }) {
     const [f, setF] = useState<FormState>({
-        name: branch.name,
-        address: branch.address,
-        phone: branch.phone,
-        whatsapp: branch.whatsapp,
-        mapUrl: branch.mapUrl,
-        hours: branch.hours,
-        status: branch.status,
-        sports: branch.sports,
+        name: venue.name,
+        address: venue.address,
+        phone: venue.phone,
+        whatsapp: venue.whatsapp,
+        mapUrl: venue.mapUrl,
+        hours: venue.hours,
+        status: venue.status,
+        sports: venue.sports,
     });
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
@@ -51,7 +51,7 @@ function BranchForm({ branch }: { branch: Branch }) {
         e.preventDefault();
         save(
             branchUpdateSchema,
-            { ...f, id: branch.id },
+            { ...f, id: venue.id },
             "/api/admin/setup/branches",
             "PATCH",
             () => { }
@@ -60,8 +60,8 @@ function BranchForm({ branch }: { branch: Branch }) {
 
     return (
         <Card>
-            <form onSubmit={submit} noValidate className="space-y-4" aria-label="Edit branch details">
-                <Input label="Name" value={f.name} error={fields.name} onChange={(e) => set("name", e.target.value)} />
+            <form onSubmit={submit} noValidate className="space-y-4" aria-label="Edit venue details">
+                <Input label="Venue name" value={f.name} error={fields.name} onChange={(e) => set("name", e.target.value)} />
                 <Input label="Address" value={f.address} error={fields.address} onChange={(e) => set("address", e.target.value)} />
                 <Input label="Phone" type="tel" value={f.phone} error={fields.phone} onChange={(e) => set("phone", e.target.value)} />
                 <Input
@@ -88,7 +88,7 @@ function BranchForm({ branch }: { branch: Branch }) {
                     onChange={(e) => set("hours", e.target.value)}
                 />
                 <Select
-                    label="Status"
+                    label="Operating status"
                     value={f.status}
                     hint="Disabled blocks new bookings but keeps history visible."
                     error={fields.status}

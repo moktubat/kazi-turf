@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { branches } from "@/data/branches";
+import { venue } from "@/data/branches";
 import { footerLinks, legalLinks, site } from "@/data/site";
 
 export async function Footer() {
-    const branch = branches[0];
-
     return (
         <footer className="bg-evergreen text-white">
             <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3">
@@ -16,17 +14,17 @@ export async function Footer() {
                 </div>
 
                 <div>
-                    <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">{branch.name}</h2>
+                    <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">Venue</h2>
                     <ul className="mt-3 space-y-1 text-sm">
                         <li>
-                            <p className="font-semibold">{branch.name}</p>
-                            <p className="text-white/80">{branch.address}</p>
-                            <p className="text-white/80">{branch.hours}</p>
+                            <p className="font-semibold">{venue.name}</p>
+                            <p className="text-white/80">{venue.address}</p>
+                            <p className="text-white/80">{venue.hours}</p>
                             <p className="flex flex-wrap gap-x-4">
-                                <a href={`tel:${branch.phone}`} className="underline underline-offset-2">
-                                    {branch.phone}
+                                <a href={`tel:${venue.phone}`} className="underline underline-offset-2">
+                                    {venue.phone}
                                 </a>
-                                <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                                <a href={venue.mapUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
                                     Open in Maps
                                 </a>
                             </p>

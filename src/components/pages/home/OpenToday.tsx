@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { branches } from "@/data/branches";
+import { venue } from "@/data/branches";
 import { getNextOpenSlots, getPitch } from "@/server/availability";
 import { addDays } from "@/lib/time";
 import { formatBDT } from "@/lib/format";
@@ -11,32 +11,28 @@ export async function OpenToday() {
     const today = await todayDhaka();
     const tomorrow = addDays(today, 1);
 
-    const branch = branches.find((b) => b.status === "ACTIVE");
-    if (!branch) return null;
+    if (venue.status !== "ACTIVE") return null;
 
-    const slots = await getNextOpenSlots(branch.id, today, 4);
+    const slots = await getNextOpenSlots(venue.id, today, 4);
 
     return (
         <Section id="today" title="Open today" intro="Next available slots. Tap one to start booking." tone="mint">
             <div className="rounded-2xl border border-evergreen/10 bg-white p-5">
-                <h3 className="text-lg font-bold">{branch.name}</h3>
-
                 {slots.length === 0 ? (
-                    <p className="mt-3 text-sm text-evergreen/80">
+                    <p className="text-sm text-evergreen/80">
                         Fully booked today.{" "}
                         <Link
-                            href={`/book?${new URLSearchParams({ branch: branch.id, date: tomorrow })}`}
+                            href={`/book?${new URLSearchParams({ date: tomorrow })}`}
                             className="font-semibold text-teal underline underline-offset-2"
                         >
                             See tomorrow
                         </Link>
                     </p>
                 ) : (
-                    <ul className="mt-4 grid grid-cols-2 gap-3">
+                    <ul className="grid grid-cols-2 gap-3">
                         {slots.map((s) => {
                             const sport = getPitch(s.pitchId)?.sport ?? "";
                             const href = `/book?${new URLSearchParams({
-                                branch: branch.id,
                                 sport,
                                 date: today,
                                 pitch: s.pitchId,

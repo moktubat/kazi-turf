@@ -44,7 +44,7 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
                     {formatDateLong(b.date)} · {b.start}–{b.end}
                 </p>
                 <p className="text-sm text-evergreen/80">
-                    {b.branchName} · {b.pitchName} · {b.sport}
+                    {b.pitchName} · {b.sport}
                 </p>
             </div>
 

@@ -4,7 +4,7 @@ import { Input, Select } from "@/components/ui/Field";
 import { addDays } from "@/lib/time";
 import { DateStrip } from "./DateStrip";
 
-export interface FlowBranch {
+export interface FlowVenue {
     id: string;
     name: string;
     address: string;
@@ -19,7 +19,7 @@ function datesBetween(min: string, max: string) {
 }
 
 export function FilterBar({
-    branch,
+    venue,
     sport,
     date,
     minDate,
@@ -27,7 +27,7 @@ export function FilterBar({
     onSport,
     onDate,
 }: {
-    branch: FlowBranch;
+    venue: FlowVenue;
     sport: string;
     date: string;
     minDate: string;
@@ -39,7 +39,7 @@ export function FilterBar({
         <div className="space-y-4 rounded-2xl border border-evergreen/10 bg-white p-4">
             <div className="grid gap-4 sm:grid-cols-2">
                 <Select label="Sport" value={sport} onChange={(e) => onSport(e.target.value)}>
-                    {branch.sports.map((s) => (
+                    {venue.sports.map((s) => (
                         <option key={s} value={s}>
                             {s}
                         </option>

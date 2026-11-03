@@ -116,7 +116,7 @@ export function BookingResult({ code }: { code: string }) {
     }
 
     const b = state.booking;
-    const pickAnother = `/book?${new URLSearchParams({ branch: b.branchId, sport: b.sport, date: b.date })}`;
+    const pickAnother = `/book?${new URLSearchParams({ sport: b.sport, date: b.date })}`;
     const when = `${formatDateLong(b.date)}, ${b.start}–${b.end}`;
 
     return (
@@ -280,7 +280,6 @@ function Line({ label, value, strong }: { label: string; value: string; strong?:
 function Details({ b, when }: { b: BookingDto; when: string }) {
     return (
         <dl className="space-y-1.5 text-sm">
-            <Line label="Branch" value={b.branchName} />
             <Line label="Pitch" value={`${b.pitchName} · ${b.sport}`} />
             <Line label="When" value={when} />
         </dl>

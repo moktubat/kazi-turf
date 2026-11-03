@@ -1,17 +1,17 @@
-import { Wallet, MapPin, Percent } from "lucide-react";
-import { branches } from "@/data/branches";
+import { Wallet, Percent } from "lucide-react";
 import { policies } from "@/data/site";
+import { venue } from "@/data/branches";
 import { addDays } from "@/lib/time";
 import { QuickFinder } from "./QuickFinder";
 import { todayDhaka } from "@/lib/time.server";
 
 export async function Hero() {
     const today = await todayDhaka();
-    
-    // Trust chips come from real data only.
+
+    // Trust chips: payment terms only. The address belongs in the Venues section,
+    // not repeated as "Bogura branch" in the hero.
     const chips = [
         { icon: Wallet, text: "bKash advance payment" },
-        { icon: MapPin, text: `${branches[0].name} branch` },
         { icon: Percent, text: `${policies.advancePercent}% advance, balance at venue` },
     ];
 
@@ -42,7 +42,7 @@ export async function Hero() {
 
                 <div className="mt-8 rounded-2xl bg-white p-4 text-evergreen shadow-xl md:p-6">
                     <QuickFinder
-                        branches={branches}
+                        venue={venue}
                         defaultDate={today}
                         minDate={today}
                         maxDate={addDays(today, policies.bookingHorizonDays)}

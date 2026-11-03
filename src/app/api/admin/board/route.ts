@@ -3,13 +3,14 @@ import { boardQuerySchema } from "@/schemas/admin";
 import { getBoard } from "@/server/admin/board";
 import { staffGuard } from "@/server/admin/guard";
 import { handleError, ok } from "@/server/http";
+import { venue } from "@/data/branches";
 
 export async function GET(req: NextRequest) {
     try {
         const user = await staffGuard(req, false);
         const sp = req.nextUrl.searchParams;
         const q = boardQuerySchema.parse({
-            branch: sp.get("branch") ?? undefined,
+            branch: sp.get("branch") ?? venue.id,
             date: sp.get("date") ?? undefined,
         });
         return ok(await getBoard(user, q.branch, q.date));

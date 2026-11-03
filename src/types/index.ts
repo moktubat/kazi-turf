@@ -92,3 +92,5 @@ export interface Policies {
   vatMode: "inclusive" | "exclusive";
   vatRegistrationNo: string; // empty = hidden
 }
+
+export type Venue = Branch;

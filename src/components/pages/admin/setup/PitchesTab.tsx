@@ -9,7 +9,6 @@ import { SideSheet } from "@/components/ui/SideSheet";
 import { closeOptions } from "@/lib/grid";
 import { toMinutes } from "@/lib/time";
 import { pitchSchema, pitchUpdateSchema } from "@/schemas/setup";
-import type { Branch } from "@/types";
 import type { SetupPitch } from "@/types/setup";
 import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
@@ -31,11 +30,9 @@ interface FormState {
 
 export function PitchesTab({
     pitches,
-    branches,
     slotMinutes,
 }: {
     pitches: SetupPitch[];
-    branches: Branch[];
     slotMinutes: number;
 }) {
     const [editing, setEditing] = useState<SetupPitch | "new" | null>(null);
@@ -44,7 +41,7 @@ export function PitchesTab({
         <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-xl font-bold">Pitches</h2>
-                <Button onClick={() => setEditing("new")} disabled={branches.length === 0}>
+                <Button onClick={() => setEditing("new")}>
                     <Plus size={18} aria-hidden /> Add pitch
                 </Button>
             </div>
@@ -84,7 +81,6 @@ export function PitchesTab({
                     <PitchForm
                         key={editing === "new" ? "new" : editing.id}
                         pitch={editing === "new" ? null : editing}
-                        branches={branches}
                         slotMinutes={slotMinutes}
                         onDone={() => setEditing(null)}
                     />
@@ -96,21 +92,20 @@ export function PitchesTab({
 
 function PitchForm({
     pitch,
-    branches,
     slotMinutes,
     onDone,
 }: {
     pitch: SetupPitch | null;
-    branches: Branch[];
     slotMinutes: number;
     onDone: () => void;
 }) {
     const isNew = !pitch;
-    const first = branches[0];
+    const VENUE_ID = "bogura";
+    const VENUE_SPORTS = ["Football", "Cricket"];
     const [f, setF] = useState<FormState>({
-        branchId: pitch?.branchId ?? first?.id ?? "",
+        branchId: pitch?.branchId ?? VENUE_ID,
         name: pitch?.name ?? "",
-        sport: pitch?.sport ?? first?.sports[0] ?? "",
+        sport: pitch?.sport ?? VENUE_SPORTS[0] ?? "",
         format: pitch?.format ?? "",
         dimensions: pitch?.dimensions ?? "",
         surface: pitch?.surface ?? "",
@@ -124,8 +119,7 @@ function PitchForm({
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
 
-    const branch = branches.find((b) => b.id === f.branchId);
-    const sports = [...new Set([...(branch?.sports ?? []), ...(pitch && pitch.branchId === f.branchId ? [pitch.sport] : [])])];
+    const sports = [...new Set([...VENUE_SPORTS, ...(pitch ? [pitch.sport] : [])])];
     const closes = closeOptions(f.openTime, slotMinutes);
     const slotCount = Math.max(0, (toMinutes(f.closeTime) - toMinutes(f.openTime)) / slotMinutes);
 
@@ -151,19 +145,6 @@ function PitchForm({
 
     return (
         <form onSubmit={submit} noValidate className="space-y-4" aria-label={isNew ? "Add pitch" : "Edit pitch"}>
-            <Select
-                label="Branch"
-                value={f.branchId}
-                disabled={!isNew}
-                onChange={(e) => {
-                    const b = branches.find((x) => x.id === e.target.value);
-                    setF((s) => ({ ...s, branchId: e.target.value, sport: b?.sports[0] ?? "" }));
-                }}
-            >
-                {branches.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-            </Select>
             <Input label="Pitch label" value={f.name} error={fields.name} onChange={(e) => set("name", e.target.value)} />
             <Select
                 label="Sport"

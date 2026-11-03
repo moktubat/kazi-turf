@@ -1,10 +1,9 @@
-import { branches } from "@/data/branches";
+import { venue } from "@/data/branches";
 import { Section } from "./Section";
-import { BranchPanel } from "./BranchPanel";
+import { VenuePanel } from "./VenuePanel";
 
 export function VenuesSection() {
-    if (branches.length === 0) return null;
-    const branch = branches[0];
+    if (venue.status !== "ACTIVE") return null;
 
     return (
         <Section
@@ -12,7 +11,7 @@ export function VenuesSection() {
             title="Venue & rates"
             intro="Facilities, rates and location in one place. Prices are per 90-minute slot."
         >
-            <BranchPanel branch={branch} />
+            <VenuePanel venue={venue} />
         </Section>
     );
 }

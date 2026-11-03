@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BookingFlow, type FlowInitial } from "@/components/pages/booking/BookingFlow";
 import { BookingResult } from "@/components/pages/booking/BookingResult";
-import type { FlowBranch } from "@/components/pages/booking/FilterBar";
+import type { FlowVenue } from "@/components/pages/booking/FilterBar";
 import { Button } from "@/components/ui/Button";
-import { branches } from "@/data/branches";
+import { venue } from "@/data/branches";
 import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
 import { getSessionUser } from "@/server/auth/session";
@@ -36,22 +36,21 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
         return <BookingResult code={code} />;
     }
 
-    const branchDoc = branches.find((b) => b.status === "ACTIVE" && b.sports.length > 0);
-    if (!branchDoc) {
+    if (venue.status !== "ACTIVE" || venue.sports.length === 0) {
         return (
             <div className="mx-auto max-w-xl px-4 py-16 text-center">
                 <h1 className="text-2xl font-extrabold">Bookings open soon</h1>
-                <p className="mt-2 text-evergreen/80">The branch is not taking online bookings yet.</p>
+                <p className="mt-2 text-evergreen/80">The venue is not taking online bookings yet.</p>
                 <Button href="/" className="mt-6">Back to Home</Button>
             </div>
         );
     }
-    const branch: FlowBranch = {
-        id: branchDoc.id,
-        name: branchDoc.name,
-        address: branchDoc.address,
-        mapUrl: branchDoc.mapUrl,
-        sports: branchDoc.sports,
+    const v: FlowVenue = {
+        id: venue.id,
+        name: venue.name,
+        address: venue.address,
+        mapUrl: venue.mapUrl,
+        sports: venue.sports,
     };
 
     // Resolve deep links safely – ignore anything invalid
@@ -63,9 +62,9 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
 
     const wantedSport = one("sport") ?? pitch?.sport;
     const sport =
-        wantedSport && branch.sports.includes(wantedSport)
+        wantedSport && v.sports.includes(wantedSport)
             ? wantedSport
-            : branch.sports[0];
+            : v.sports[0];
 
     const rawDate = one("date");
     const date =
@@ -78,7 +77,7 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
 
     const slot = one("slot");
     const validPitch =
-        pitch && pitch.branchId === branch.id && pitch.sport === sport
+        pitch && pitch.branchId === v.id && pitch.sport === sport
             ? pitch
             : undefined;
 
@@ -92,7 +91,7 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
 
     return (
         <BookingFlow
-            branch={branch}
+            venue={v}
             initial={initial}
             minDate={today}
             maxDate={maxDate}

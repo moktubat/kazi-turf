@@ -7,16 +7,15 @@ import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
 import { staffCreateSchema, staffUpdateSchema } from "@/schemas/setup";
-import type { Branch } from "@/types";
 import type { SetupStaff } from "@/types/setup";
 import { Check, FormActions } from "./ui";
 import { useSave } from "./useSave";
+import { venue } from "@/data/branches";
 
 const PITCHES_EDIT = "pitches.edit";
 
-export function StaffTab({ staff, branches }: { staff: SetupStaff[]; branches: Branch[] }) {
+export function StaffTab({ staff }: { staff: SetupStaff[] }) {
     const [editing, setEditing] = useState<SetupStaff | "new" | null>(null);
-    const nameOf = (id: string) => branches.find((b) => b.id === id)?.name ?? id;
 
     return (
         <div className="space-y-4">
@@ -44,7 +43,7 @@ export function StaffTab({ staff, branches }: { staff: SetupStaff[]; branches: B
                                 </div>
                             </div>
                             <p className="text-sm">
-                                {u.role === "SUPER_ADMIN" ? "All branches" : u.branchIds.map(nameOf).join(", ") || "No branch assigned"}
+                                {u.role === "SUPER_ADMIN" ? "Full access" : "Venue staff"}
                                 {u.permissions.includes(PITCHES_EDIT) && " · can edit pitches and rates"}
                             </p>
                             <Button variant="outline" disabled={u.isSelf} onClick={() => setEditing(u)}>
@@ -60,7 +59,6 @@ export function StaffTab({ staff, branches }: { staff: SetupStaff[]; branches: B
                     <StaffForm
                         key={editing === "new" ? "new" : editing.id}
                         user={editing === "new" ? null : editing}
-                        branches={branches}
                         onDone={() => setEditing(null)}
                     />
                 )}
@@ -81,7 +79,7 @@ interface FormState {
     newPassword: string;
 }
 
-function StaffForm({ user, branches, onDone }: { user: SetupStaff | null; branches: Branch[]; onDone: () => void }) {
+function StaffForm({ user, onDone }: { user: SetupStaff | null; onDone: () => void }) {
     const isNew = !user;
     const [f, setF] = useState<FormState>({
         name: user?.name ?? "",
@@ -89,7 +87,7 @@ function StaffForm({ user, branches, onDone }: { user: SetupStaff | null; branch
         email: user?.email ?? "",
         password: "",
         role: user?.role ?? "STAFF",
-        branchIds: user?.branchIds ?? [],
+        branchIds: user?.branchIds ?? [venue.id],
         canEditPitches: user?.permissions.includes(PITCHES_EDIT) ?? false,
         status: user?.status ?? "ACTIVE",
         newPassword: "",
@@ -102,7 +100,7 @@ function StaffForm({ user, branches, onDone }: { user: SetupStaff | null; branch
         e.preventDefault();
         const access = {
             role: f.role,
-            branchIds: isAdmin ? [] : f.branchIds,
+            branchIds: isAdmin ? [] : [venue.id],
             permissions: !isAdmin && f.canEditPitches ? [PITCHES_EDIT] : [],
         };
         if (isNew) {
@@ -146,23 +144,12 @@ function StaffForm({ user, branches, onDone }: { user: SetupStaff | null; branch
             )}
 
             <Select label="Role" value={f.role} onChange={(e) => set("role", e.target.value as FormState["role"])}>
-                <option value="STAFF">Staff (assigned branches only)</option>
+                <option value="STAFF">Staff (venue access)</option>
                 <option value="SUPER_ADMIN">Super Admin (everything)</option>
             </Select>
 
             {!isAdmin && (
-                <>
-                    <fieldset>
-                        <legend className="mb-1 text-sm font-semibold">Assigned branch</legend>
-                        <Check
-                            label={branches[0]?.name ?? "Bogura"}
-                            checked={f.branchIds.includes(branches[0]?.id ?? "bogura")}
-                            onChange={(on) => set("branchIds", on ? [branches[0]?.id ?? "bogura"] : [])}
-                        />
-                        {fields.branchIds && <p role="alert" className="text-sm font-medium text-booked">{fields.branchIds}</p>}
-                    </fieldset>
-                    <Check label="Can edit pitches and rates (assigned branches only)" checked={f.canEditPitches} onChange={(v) => set("canEditPitches", v)} />
-                </>
+                <Check label="Can edit pitches and rates" checked={f.canEditPitches} onChange={(v) => set("canEditPitches", v)} />
             )}
 
             {!isNew && (

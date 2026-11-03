@@ -58,33 +58,23 @@ export function RevenueChart({ data }: { data: InsightsData["revenue"] }) {
                 <h2 className="text-lg font-bold">Collected revenue by {data.bucket}</h2>
                 <p className="text-xs text-evergreen/70">By the date the payment was received. Not counting fully refunded bookings.</p>
             </div>
-            
+
             {data.total === 0 ? (
                 <p className="text-sm text-evergreen/70">No collected payments in this range.</p>
             ) : (
                 <ol className="space-y-1.5">
                     {data.rows.map((r) => {
-                        const detail = data.branches
-                            .filter((b) => r.byBranch[b.id])
-                            .map((b) => `${b.name} ${formatBDT(r.byBranch[b.id])}`)
-                            .join(", ");
                         return (
                             <li key={r.key} className="grid grid-cols-[6.5rem_1fr_5.5rem] items-center gap-2 text-xs">
                                 <span className="truncate">{r.label}</span>
                                 <div
                                     role="img"
-                                    aria-label={`${r.label}: ${r.total ? `${formatBDT(r.total)} (${detail})` : "nothing collected"}`}
                                     className="flex h-5 overflow-hidden rounded bg-evergreen/5"
                                 >
-                                    {data.branches.map((b, i) =>
-                                        r.byBranch[b.id] ? (
-                                            <div
-                                                key={b.id}
-                                                className={PALETTE[i % PALETTE.length]}
-                                                style={{ width: `${(r.byBranch[b.id] / max) * 100}%` }}
-                                            />
-                                        ) : null
-                                    )}
+                                    <div
+                                        className="bg-teal"
+                                        style={{ width: `${(r.total / max) * 100}%` }}
+                                    />
                                 </div>
                                 <span className="text-right font-semibold">{r.total ? formatBDT(r.total) : "–"}</span>
                             </li>

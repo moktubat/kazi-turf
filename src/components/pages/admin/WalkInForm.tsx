@@ -15,14 +15,14 @@ export function WalkInForm({
     pitch,
     cellStart,
     date,
-    branchName,
+    venueName,
     onCreated,
     onClose,
 }: {
     pitch: BoardPitch;
     cellStart: string;
     date: string;
-    branchName: string;
+    venueName: string;
     onCreated: () => void;
     onClose: () => void;
 }) {
@@ -165,7 +165,6 @@ export function WalkInForm({
     return (
         <form onSubmit={submit} noValidate className="space-y-5" aria-label="Walk-in booking">
             <dl className="space-y-1.5 text-sm">
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Branch</dt><dd className="font-semibold">{branchName}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Pitch</dt><dd className="font-semibold">{pitch.name}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Date</dt><dd className="font-semibold">{formatDateLong(date)}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="font-semibold">{picked[0]?.start}–{picked[picked.length - 1]?.end}</dd></div>

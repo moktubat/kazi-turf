@@ -1,4 +1,4 @@
-// Setup rules: branches, pitches, rates, staff, policies. Authorization, validation and audit live here.
+// Setup rules: venue, pitches, rates, staff, policies. Authorization, validation and audit live here.
 // Config edits mutate the shared objects in place (every reader sees them), then persist to MongoDB.
 import "server-only";
 import { randomUUID } from "crypto";
@@ -72,12 +72,12 @@ const waDigits = (v: string) => {
 const inRange = (r: { effectiveFrom?: string; effectiveTo?: string }, d: string) =>
     (!r.effectiveFrom || d >= r.effectiveFrom) && (!r.effectiveTo || d <= r.effectiveTo);
 
-
+/* ---------- venue ---------- */
 export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     assertSuperAdmin(user);
     await begin();
     const b = branches.find((x) => x.id === input.id);
-    if (!b) throw new AppError("NOT_FOUND", "Branch not found.", 404);
+    if (!b) throw new AppError("NOT_FOUND", "Venue not found.", 404);
 
     const sports = uniq(input.sports);
     for (const p of pitches) {
@@ -109,8 +109,8 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
 /* ---------- pitches ---------- */
 function assertPitchRules(branch: Branch, input: { name: string; sport: string }, selfId?: string) {
     if (!branch.sports.includes(input.sport)) {
-        throw new AppError("SPORT_NOT_OFFERED", `Add "${input.sport}" to the branch's sports first.`, 400, {
-            sport: "Not offered at this branch",
+        throw new AppError("SPORT_NOT_OFFERED", `Add "${input.sport}" to the venue's sports first.`, 400, {
+            sport: "Not offered at this venue",
         });
     }
     const clash = pitches.some(
@@ -124,7 +124,7 @@ async function assertScheduleSafe(pitchId: string, openTime: string, closeTime: 
     const step = policies.slotMinutes;
     const open = toMinutes(openTime);
     const close = toMinutes(closeTime);
-    const since = new Date(now.getTime() - step * 60_000).toISOString(); // cells that ended already are history
+    const since = new Date(now.getTime() - step * 60_000).toISOString();
 
     const claims = await SlotClaimModel.find({
         pitchId,
@@ -150,7 +150,7 @@ export async function createPitch(user: ServerUser, input: PitchInput) {
     assertPitchEditor(user, input.branchId);
     await begin();
     const branch = branches.find((b) => b.id === input.branchId);
-    if (!branch) throw new AppError("NOT_FOUND", "Branch not found.", 404);
+    if (!branch) throw new AppError("NOT_FOUND", "Venue not found.", 404);
     assertPitchRules(branch, input);
 
     const base = `${branch.id}-${slugify(input.name)}`;
@@ -190,7 +190,7 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
     assertPitchEditor(user, p.branchId);
 
     const branch = branches.find((b) => b.id === p.branchId);
-    if (!branch) throw new AppError("NOT_FOUND", "Branch not found.", 404);
+    if (!branch) throw new AppError("NOT_FOUND", "Venue not found.", 404);
     assertPitchRules(branch, input, p.id);
 
     if (p.openTime !== input.openTime || p.closeTime !== input.closeTime) {
@@ -210,7 +210,7 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
         image: input.image || null,
         status: input.status,
     };
-    const changes = diff(p as unknown as Record<string, unknown>, next); // the branch never changes here
+    const changes = diff(p as unknown as Record<string, unknown>, next);
     Object.assign(p, next);
     await persistConfig("pitches");
     if (Object.keys(changes).length > 0) {
@@ -297,7 +297,7 @@ export async function updateRate(user: ServerUser, input: RateUpdateInput) {
     assertRule(pitch, { ...input, pitchId: pitch.id }, rule.id);
 
     const before = `${describeRule(rule)} ৳${rule.pricePerSlot}`;
-    Object.assign(rule, ruleFields(input)); // the pitch of a rate never changes
+    Object.assign(rule, ruleFields(input));
     await persistConfig("pricingRules");
     await logAudit(user, {
         action: "PRICE_CHANGED",
@@ -334,7 +334,7 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
     const isAdmin = input.role === "SUPER_ADMIN";
     const branchIds = isAdmin ? [] : [...new Set(input.branchIds)];
     for (const id of branchIds) {
-        if (!branches.some((b) => b.id === id)) throw new AppError("NOT_FOUND", "Unknown branch.", 400, { branchIds: "Unknown branch" });
+        if (!branches.some((b) => b.id === id)) throw new AppError("NOT_FOUND", "Unknown venue.", 400, { branchIds: "Unknown venue" });
     }
 
     const email = input.email.trim() ? input.email.trim().toLowerCase() : null;
@@ -356,7 +356,7 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
     try {
         await UserModel.create(u);
     } catch (e) {
-        mapDup(e); // the unique indexes decide a race
+        mapDup(e);
     }
     await logAudit(user, {
         action: "STAFF_CREATED",
@@ -388,7 +388,7 @@ export async function updateStaff(user: ServerUser, input: StaffUpdateInput) {
     const isAdmin = input.role === "SUPER_ADMIN";
     const branchIds = isAdmin ? [] : [...new Set(input.branchIds)];
     for (const id of branchIds) {
-        if (!branches.some((b) => b.id === id)) throw new AppError("NOT_FOUND", "Unknown branch.", 400, { branchIds: "Unknown branch" });
+        if (!branches.some((b) => b.id === id)) throw new AppError("NOT_FOUND", "Unknown venue.", 400, { branchIds: "Unknown venue" });
     }
 
     const newHash = input.newPassword ? await hashPassword(input.newPassword) : null;
@@ -407,7 +407,7 @@ export async function updateStaff(user: ServerUser, input: StaffUpdateInput) {
         await logAudit(user, { action: "ROLE_CHANGED", entityType: "USER", entityId: u.id, meta: { name: u.name, ...changes } });
     }
     if (newHash) {
-        await endOtherSessions(u.id); // signs them out everywhere
+        await endOtherSessions(u.id);
         await logAudit(user, { action: "PASSWORD_RESET", entityType: "USER", entityId: u.id, meta: { name: u.name } });
     }
 }
@@ -451,7 +451,6 @@ export async function updatePolicies(user: ServerUser, input: PolicyInput) {
     const changes = diff(before as unknown as Record<string, unknown>, { ...scalars, legalReviewed: input.legalReviewed });
     if (JSON.stringify(before.refund) !== JSON.stringify(input.refund)) changes.refundPolicy = "updated";
 
-    // Only future bookings are affected: existing bookings keep their saved snapshots (spec 8.4, 10.3).
     Object.assign(policies, scalars);
     Object.assign(refundConfig, {
         tiers: input.refund.tiers,
@@ -505,9 +504,11 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
 
     await settleExpired({}, now); // expired holds do not count as upcoming
 
-    const myBranches = branches.filter((b) => canAccessBranch(user, b.id));
-    const branchIds = new Set(myBranches.map((b) => b.id));
-    const myPitches = pitches.filter((p) => branchIds.has(p.branchId));
+    // Single venue: scope by access so staff with pitches.edit still only see
+    // pitches they can edit (enforced by branchIds on the user).
+    const myVenue = branches.find((b) => canAccessBranch(user, b.id)) ?? null;
+    const venueId = myVenue?.id;
+    const myPitches = venueId ? pitches.filter((p) => p.branchId === venueId) : [];
     const pitchById = new Map(myPitches.map((p) => [p.id, p]));
 
     const rates: SetupRate[] = pricingRules
@@ -559,15 +560,19 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
     ]);
     const upcoming = new Map(counts.map((c) => [c._id, c.n]));
 
-    const tabs: SetupTab[] = isAdmin ? ["branch", "pitches", "rates", "staff", "policies"] : ["pitches", "rates"];
+    const tabs: SetupTab[] = isAdmin
+        ? ["venue", "pitches", "rates", "staff", "policies"]
+        : ["pitches", "rates"];
 
     return {
         tabs,
-        isAdmin,
         slotMinutes: step,
-        branch: myBranches[0] ?? null,
-        branches: myBranches.map((b) => ({ ...b, sports: [...b.sports] })),
-        pitches: myPitches.map((p) => ({ ...p, facilities: [...p.facilities], upcomingBookings: upcoming.get(p.id) ?? 0 })),
+        venue: myVenue,
+        pitches: myPitches.map((p) => ({
+            ...p,
+            facilities: [...p.facilities],
+            upcomingBookings: upcoming.get(p.id) ?? 0,
+        })),
         rates,
         coverage,
         staff,

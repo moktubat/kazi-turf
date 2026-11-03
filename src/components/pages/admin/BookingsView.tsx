@@ -34,11 +34,11 @@ const PAYMENT = [
 ] as const;
 
 export function BookingsView({
-    branches,
+    venue,
     role,
     defaults,
 }: {
-    branches: { id: string; name: string }[];
+    venue: { id: string; name: string };
     role: Role;
     defaults: { from: string; to: string; requestOnly: boolean };
 }) {
@@ -108,10 +108,6 @@ export function BookingsView({
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Input label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
                     <Input label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-                    <div>
-                        <p className="text-sm font-semibold">Branch</p>
-                        <p className="flex min-h-11 items-center font-heading font-bold">{branches[0]?.name}</p>
-                    </div>
                     <Select label="Source" value={source} onChange={(e) => setSource(e.target.value)}>
                         <option value="">Online and counter</option>
                         <option value="online">Online</option>
@@ -181,7 +177,7 @@ export function BookingsView({
                                         </th>
                                         <td className="px-3 py-3">{formatDateLong(b.date)}<span className="block text-xs text-evergreen/70">{b.start}–{b.end}</span></td>
                                         <td className="px-3 py-3">{b.customerName}<span className="block text-xs text-evergreen/70">{b.phone}</span></td>
-                                        <td className="px-3 py-3">{b.branchName}<span className="block text-xs text-evergreen/70">{b.pitchName}</span></td>
+                                        <td className="px-3 py-3">{b.pitchName}<span className="block text-xs text-evergreen/70">{b.sport}</span></td>
                                         <td className="px-3 py-3">
                                             <div className="flex flex-col items-start gap-1.5">
                                                 <BookingStatusBadge status={b.bookingStatus} />

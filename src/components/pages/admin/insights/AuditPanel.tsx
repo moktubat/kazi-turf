@@ -59,7 +59,6 @@ export function AuditPanel({
                                     <td className="px-3 py-3 font-semibold">{label(r.action)}</td>
                                     <td className="px-3 py-3">
                                         <span className="font-mono text-xs">{r.entityId}</span>
-                                        {r.branchName && <span className="block text-xs text-evergreen/70">{r.branchName}</span>}
                                     </td>
                                     <td className="px-3 py-3 text-xs text-evergreen/80">
                                         {Object.entries(r.meta)

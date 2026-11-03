@@ -1,6 +1,6 @@
 import type { Branch, Pitch, PricingRule } from "@/types";
 
-export type SetupTab = "branch" | "pitches" | "rates" | "staff" | "policies";
+export type SetupTab = "venue" | "pitches" | "rates" | "staff" | "policies";
 
 export interface SetupPitch extends Pitch {
     upcomingBookings: number;
@@ -52,13 +52,11 @@ export interface PolicyForm {
 
 export interface SetupData {
     tabs: SetupTab[];
-    isAdmin: boolean;
-    slotMinutes: number;
-    branches: Branch[];
-    branch: Branch | null;
+    venue: Branch | null;
     pitches: SetupPitch[];
     rates: SetupRate[];
-    coverage: Record<string, string[]>; // pitchId -> "Fri: no price at 06:00, 07:30"
+    coverage: Record<string, string[]>;
     staff: SetupStaff[];
+    slotMinutes: number;
     policies: PolicyForm | null;
 }

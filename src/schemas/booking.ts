@@ -22,7 +22,7 @@ export const confirmFormSchema = z.object({
 export type ConfirmFormInput = z.infer<typeof confirmFormSchema>;
 
 export const availabilityQuerySchema = z.object({
-    branch: z.string().min(1).max(60),
+    branch: z.string().min(1).max(60).optional(),
     sport: z.string().min(1).max(40),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
