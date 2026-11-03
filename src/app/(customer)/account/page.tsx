@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { connection } from "next/server";
 import { AccountView } from "@/components/pages/account/AccountView";
 import { getSessionUser } from "@/server/auth/session";
 import { listAccountBookings } from "@/server/bookings/account";
-import { connection } from "next/server";
 
 export const metadata: Metadata = { title: "My account" };
 
@@ -12,7 +13,22 @@ const CODE = /^KT-[A-HJ-NP-Z2-9]{6}$/;
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
-export default async function AccountPage({ searchParams }: { searchParams: Params }) {
+function AccountFallback() {
+    return (
+        <div className="mx-auto max-w-3xl px-4 py-8 pb-28 md:pb-10">
+            <div className="mb-6">
+                <h1 className="text-2xl font-extrabold md:text-3xl">My account</h1>
+                <p className="text-evergreen/80">Loading…</p>
+            </div>
+            <div className="space-y-4">
+                <div className="h-32 animate-pulse rounded-2xl bg-evergreen/10" />
+                <div className="h-32 animate-pulse rounded-2xl bg-evergreen/10" />
+            </div>
+        </div>
+    );
+}
+
+async function AccountContent({ searchParams }: { searchParams: Params }) {
     await connection();
     const sp = await searchParams;
     const raw = Array.isArray(sp.b) ? sp.b[0] : sp.b;
@@ -21,7 +37,6 @@ export default async function AccountPage({ searchParams }: { searchParams: Para
     const user = await getSessionUser();
     if (!user) redirect(`/login?next=${encodeURIComponent(code ? `/account?b=${code}` : "/account")}`);
 
-    // Staff do not hold customer bookings (spec §3). They see their profile only.
     const showBookings = user.role !== "STAFF";
     const { upcoming, history } = showBookings ? await listAccountBookings(user, new Date()) : { upcoming: [], history: [] };
     const isStaff = user.role === "STAFF" || user.role === "SUPER_ADMIN";
@@ -48,5 +63,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Para
                 showBookings={showBookings}
             />
         </div>
+    );
+}
+
+export default function AccountPage({ searchParams }: { searchParams: Params }) {
+    return (
+        <Suspense fallback={<AccountFallback />}>
+            <AccountContent searchParams={searchParams} />
+        </Suspense>
     );
 }

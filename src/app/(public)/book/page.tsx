@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { BookingFlow, type FlowInitial } from "@/components/pages/booking/BookingFlow";
 import { BookingResult } from "@/components/pages/booking/BookingResult";
 import type { FlowVenue } from "@/components/pages/booking/FilterBar";
@@ -9,15 +10,32 @@ import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
 import { getSessionUser } from "@/server/auth/session";
 import { getPitch } from "@/server/availability";
-import { connectDb } from "@/server/db/connect";
 import { todayDhaka } from "@/lib/time.server";
 
 export const metadata: Metadata = { title: "Book a slot" };
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
-export default async function BookPage({ searchParams }: { searchParams: Params }) {
-    await connectDb();
+function BookFallback() {
+    return (
+        <div className="mx-auto max-w-6xl px-4 py-6 pb-32 lg:pb-10">
+            <div className="h-8 w-48 animate-pulse rounded bg-evergreen/10" />
+            <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
+                <div className="space-y-5">
+                    <div className="h-20 animate-pulse rounded-2xl bg-evergreen/10" />
+                    <div className="grid grid-cols-3 gap-2">
+                        {Array.from({ length: 12 }).map((_, i) => (
+                            <div key={i} className="h-[4.5rem] animate-pulse rounded-xl bg-evergreen/10" />
+                        ))}
+                    </div>
+                </div>
+                <div className="hidden h-64 animate-pulse rounded-2xl bg-evergreen/10 lg:block" />
+            </div>
+        </div>
+    );
+}
+
+async function BookContent({ searchParams }: { searchParams: Params }) {
     const sp = await searchParams;
 
     const one = (k: string) => {
@@ -27,7 +45,6 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
 
     const user = await getSessionUser();
 
-    // Step 3: result – always server-verified
     const code = one("booking");
     if (code) {
         if (!user) {
@@ -53,7 +70,6 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
         sports: venue.sports,
     };
 
-    // Resolve deep links safely – ignore anything invalid
     const today = await todayDhaka();
     const maxDate = addDays(today, policies.bookingHorizonDays);
 
@@ -102,5 +118,13 @@ export default async function BookPage({ searchParams }: { searchParams: Params 
                 slotMinutes: policies.slotMinutes,
             }}
         />
+    );
+}
+
+export default function BookPage({ searchParams }: { searchParams: Params }) {
+    return (
+        <Suspense fallback={<BookFallback />}>
+            <BookContent searchParams={searchParams} />
+        </Suspense>
     );
 }

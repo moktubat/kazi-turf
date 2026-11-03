@@ -2,6 +2,10 @@ import { canSetup } from "@/server/auth/permissions";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 import { AdminNav } from "@/components/layout/admin/AdminNav";
 
+// Admin routes are auth-gated and per-request — never prerender them.
+// This applies to ALL routes under /admin/* (desk, bookings, setup, insights).
+export const instant = false;
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaffPage("/admin");
   return (
