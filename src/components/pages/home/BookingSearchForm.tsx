@@ -45,7 +45,7 @@ export function BookingSearchForm({
     return (
         <form
             onSubmit={onSubmit}
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
+            className="grid gap-3 text-evergreen sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
             aria-label="Find available slots"
         >
             <Select label="Pitch" value={pitchId} onChange={(e) => setPitchId(e.target.value)}>
