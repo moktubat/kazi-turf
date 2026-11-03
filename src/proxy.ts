@@ -18,7 +18,7 @@ function apply(res: NextResponse) {
     return res;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
     // API routes return JSON/CSV/HTML files, not pages. They get the basic headers only.
     // No CORS headers are added anywhere: the API is same-origin only, by design.
     if (req.nextUrl.pathname.startsWith("/api/")) return apply(NextResponse.next());
