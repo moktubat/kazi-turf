@@ -1,11 +1,6 @@
 import type { Branch } from "@/types";
 import { shared } from "@/lib/shared";
 
-/**
- * Single-venue source of truth. The array shape is kept so historical
- * booking/audit rows that store `branchId: "bogura"` remain valid,
- * but the app never iterates this as if more branches could exist.
- */
 export const branches: Branch[] = shared<Branch[]>("branches", [
     {
         id: "bogura",
@@ -17,12 +12,41 @@ export const branches: Branch[] = shared<Branch[]>("branches", [
         mapUrl: "https://maps.google.com/?q=Bogura",
         hours: "06:00 – 24:00",
         status: "ACTIVE",
-        sports: ["Football", "Cricket"],
+        sports: ["Football", "Cricket", "Volleyball", "Badminton", "Swimming"],
+        sportConfigs: [
+            {
+                id: "football",
+                name: "Football",
+                image: "/sports/football.jpg",
+                active: true,
+            },
+            {
+                id: "cricket",
+                name: "Cricket",
+                image: "/sports/cricket.jpg",
+                active: true,
+            },
+            {
+                id: "volleyball",
+                name: "Volleyball",
+                image: "/sports/volleyball.jpg",
+                active: true,
+            },
+            {
+                id: "badminton",
+                name: "Badminton",
+                image: "/sports/badminton.jpg",
+                active: true,
+            },
+            {
+                id: "swimming",
+                name: "Swimming",
+                image: "/sports/swimming.jpg",
+                active: true,
+            },
+        ],
     },
 ]);
 
-/** The one and only venue. Use this everywhere instead of `branches[0]`. */
 export const venue: Branch = branches[0];
-
-/** Convenience for server code that still takes a branchId argument. */
 export const VENUE_ID = venue.id;

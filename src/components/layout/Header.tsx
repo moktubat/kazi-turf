@@ -1,19 +1,33 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, UserRound } from "lucide-react";
 import { navLinks, site } from "@/data/site";
 import { Button } from "@/components/ui/Button";
 import type { SessionUser } from "@/types";
+import { cn } from "@/lib/cn";
 
 export function Header({ user }: { user: SessionUser | null }) {
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
+    const isHome = pathname === "/";
+    const [scrolled, setScrolled] = useState(false);
     const drawerRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
 
     const isStaff = user?.role === "STAFF" || user?.role === "SUPER_ADMIN";
+
+    useEffect(() => {
+        if (!isHome) {
+            setScrolled(true);
+            return;
+        }
+        const onScroll = () => setScrolled(window.scrollY > 80);
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, [isHome]);
 
     // Close drawer on navigation
     useEffect(() => {
@@ -56,10 +70,20 @@ export function Header({ user }: { user: SessionUser | null }) {
     }, [open]);
 
     return (
-        <header className="sticky top-0 z-40 border-b border-evergreen/10 bg-white/95 backdrop-blur">
+        <header className={cn(
+            "sticky top-0 z-40 transition-all duration-300",
+            scrolled
+                ? "border-b border-evergreen/10 bg-white/95 backdrop-blur"
+                : isHome
+                    ? "bg-transparent"
+                    : "border-b border-evergreen/10 bg-white/95 backdrop-blur"
+        )}>
             <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
-                <Link href="/" className="font-heading text-xl font-extrabold text-evergreen">
-                    Kazi<span className="text-teal">Turf</span>
+                <Link href="/" className={cn(
+                    "font-heading text-xl font-extrabold transition-colors",
+                    scrolled ? "text-evergreen" : "text-white"
+                )}>
+                    Kazi<span className="text-emerald">Turf</span>
                     <span className="sr-only"> — {site.tagline}</span>
                 </Link>
 
@@ -69,7 +93,12 @@ export function Header({ user }: { user: SessionUser | null }) {
                         <Link
                             key={l.label}
                             href={l.href}
-                            className="rounded-lg px-3 py-2 text-sm font-medium text-evergreen hover:bg-mint"
+                            className={cn(
+                                "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                                scrolled
+                                    ? "text-evergreen hover:bg-mint"
+                                    : "text-white hover:bg-white/10"
+                            )}
                         >
                             {l.label}
                         </Link>
@@ -79,11 +108,11 @@ export function Header({ user }: { user: SessionUser | null }) {
                 <div className="hidden items-center gap-2 md:flex">
                     {user ? (
                         <>
-                            <Button href="/account" variant="ghost">
+                            <Button href="/account" variant={scrolled ? "ghost" : "ghost"} className={scrolled ? "" : "text-white hover:bg-white/10"}>
                                 <UserRound size={18} aria-hidden /> Account
                             </Button>
                             {isStaff && (
-                                <Button href="/admin" variant="outline">
+                                <Button href="/admin" variant="outline" className={scrolled ? "" : "border-white text-white hover:bg-white/10"}>
                                     Admin
                                 </Button>
                             )}
@@ -94,18 +123,21 @@ export function Header({ user }: { user: SessionUser | null }) {
                             </form>
                         </>
                     ) : (
-                        <Button href="/login" variant="ghost">
+                        <Button href="/login" variant="ghost" className={scrolled ? "" : "text-white hover:bg-white/10"}>
                             Login / Sign up
                         </Button>
                     )}
-                    <Button href="/book">Book Now</Button>
+                    <Button href="/book" className={scrolled ? "" : "bg-white text-evergreen hover:bg-white/90"}>Book Now</Button>
                 </div>
 
                 {/* Mobile trigger */}
                 <button
                     ref={triggerRef}
                     type="button"
-                    className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-mint md:hidden"
+                    className={cn(
+                        "inline-flex size-11 items-center justify-center rounded-lg md:hidden",
+                        scrolled ? "hover:bg-mint" : "text-white hover:bg-white/10"
+                    )}
                     aria-label="Open menu"
                     aria-expanded={open}
                     aria-controls="mobile-drawer"

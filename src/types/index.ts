@@ -8,6 +8,13 @@ export interface SessionUser {
 
 export type BranchStatus = "ACTIVE" | "DISABLED";
 
+export interface SportConfig {
+  id: string;       // slug: "football", "cricket"
+  name: string;     // display name: "Football"
+  image: string;    // path to bg image: "/sports/football.jpg"
+  active: boolean;  // shown in hero tabs when true
+}
+
 export interface Branch {
   id: string;
   name: string;
@@ -17,8 +24,9 @@ export interface Branch {
   whatsapp: string;
   mapUrl: string;
   hours: string;
-  status: BranchStatus;
+  status: "ACTIVE" | "DISABLED";
   sports: string[];
+  sportConfigs: SportConfig[];
 }
 
 export interface Pitch {

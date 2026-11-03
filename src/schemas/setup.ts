@@ -35,6 +35,17 @@ const branchBase = z.object({
     hours: z.string().trim().max(60, "Too long"),
     status: z.enum(["ACTIVE", "DISABLED"]),
     sports: list(10),
+    sportConfigs: z.array(
+        z.object({
+            id: z.string().trim().min(1, "Enter an ID").max(30, "Too long"),
+            name: z.string().trim().min(2, "Enter a name").max(30, "Too long"),
+            image: z.string().trim().max(200, "Too long").refine(
+                (v) => v === "" || /^\/[\w\-./]+$/.test(v),
+                "Use a path like /sports/football.jpg"
+            ),
+            active: z.boolean(),
+        })
+    ).max(10, "At most 10 sports"),
 });
 
 const branchActiveRules = (v: z.infer<typeof branchBase>, ctx: z.RefinementCtx) => {

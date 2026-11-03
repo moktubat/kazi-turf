@@ -6,6 +6,8 @@ import { branchUpdateSchema } from "@/schemas/setup";
 import type { Branch } from "@/types";
 import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
+import { Button } from "@/components/ui/Button";
+import { Plus, Trash2 } from "lucide-react";
 
 interface FormState {
     name: string;
@@ -16,6 +18,7 @@ interface FormState {
     hours: string;
     status: Branch["status"];
     sports: string[];
+    sportConfigs: { id: string; name: string; image: string; active: boolean }[];
 }
 
 export function VenueTab({ venue }: { venue: Branch }) {
@@ -43,9 +46,14 @@ function VenueForm({ venue }: { venue: Branch }) {
         hours: venue.hours,
         status: venue.status,
         sports: venue.sports,
+        sportConfigs: venue.sportConfigs ?? [],
     });
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
+
+    function updateSport(i: number, patch: Partial<FormState["sportConfigs"][0]>) {
+        set("sportConfigs", f.sportConfigs.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+    }
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
@@ -105,6 +113,59 @@ function VenueForm({ venue }: { venue: Branch }) {
                     error={fields.sports}
                     onChange={(v) => set("sports", v)}
                 />
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">Sports & hero backgrounds</p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => set("sportConfigs", [...f.sportConfigs, { id: "", name: "", image: "", active: true }])}
+                        >
+                            <Plus size={16} aria-hidden /> Add sport
+                        </Button>
+                    </div>
+                    {f.sportConfigs.map((s, i) => (
+                        <div key={i} className="grid gap-3 rounded-xl border border-evergreen/10 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                            <Input
+                                label="ID (slug)"
+                                value={s.id}
+                                placeholder="football"
+                                onChange={(e) => updateSport(i, { id: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "") })}
+                            />
+                            <Input
+                                label="Display name"
+                                value={s.name}
+                                placeholder="Football"
+                                onChange={(e) => updateSport(i, { name: e.target.value })}
+                            />
+                            <Input
+                                label="Background image path"
+                                value={s.image}
+                                placeholder="/sports/football.jpg"
+                                onChange={(e) => updateSport(i, { image: e.target.value })}
+                            />
+                            <div className="flex items-end gap-2">
+                                <label className="flex min-h-11 items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        className="size-5 accent-teal"
+                                        checked={s.active}
+                                        onChange={(e) => updateSport(i, { active: e.target.checked })}
+                                    />
+                                    Active
+                                </label>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    aria-label={`Remove sport ${i + 1}`}
+                                    onClick={() => set("sportConfigs", f.sportConfigs.filter((_, idx) => idx !== i))}
+                                >
+                                    <Trash2 size={16} aria-hidden />
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
                 <FormActions busy={busy} error={error} label="Save changes" onCancel={() => { }} />
             </form>
         </Card>

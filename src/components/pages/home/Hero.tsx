@@ -1,52 +1,77 @@
-import { Wallet, Percent } from "lucide-react";
-import { policies } from "@/data/site";
+"use client";
+import { useState } from "react";
 import { venue } from "@/data/branches";
-import { addDays } from "@/lib/time";
-import { QuickFinder } from "./QuickFinder";
-import { todayDhaka } from "@/lib/time.server";
+import { SportTabs } from "./SportTabs";
+import { BookingSearchForm } from "./BookingSearchForm";
 
-export async function Hero() {
-    const today = await todayDhaka();
+export function Hero({ today }: { today: string }) {
+    const sports = venue.sportConfigs.filter((s) => s.active);
+    const [sportId, setSportId] = useState(sports[0]?.id ?? "");
 
-    // Trust chips: payment terms only. The address belongs in the Venues section,
-    // not repeated as "Bogura branch" in the hero.
-    const chips = [
-        { icon: Wallet, text: "bKash advance payment" },
-        { icon: Percent, text: `${policies.advancePercent}% advance, balance at venue` },
-    ];
+    const current = sports.find((s) => s.id === sportId) ?? sports[0];
+    const bgImage = current?.image;
 
     return (
-        <section
-            id="finder"
-            aria-labelledby="hero-title"
-            className="bg-evergreen bg-[radial-gradient(ellipse_at_top_right,rgba(80,200,120,0.25),transparent_60%)] text-white"
-        >
-            <div className="mx-auto max-w-6xl px-4 py-14 md:py-24">
-                <h1 id="hero-title" className="max-w-3xl text-4xl font-extrabold text-white md:text-6xl">
-                    Lock Your Slot. <span className="text-emerald">Own The Pitch.</span>
-                </h1>
-                <p className="mt-4 max-w-xl text-lg text-white/85">
-                    Book a turf or court in a few taps. Pay the advance with bKash, settle the rest at the venue.
-                </p>
+        <section className="relative min-h-[100svh] overflow-hidden">
+            {/* Background image — changes with selected sport */}
+            {bgImage ? (
+                <div
+                    key={sportId}
+                    className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 animate-[fadeIn_0.7s_ease-out]"
+                    style={{ backgroundImage: `url(${bgImage})` }}
+                />
+            ) : (
+                <div className="absolute inset-0 bg-evergreen bg-[radial-gradient(ellipse_at_top_right,rgba(80,200,120,0.25),transparent_60%)]" />
+            )}
 
-                <ul className="mt-6 flex flex-wrap gap-2">
-                    {chips.map(({ icon: Icon, text }) => (
-                        <li
-                            key={text}
-                            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-medium"
-                        >
-                            <Icon size={16} aria-hidden className="text-emerald" /> {text}
-                        </li>
-                    ))}
-                </ul>
+            {/* Dark overlay for readability */}
+            <div className="absolute inset-0 bg-evergreen/50" />
 
-                <div className="mt-8 rounded-2xl bg-white p-4 text-evergreen shadow-xl md:p-6">
-                    <QuickFinder
-                        venue={venue}
-                        defaultDate={today}
-                        minDate={today}
-                        maxDate={addDays(today, policies.bookingHorizonDays)}
+            {/* Content */}
+            <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-6xl flex-col justify-center px-4 pt-20 pb-12">
+                {/* Heading */}
+                <div className="mb-6 text-center text-white">
+                    <h1 className="text-3xl font-extrabold md:text-5xl lg:text-6xl">
+                        Lock Your Slot.{" "}
+                        <span className="text-emerald">Own The Pitch.</span>
+                    </h1>
+                    <p className="mx-auto mt-3 max-w-xl text-sm text-white/85 md:text-lg">
+                        Book a turf or court in a few taps. Pay the advance with bKash, settle
+                        the rest at the venue.
+                    </p>
+                </div>
+
+                {/* Sport tabs (auto-shuffle) */}
+                <div className="mb-5">
+                    <SportTabs
+                        sports={sports}
+                        value={sportId}
+                        onChange={setSportId}
                     />
+                </div>
+
+                {/* Booking form card */}
+                <div className="mx-auto w-full max-w-4xl rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur md:p-6">
+                    <BookingSearchForm
+                        sport={current?.name ?? "Football"}
+                        today={today}
+                    />
+                </div>
+
+                {/* Trust chips */}
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    {[
+                        "bKash advance payment",
+                        "40% advance, balance at venue",
+                        "Instant confirmation",
+                    ].map((text) => (
+                        <span
+                            key={text}
+                            className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm"
+                        >
+                            {text}
+                        </span>
+                    ))}
                 </div>
             </div>
         </section>

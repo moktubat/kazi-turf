@@ -79,7 +79,7 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     const b = branches.find((x) => x.id === input.id);
     if (!b) throw new AppError("NOT_FOUND", "Venue not found.", 404);
 
-    const sports = uniq(input.sports);
+    const sports = uniq(input.sportConfigs.filter(s => s.active).map(s => s.name));
     for (const p of pitches) {
         if (p.branchId === b.id && !sports.includes(p.sport)) {
             throw new AppError("SPORT_IN_USE", `${p.name} is a ${p.sport} pitch. Change the pitch first.`, 409, {
@@ -97,6 +97,7 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
         hours: input.hours,
         status: input.status,
         sports,
+        sportConfigs: input.sportConfigs,
     };
     const changes = diff(b as unknown as Record<string, unknown>, next);
     Object.assign(b, next); // the slug/ID never changes
