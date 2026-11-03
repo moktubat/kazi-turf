@@ -79,7 +79,7 @@ export function BookingFlow({
             else setStatus("loading");
 
             try {
-                const qs = new URLSearchParams({ branch: venue.id, sport, date });
+                const qs = new URLSearchParams({ sport, date });
                 const res = await api<AvailabilityResponse>(`/api/availability?${qs}`, { signal: ctrl.signal });
                 setData(res);
                 setStatus("ready");
@@ -92,7 +92,7 @@ export function BookingFlow({
                 if (abortRef.current === ctrl) setRefreshing(false);
             }
         },
-        [venue.id, sport, date]
+        [sport, date]
     );
 
     // are not synchronous within the effect body.
@@ -211,7 +211,6 @@ export function BookingFlow({
             .sort((a, b) => a.cellStart.localeCompare(b.cellStart));
         if (cells.length === 0) return null;
         return {
-            branchName: venue.name,
             pitchName: p.name,
             sport: p.sport,
             date,
@@ -220,7 +219,7 @@ export function BookingFlow({
             slotCount: cells.length,
             minutes: cells.length * policy.slotMinutes,
         };
-    }, [data, sel, venue.name, date, policy.slotMinutes]);
+    }, [data, sel, date, policy.slotMinutes]);
 
     // After the hold exists, show the server's saved amounts, not the preview.
     const amounts: Amounts | null = hold
@@ -348,7 +347,7 @@ export function BookingFlow({
                                 <>
                                     {!hasOpen && (
                                         <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <p className="font-semibold">No slots on this date.</p>
+                                            <p className="font-semibold">No slots are available for this date.</p>
                                             {data.nextAvailableDate ? (
                                                 <Button variant="outline" onClick={() => changeDate(data.nextAvailableDate!)}>
                                                     <CalendarSearch size={18} aria-hidden /> Next available

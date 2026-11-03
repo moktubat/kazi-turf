@@ -15,14 +15,12 @@ export function WalkInForm({
     pitch,
     cellStart,
     date,
-    venueName,
     onCreated,
     onClose,
 }: {
     pitch: BoardPitch;
     cellStart: string;
     date: string;
-    venueName: string;
     onCreated: () => void;
     onClose: () => void;
 }) {

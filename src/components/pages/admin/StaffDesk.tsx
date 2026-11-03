@@ -85,7 +85,7 @@ export function StaffDesk({
             else setStatus("loading");
             try {
                 const r = await api<BoardResponse>(
-                    `/api/admin/board?${new URLSearchParams({ branch: venueId, date })}`,
+                    `/api/admin/board?${new URLSearchParams({ date })}`,
                     { signal: ctrl.signal }
                 );
                 setBoard(r);
@@ -98,7 +98,7 @@ export function StaffDesk({
                 if (abortRef.current === ctrl) setRefreshing(false);
             }
         },
-        [venueId, date]
+        [date, venueId]
     );
 
     useEffect(() => {
@@ -205,7 +205,6 @@ export function StaffDesk({
                         pitch={pitch}
                         cellStart={drawer.cellStart}
                         date={date}
-                        venueName={board.branchName}
                         onCreated={() => load(true)}
                         onClose={() => setDrawer(null)}
                     />

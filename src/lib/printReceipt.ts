@@ -27,7 +27,7 @@ table{width:100%;border-collapse:collapse}td{padding:3px 0;vertical-align:top}hr
 .small{font-size:12px;color:#355}
 </style></head><body>
 <h1>KaziTurf</h1>
-<div class="small">${esc(b.branchName)}</div>
+<div class="small">${esc(b.branchAddress)}</div>
 <div class="code">${esc(b.code)}</div>
 <table>
 ${row("Customer", b.customerName)}

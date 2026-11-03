@@ -157,7 +157,7 @@ export function BookingResult({ code }: { code: string }) {
                                 title: `KaziTurf: ${b.pitchName} (${b.sport})`,
                                 startAt: b.startAt,
                                 endAt: b.endAt,
-                                location: `${b.branchName}: ${b.branchAddress}`,
+                                location: b.branchAddress,
                                 details: `Booking code ${b.code}. Balance due at venue: ${formatBDT(b.balanceDue)}.`,
                             })}
                             variant="outline"
@@ -235,7 +235,7 @@ export function BookingResult({ code }: { code: string }) {
                     <h1 className="flex items-center gap-2 text-xl font-bold">
                         <TimerOff size={22} aria-hidden className="text-held" /> This hold has expired
                     </h1>
-                    <p className="text-sm">The slot was released. Start again with the same branch, sport and date.</p>
+                    <p className="text-sm">The slot was released. Start again with the same sport and date.</p>
                     <Button size="lg" href={pickAnother}>Pick again</Button>
                 </Card>
             )}

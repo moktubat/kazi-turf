@@ -23,10 +23,10 @@ export async function GET(req: NextRequest) {
         });
 
         if (!venue || venue.status !== "ACTIVE") {
-            throw new AppError("BRANCH_DISABLED", "This branch is not taking bookings right now.", 409);
+            throw new AppError("VENUE_DISABLED", "Online bookings are not available right now.", 409);
         }
         if (!venue.sports.includes(q.sport)) {
-            throw new AppError("VALIDATION", "That sport is not offered at this branch.", 400);
+            throw new AppError("VALIDATION", "That sport is not available.", 400);
         }
 
         const now = new Date();
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         const hasOpen = pitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE"));
 
         const body: AvailabilityResponse = {
-            branchId: venue.id,
+            venueId: venue.id,
             sport: q.sport,
             date: q.date,
             updatedAt: now.toISOString(),

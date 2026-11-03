@@ -24,7 +24,7 @@ export const demoUsers: {
         },
         {
             id: "demo-staff",
-            name: "Demo Staff (Bogura)",
+            name: "Demo Staff",
             phone: "01722222222",
             email: null,
             password: "Demo@12345",

@@ -2,7 +2,6 @@ import { Card } from "@/components/ui/Card";
 import { formatBDT, formatDateLong } from "@/lib/format";
 
 export interface SelectionInfo {
-    branchName: string;
     pitchName: string;
     sport: string;
     date: string;

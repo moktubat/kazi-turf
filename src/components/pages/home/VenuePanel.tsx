@@ -14,7 +14,6 @@ export function VenuePanel({ venue }: { venue: Branch }) {
         <div className="space-y-6">
             <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
-                    <h3 className="text-xl font-bold">{venue.name}</h3>
                     <p className="flex items-center gap-2 text-sm">
                         <MapPin size={16} aria-hidden className="text-teal" /> {venue.address}
                     </p>

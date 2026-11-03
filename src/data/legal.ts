@@ -106,7 +106,7 @@ const privacy = (): LegalDoc => ({
             heading: "What we collect",
             bullets: [
                 "Account details: name, phone number, optional email and a securely hashed password.",
-                "Booking details: branch, pitch, time, amounts, booking code and check-in record.",
+                "Booking details: pitch, time, amounts, booking code and check-in record.",
                 "Payment results: bKash transaction ID and status.",
                 "Messages you send through the contact form.",
             ],
@@ -128,13 +128,13 @@ const privacy = (): LegalDoc => ({
         {
             heading: "Who can see it",
             paragraphs: [
-                "Staff see bookings for the branches they are assigned to. Administrators can see all bookings. We share payment details with bKash only to process and verify your payment. We do not sell your personal data.",
+                "Staff at the venue can see bookings for the venue. Administrators can see all bookings. We share payment details with bKash only to process and verify your payment. We do not sell your personal data.",
             ],
         },
         {
             heading: "Cookies and browser storage",
             paragraphs: [
-                "We use one essential cookie to keep you signed in. Your browser also remembers your last branch and sport so the next search is quicker.",
+                "We We use one essential cookie to keep you signed in. Your browser also remembers your last sport so the next search is quicker.",
             ],
         },
         {

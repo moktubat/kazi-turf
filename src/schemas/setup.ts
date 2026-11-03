@@ -51,7 +51,7 @@ const branchBase = z.object({
 const branchActiveRules = (v: z.infer<typeof branchBase>, ctx: z.RefinementCtx) => {
     if (v.status !== "ACTIVE") return;
     const need = (path: "phone" | "whatsapp" | "mapUrl" | "hours") => {
-        if (!v[path]) ctx.addIssue({ code: "custom", path: [path], message: "Required for an active branch" });
+        if (!v[path]) ctx.addIssue({ code: "custom", path: [path], message: "Required when the venue is active" });
     };
     need("phone");
     need("whatsapp");
@@ -138,10 +138,11 @@ const staffShape = {
     branchIds: z.array(z.string().min(1).max(60)).max(20),
     permissions: z.array(z.enum(["pitches.edit"])).max(5),
 };
-const staffBranchRule = {
-    path: ["branchIds"],
-    message: "Assign at least one branch",
-};
+
+ const staffBranchRule = {
+     path: ["branchIds"],
+     message: "Assign the venue to the staff member",
+ };
 
 export const staffCreateSchema = z
     .object({

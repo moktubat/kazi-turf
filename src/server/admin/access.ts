@@ -6,7 +6,7 @@ import { findBookingByCode } from "@/server/bookings";
 import { AppError } from "@/server/http";
 import type { Booking } from "@/types/booking";
 
-/** Branches the user may operate. */
+/** The venue, if the user may operate it. (Single-venue app: returns at most one.) */
 export function accessibleBranches(user: ServerUser) {
     return branches.filter((b) => canAccessBranch(user, b.id));
 }

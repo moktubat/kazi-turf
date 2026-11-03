@@ -11,7 +11,10 @@ export const PAYMENT_STATUSES = [
     "NOT_STARTED", "PENDING", "PARTIALLY_PAID", "PAID", "FAILED", "CANCELLED", "REFUND_PENDING", "REFUNDED",
 ] as const;
 
-export const boardQuerySchema = z.object({ branch: z.string().min(1).max(60), date: day });
+export const boardQuerySchema = z.object({
+    branch: z.string().min(1).max(60).optional(),  // optional; defaults to the single venue
+    date: day,
+});
 
 export const walkInQuoteSchema = z.object({
     pitchId,

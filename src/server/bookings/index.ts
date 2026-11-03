@@ -81,7 +81,7 @@ export async function validateSelection(pitchId: string, cellStarts: string[], n
     }
     const branch = branches.find((b) => b.id === pitch.branchId);
     if (!branch || branch.status !== "ACTIVE") {
-        throw new AppError("BRANCH_DISABLED", "This branch is not taking bookings right now.", 409);
+        throw new AppError("VENUE_DISABLED", "Online bookings are not available right now.", 409);
     }
 
     const unique = [...new Set(cellStarts)];
@@ -254,7 +254,7 @@ export function toDto(b: Booking, now: Date = new Date()): BookingDto {
         code: b.bookingCode,
         bookingStatus: b.bookingStatus,
         paymentStatus: b.paymentStatus,
-        branchId: b.branchId,
+        venueId: b.branchId,
         branchName: branch?.name ?? "",
         branchAddress: branch?.address ?? "",
         branchMapUrl: branch?.mapUrl ?? "",

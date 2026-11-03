@@ -22,7 +22,7 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
                 {pitch.image ? (
                     <Image
                         src={pitch.image}
-                        alt={`${pitch.name} at the ${pitch.sport} venue`}
+                        alt={`${pitch.name} — ${pitch.sport}`}
                         fill
                         sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                         className="object-cover"

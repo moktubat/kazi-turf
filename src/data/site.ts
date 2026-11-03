@@ -12,7 +12,7 @@ export const site = {
 };
 
 export const navLinks = [
-    { label: "Venues", href: "/#venues" },
+    { label: "Pitches", href: "/#venues" },
     { label: "Rates", href: "/#venues" },
     { label: "Gallery", href: "/#gallery" },
     { label: "FAQ", href: "/#faq" },

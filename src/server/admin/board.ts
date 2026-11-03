@@ -23,7 +23,7 @@ export async function getBoard(
     now: Date = new Date()
 ): Promise<BoardResponse> {
     const branch = branches.find((b) => b.id === branchId);
-    if (!branch) throw new AppError("NOT_FOUND", "Branch not found.", 404);
+    if (!branch) throw new AppError("NOT_FOUND", "Venue not found.", 404);
     assertBranchAccess(user, branch.id);
 
     const today = await todayDhaka(now);

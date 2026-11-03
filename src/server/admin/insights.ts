@@ -75,7 +75,7 @@ export async function getInsights(
     const pending = pendingDocs.filter((p) => bkById.has(p.bookingId));
     const balanceDue = inRange.filter((b) => b.paymentStatus === "PARTIALLY_PAID").reduce((s, b) => s + b.balanceAmount, 0);
 
-    /* revenue by branch and day (week buckets for long ranges) */
+    /* revenue by day (week buckets for long ranges) */
     const bucket: "day" | "week" = span > 31 ? "week" : "day";
     const keyOf = (d: string) => (bucket === "day" ? d : addDays(d, -dowOf(d)));
     const rowMap = new Map<string, { key: string; label: string; total: number; byBranch: Record<string, number> }>();

@@ -24,7 +24,6 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
         <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-24">
             <h1 className="text-2xl font-extrabold md:text-3xl">Bookings</h1>
             <BookingsView
-                venue={venue ? { id: venue.id, name: venue.name } : { id: "", name: "" }}
                 role={user.role}
                 defaults={{
                     from: requestOnly ? addDays(today, -90) : addDays(today, -7),

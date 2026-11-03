@@ -39,7 +39,7 @@ export interface BookingDto {
     code: string;
     bookingStatus: BookingStatus;
     paymentStatus: PaymentStatus;
-    branchId: string;
+    venueId: string;
     branchName: string;
     branchAddress: string;
     branchMapUrl: string;
@@ -77,7 +77,7 @@ export interface PitchAvailability {
 }
 
 export interface AvailabilityResponse {
-    branchId: string;
+    venueId: string;
     sport: string;
     date: string;
     updatedAt: string;

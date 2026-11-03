@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
             branch: sp.get("branch") ?? venue.id,
             date: sp.get("date") ?? undefined,
         });
-        return ok(await getBoard(user, q.branch, q.date));
+        return ok(await getBoard(user, q.branch ?? venue.id, q.date));
     } catch (e) {
         return handleError(e);
     }

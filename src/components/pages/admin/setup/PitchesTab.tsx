@@ -12,6 +12,7 @@ import { pitchSchema, pitchUpdateSchema } from "@/schemas/setup";
 import type { SetupPitch } from "@/types/setup";
 import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
+import { venue } from "@/data/branches";
 
 interface FormState {
     branchId: string;
@@ -100,7 +101,7 @@ function PitchForm({
     onDone: () => void;
 }) {
     const isNew = !pitch;
-    const VENUE_ID = "bogura";
+    const VENUE_ID = venue.id;
     const VENUE_SPORTS = ["Football", "Cricket"];
     const [f, setF] = useState<FormState>({
         branchId: pitch?.branchId ?? VENUE_ID,
@@ -150,7 +151,7 @@ function PitchForm({
                 label="Sport"
                 value={f.sport}
                 error={fields.sport}
-                hint={sports.length === 0 ? "Add sports to this branch first (Branches tab)." : undefined}
+                hint={sports.length === 0 ? "Add sports in the Venue tab first." : undefined}
                 onChange={(e) => set("sport", e.target.value)}
             >
                 {sports.length === 0 && <option value="">No sports yet</option>}

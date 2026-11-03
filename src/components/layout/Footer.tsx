@@ -14,10 +14,9 @@ export async function Footer() {
                 </div>
 
                 <div>
-                    <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">Venue</h2>
+                    <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">Location</h2>
                     <ul className="mt-3 space-y-1 text-sm">
                         <li>
-                            <p className="font-semibold">{venue.name}</p>
                             <p className="text-white/80">{venue.address}</p>
                             <p className="text-white/80">{venue.hours}</p>
                             <p className="flex flex-wrap gap-x-4">

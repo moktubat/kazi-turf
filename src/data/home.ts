@@ -5,7 +5,7 @@ export const getHowSteps = () => [
         id: "pick",
         icon: "calendar",
         title: "Pick a slot",
-        text: "Choose your branch, sport, date and time. The price is shown on every slot.",
+        text: "Choose your sport, date and time. The price is shown on every slot.",
     },
     {
         id: "pay",

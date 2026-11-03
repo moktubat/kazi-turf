@@ -24,7 +24,7 @@ export const getFaqGroups = (): FaqGroup[] => [
                 id: "b-how",
                 question: "How do I book a slot?",
                 answer:
-                    "Choose a branch, sport and date, pick a slot, then pay the advance with bKash. You can browse and select slots without logging in. You sign in at the payment step.",
+                    "Pick a sport and date, choose a slot, then pay the advance with bKash. You can browse and select slots without logging in. You sign in at the payment step.",
                 link: { label: "Start booking", href: "/book" },
             },
             {

@@ -144,7 +144,7 @@ function StaffForm({ user, onDone }: { user: SetupStaff | null; onDone: () => vo
             )}
 
             <Select label="Role" value={f.role} onChange={(e) => set("role", e.target.value as FormState["role"])}>
-                <option value="STAFF">Staff (venue access)</option>
+                <option value="STAFF">Staff — venue access</option>
                 <option value="SUPER_ADMIN">Super Admin (everything)</option>
             </Select>
 

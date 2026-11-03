@@ -25,9 +25,9 @@ export function VenueTab({ venue }: { venue: Branch }) {
     return (
         <div className="space-y-4">
             <div>
-                <h2 className="text-xl font-bold">Venue details</h2>
+                <h2 className="text-xl font-bold">Venue</h2>
                 <p className="mt-1 text-sm text-evergreen/80">
-                    Your venue&apos;s contact information, location and operating status.
+                    Contact information, address and operating status for the venue.
                 </p>
             </div>
 
@@ -98,7 +98,7 @@ function VenueForm({ venue }: { venue: Branch }) {
                 <Select
                     label="Operating status"
                     value={f.status}
-                    hint="Disabled blocks new bookings but keeps history visible."
+                    hint="Disabled blocks new bookings but keeps existing bookings visible."
                     error={fields.status}
                     onChange={(e) => set("status", e.target.value as Branch["status"])}
                 >

@@ -34,11 +34,9 @@ const PAYMENT = [
 ] as const;
 
 export function BookingsView({
-    venue,
     role,
     defaults,
 }: {
-    venue: { id: string; name: string };
     role: Role;
     defaults: { from: string; to: string; requestOnly: boolean };
 }) {
