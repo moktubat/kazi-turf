@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { cn } from "@/lib/cn";
 import { Reveal } from "./Reveal";
 
@@ -25,7 +26,11 @@ export function Section({
                     {title}
                 </h2>
                 {intro && <p className="mt-2 max-w-2xl text-evergreen/80">{intro}</p>}
-                <div className="mt-8">{children}</div>
+                <div className="mt-8">
+                    <Suspense fallback={null}>
+                        {children}
+                    </Suspense>
+                </div>
             </Reveal>
         </section>
     );
