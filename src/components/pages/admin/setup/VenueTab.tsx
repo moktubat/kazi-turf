@@ -8,6 +8,7 @@ import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
 import { Button } from "@/components/ui/Button";
 import { Plus, Trash2 } from "lucide-react";
+import { ImageUpload } from "./ImageUpload";
 
 interface FormState {
     name: string;
@@ -52,7 +53,7 @@ function VenueForm({ venue }: { venue: Branch }) {
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
 
     function updateSport(i: number, patch: Partial<FormState["sportConfigs"][0]>) {
-        set("sportConfigs", f.sportConfigs.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+        set("sportConfigs", f.sportConfigs.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
     }
 
     function submit(e: React.FormEvent) {
@@ -113,9 +114,10 @@ function VenueForm({ venue }: { venue: Branch }) {
                     error={fields.sports}
                     onChange={(v) => set("sports", v)}
                 />
+
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold">Sports & hero backgrounds</p>
+                        <p className="text-sm font-semibold">Sports & hero background</p>
                         <Button
                             type="button"
                             variant="outline"
@@ -124,8 +126,9 @@ function VenueForm({ venue }: { venue: Branch }) {
                             <Plus size={16} aria-hidden /> Add sport
                         </Button>
                     </div>
+
                     {f.sportConfigs.map((s, i) => (
-                        <div key={i} className="grid gap-3 rounded-xl border border-evergreen/10 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                        <div key={i} className="grid gap-3 rounded-xl border border-evergreen/10 p-3 sm:grid-cols-[1fr_1fr_auto]">
                             <Input
                                 label="ID (slug)"
                                 value={s.id}
@@ -137,12 +140,6 @@ function VenueForm({ venue }: { venue: Branch }) {
                                 value={s.name}
                                 placeholder="Football"
                                 onChange={(e) => updateSport(i, { name: e.target.value })}
-                            />
-                            <Input
-                                label="Background image path"
-                                value={s.image}
-                                placeholder="/sports/football.jpg"
-                                onChange={(e) => updateSport(i, { image: e.target.value })}
                             />
                             <div className="flex items-end gap-2">
                                 <label className="flex min-h-11 items-center gap-2 text-sm">
@@ -163,9 +160,22 @@ function VenueForm({ venue }: { venue: Branch }) {
                                     <Trash2 size={16} aria-hidden />
                                 </Button>
                             </div>
+
+                            <div className="sm:col-span-3">
+                                <ImageUpload
+                                    label={`Hero background for ${s.name || s.id || `sport ${i + 1}`}`}
+                                    value={s.image}
+                                    onChange={(url) => updateSport(i, { image: url })}
+                                    folder="kaziturf/sports"
+                                    publicIdPrefix={`sport-${s.id || i}`}
+                                    hint="Shown behind the homepage hero when this sport is selected. Stored on Cloudinary."
+                                    error={fields[`sportConfigs.${i}.image`]}
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>
+
                 <FormActions busy={busy} error={error} label="Save changes" onCancel={() => { }} />
             </form>
         </Card>

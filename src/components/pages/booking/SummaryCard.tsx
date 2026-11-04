@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/Card";
-import { formatBDT, formatDateLong } from "@/lib/format";
+import { formatBDT, formatDateLong, isPayableAmount } from "@/lib/format";
 
 export interface SelectionInfo {
     pitchName: string;
@@ -69,7 +69,6 @@ export function SummaryCard({
                     ) : (
                         <dl className={`space-y-1.5 text-sm ${loading ? "opacity-60" : ""}`} aria-live="polite">
                             <Row label="Subtotal" value={formatBDT(amounts.subtotal)} />
-                            {/* VAT line appears only when VAT is configured (spec 10.3) */}
                             {amounts.vatRate && amounts.vat > 0 && (
                                 <Row
                                     label={
@@ -82,8 +81,15 @@ export function SummaryCard({
                             )}
                             <Row label="Total" value={formatBDT(amounts.total)} strong />
                             <div className="my-2 rounded-xl bg-mint p-3">
-                                <Row label={`Advance due now (${advancePercent}%)`} value={formatBDT(amounts.advance)} strong />
-                                <Row label="Balance payable at venue" value={formatBDT(amounts.balance)} />
+                                <Row
+                                    label={`Advance due now (${advancePercent}%)`}
+                                    value={isPayableAmount(amounts.advance) ? formatBDT(amounts.advance) : "৳—"}
+                                    strong
+                                />
+                                <Row
+                                    label="Balance payable at venue"
+                                    value={isPayableAmount(amounts.balance) ? formatBDT(amounts.balance) : "৳—"}
+                                />
                             </div>
                         </dl>
                     )}

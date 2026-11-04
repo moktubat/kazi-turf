@@ -1,5 +1,3 @@
-// Booking lifecycle: validate -> quote -> acquire claims + create pending booking (one transaction).
-// Price, status and availability are always decided here, never by the browser.
 import "server-only";
 import { randomInt, randomUUID } from "crypto";
 import { branches } from "@/data/branches";
@@ -71,7 +69,7 @@ export async function settle(b: Booking, now: Date = new Date()): Promise<Bookin
         return r.modifiedCount > 0;
     });
     if (expired) return { ...b, bookingStatus: "EXPIRED" };
-    return (await findBookingById(b.id)) ?? b; // someone changed it first (for example a payment started)
+    return b;
 }
 
 export async function validateSelection(pitchId: string, cellStarts: string[], now: Date = new Date()) {
@@ -149,10 +147,27 @@ export async function createBooking(
     input: { pitchId: string; cellStarts: string[]; phone: string },
     now: Date = new Date()
 ): Promise<BookingDto> {
+    await connectDb();
     await dropStaleHolds(user.id);
 
     const v = await validateSelection(input.pitchId, input.cellStarts, now);
     const q = quote(input.pitchId, v.starts);
+
+    const money = [q.subtotal, q.total, q.advance, q.balance];
+    if (money.some((n) => typeof n !== "number" || !Number.isFinite(n) || n < 0)) {
+        throw new AppError(
+            "NO_RATE_FOR_SLOT",
+            "We could not price this slot. Pick another time.",
+            400
+        );
+    }
+    if (q.advance <= 0) {
+        throw new AppError(
+            "NO_RATE_FOR_SLOT",
+            "This slot cannot be booked online yet. Please contact the venue.",
+            400
+        );
+    }
 
     const id = randomUUID();
     const holdExpiresAt = new Date(now.getTime() + policies.holdMinutes * 60_000);

@@ -1,18 +1,20 @@
 "use client";
 import { useState } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
+import { ApiError, api } from "@/lib/api";
 import { closeOptions } from "@/lib/grid";
 import { toMinutes } from "@/lib/time";
 import { pitchSchema, pitchUpdateSchema } from "@/schemas/setup";
 import type { SetupPitch } from "@/types/setup";
+import { venue } from "@/data/branches";
 import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
-import { venue } from "@/data/branches";
+import { ImageUpload } from "./ImageUpload";
 
 interface FormState {
     branchId: string;
@@ -32,11 +34,31 @@ interface FormState {
 export function PitchesTab({
     pitches,
     slotMinutes,
+    onChanged,
 }: {
     pitches: SetupPitch[];
     slotMinutes: number;
+    onChanged?: () => void;
 }) {
     const [editing, setEditing] = useState<SetupPitch | "new" | null>(null);
+    const [deleting, setDeleting] = useState<SetupPitch | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [deleteBusy, setDeleteBusy] = useState(false);
+
+    async function confirmDelete() {
+        if (!deleting) return;
+        setDeleteBusy(true);
+        setDeleteError(null);
+        try {
+            await api(`/api/admin/setup/pitches/${encodeURIComponent(deleting.id)}`, { method: "DELETE" });
+            setDeleting(null);
+            onChanged?.();
+        } catch (e) {
+            setDeleteError(e instanceof ApiError ? e.message : "Could not delete. Please try again.");
+        } finally {
+            setDeleteBusy(false);
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -68,9 +90,23 @@ export function PitchesTab({
                                 <p className="text-sm text-evergreen/80">
                                     {p.upcomingBookings} upcoming {p.upcomingBookings === 1 ? "booking" : "bookings"}
                                 </p>
-                                <Button variant="outline" onClick={() => setEditing(p)}>
-                                    <Pencil size={16} aria-hidden /> Edit
-                                </Button>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button variant="outline" onClick={() => setEditing(p)}>
+                                        <Pencil size={16} aria-hidden /> Edit
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className="text-booked"
+                                        onClick={() => {
+                                            setDeleteError(null);
+                                            setDeleting(p);
+                                        }}
+                                        disabled={p.upcomingBookings > 0}
+                                        title={p.upcomingBookings > 0 ? "Disable the pitch instead — it has upcoming bookings" : "Delete this pitch"}
+                                    >
+                                        <Trash2 size={16} aria-hidden /> Delete
+                                    </Button>
+                                </div>
                             </Card>
                         </li>
                     ))}
@@ -83,8 +119,38 @@ export function PitchesTab({
                         key={editing === "new" ? "new" : editing.id}
                         pitch={editing === "new" ? null : editing}
                         slotMinutes={slotMinutes}
-                        onDone={() => setEditing(null)}
+                        onDone={() => {
+                            setEditing(null);
+                            onChanged?.();
+                        }}
                     />
+                )}
+            </SideSheet>
+
+            <SideSheet open={!!deleting} onClose={() => setDeleting(null)} title="Delete pitch">
+                {deleting && (
+                    <div className="space-y-4">
+                        <p className="text-sm">
+                            Delete <strong>{deleting.name}</strong> ({deleting.sport})?
+                        </p>
+                        <p className="text-sm text-evergreen/80">
+                            The pitch is removed from the database and its Cloudinary image is deleted.
+                            Existing bookings stay valid; only new bookings are affected.
+                        </p>
+                        {deleteError && (
+                            <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">
+                                {deleteError}
+                            </p>
+                        )}
+                        <div className="flex gap-2">
+                            <Button variant="danger" className="flex-1" disabled={deleteBusy} onClick={confirmDelete}>
+                                {deleteBusy ? "Deleting…" : "Delete pitch"}
+                            </Button>
+                            <Button variant="ghost" onClick={() => setDeleting(null)} disabled={deleteBusy}>
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
                 )}
             </SideSheet>
         </div>
@@ -102,7 +168,7 @@ function PitchForm({
 }) {
     const isNew = !pitch;
     const VENUE_ID = venue.id;
-    const VENUE_SPORTS = ["Football", "Cricket"];
+    const VENUE_SPORTS = venue.sports;
     const [f, setF] = useState<FormState>({
         branchId: pitch?.branchId ?? VENUE_ID,
         name: pitch?.name ?? "",
@@ -196,18 +262,21 @@ function PitchForm({
                 label="Facilities"
                 value={f.facilities}
                 placeholder="Floodlights, Parking, Washroom"
-                hint="Only list what the venue really has [CONFIRM]."
+                hint="Only list what the venue really has."
                 error={fields.facilities}
                 onChange={(v) => set("facilities", v)}
             />
-            <Input
-                label="Photo path (optional)"
-                placeholder="/gallery/pitch-a.jpg"
-                hint="A real photo of this pitch, saved in /public."
+
+            <ImageUpload
+                label="Pitch photo (optional)"
                 value={f.image}
+                onChange={(url) => set("image", url)}
+                folder="kaziturf/pitches"
+                publicIdPrefix={`pitch-${f.branchId ?? "x"}`}
+                hint="JPEG, PNG, WebP or AVIF. Stored on Cloudinary. The old image is deleted when you replace it or remove the pitch."
                 error={fields.image}
-                onChange={(e) => set("image", e.target.value)}
             />
+
             <Select
                 label="Status"
                 value={f.status}

@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Field";
 import { cancellationSummary } from "@/data/bookingCopy";
 import { ApiError, api } from "@/lib/api";
-import { formatBDT } from "@/lib/format";
+import { formatBDT, isPayableAmount } from "@/lib/format";
 import { startBkashPayment } from "@/lib/payments";
 import { confirmFormSchema, type ConfirmFormInput } from "@/schemas/booking";
 import type { BookingDto } from "@/types/booking";
@@ -20,6 +20,21 @@ import { SummaryCard, type Amounts, type SelectionInfo } from "./SummaryCard";
 export interface FlowUser {
     name: string;
     phone: string;
+}
+
+interface ConfirmStepProps {
+    info: SelectionInfo;
+    amounts: Amounts | null;
+    loading: boolean;
+    advancePercent: number;
+    user: FlowUser | null;
+    selection: { pitchId: string; cellStarts: string[] };
+    hold: BookingDto | null;
+    onBack: () => void;
+    onHeld: (b: BookingDto) => void;
+    onTaken: (message: string) => void;
+    onPickAgain: () => void;
+    onAuthed: () => void;
 }
 
 export function ConfirmStep({
@@ -35,20 +50,7 @@ export function ConfirmStep({
     onTaken,
     onPickAgain,
     onAuthed,
-}: {
-    info: SelectionInfo;
-    amounts: Amounts | null;
-    loading: boolean;
-    advancePercent: number;
-    user: FlowUser | null;
-    selection: { pitchId: string; cellStarts: string[] };
-    hold: BookingDto | null;
-    onBack: () => void;
-    onHeld: (b: BookingDto) => void;
-    onTaken: (message: string) => void;
-    onPickAgain: () => void;
-    onAuthed: () => void;
-}) {
+}: ConfirmStepProps) {
     const [formError, setFormError] = useState<string | null>(null);
     const [expired, setExpired] = useState(false);
     const [paying, setPaying] = useState(false);
@@ -108,12 +110,28 @@ export function ConfirmStep({
         }
     }
 
-    const advance = hold?.advanceAmount ?? amounts?.advance ?? 0;
+    const advance: number = isPayableAmount(hold?.advanceAmount) || isPayableAmount(amounts?.advance)
+        ? (hold?.advanceAmount ?? amounts?.advance ?? 0)
+        : 0;
+    const advanceReady = isPayableAmount(advance);
+
     const canContinue = !!user && !!amounts && !loading && !isSubmitting;
 
     const primary = hold ? (
-        <Button size="lg" className="w-full" onClick={pay} disabled={paying || expired}>
-            <Wallet size={18} aria-hidden /> {paying ? "Opening bKash…" : `Pay ${formatBDT(advance)} advance with bKash`}
+        <Button
+            size="lg"
+            className="w-full"
+            onClick={pay}
+            // [FIX] disabled when there is no payable advance, OR while paying, OR after the hold expired.
+            disabled={paying || expired || !advanceReady}
+            aria-disabled={!advanceReady}
+        >
+            <Wallet size={18} aria-hidden />{" "}
+            {paying
+                ? "Opening bKash…"
+                : advanceReady
+                    ? `Pay ${formatBDT(advance)} advance with bKash`
+                    : "Selecting slot…"}
         </Button>
     ) : (
         <Button type="submit" form="confirm-form" size="lg" className="w-full" disabled={!canContinue}>

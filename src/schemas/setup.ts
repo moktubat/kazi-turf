@@ -21,7 +21,20 @@ const optionalEmail = z
     .max(120, "Too long")
     .refine((v) => v === "" || z.string().email().safeParse(v).success, "Enter a valid email");
 
-/* ---------- Branche ---------- */
+// [CLOUDINARY] Shared image field. Accepts a local path under /public OR a
+const imageField = z
+    .string()
+    .trim()
+    .max(500, "Too long")
+    .refine(
+        (v) =>
+            v === "" ||
+            /^\/[\w\-./]+$/.test(v) || // local path under /public
+            /^https:\/\/res\.cloudinary\.com\/[\w.-]+\/image\/upload\/[\w./-]+$/.test(v), // Cloudinary URL
+        "Use a path like /gallery/pitch-a.jpg or a Cloudinary URL"
+    );
+
+/* ---------- Branch ---------- */
 const branchBase = z.object({
     name: z.string().trim().min(2, "Enter a name").max(60, "Too long"),
     address: z.string().trim().min(3, "Enter an address").max(200, "Too long"),
@@ -39,10 +52,7 @@ const branchBase = z.object({
         z.object({
             id: z.string().trim().min(1, "Enter an ID").max(30, "Too long"),
             name: z.string().trim().min(2, "Enter a name").max(30, "Too long"),
-            image: z.string().trim().max(200, "Too long").refine(
-                (v) => v === "" || /^\/[\w\-./]+$/.test(v),
-                "Use a path like /sports/football.jpg"
-            ),
+            image: imageField,
             active: z.boolean(),
         })
     ).max(10, "At most 10 sports"),
@@ -77,11 +87,7 @@ const pitchBase = z.object({
     closeTime: hhmm,
     maxConsecutiveSlots: z.number().int().min(1, "At least 1").max(4, "At most 4"),
     facilities: list(12),
-    image: z
-        .string()
-        .trim()
-        .max(200, "Too long")
-        .refine((v) => v === "" || /^\/[\w\-./]+$/.test(v), "Use a path like /gallery/pitch-a.jpg"),
+    image: imageField,
     status: z.enum(["ACTIVE", "DISABLED"]),
 });
 
@@ -139,10 +145,10 @@ const staffShape = {
     permissions: z.array(z.enum(["pitches.edit"])).max(5),
 };
 
- const staffBranchRule = {
-     path: ["branchIds"],
-     message: "Assign the venue to the staff member",
- };
+const staffBranchRule = {
+    path: ["branchIds"],
+    message: "Assign the venue to the staff member",
+};
 
 export const staffCreateSchema = z
     .object({

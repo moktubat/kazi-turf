@@ -1,5 +1,3 @@
-// Setup rules: venue, pitches, rates, staff, policies. Authorization, validation and audit live here.
-// Config edits mutate the shared objects in place (every reader sees them), then persist to MongoDB.
 import "server-only";
 import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
@@ -22,6 +20,7 @@ import { assertPitchEditor, assertSetupAccess } from "@/server/auth/permissions"
 import { endOtherSessions, type ServerUser } from "@/server/auth/session";
 import { assertUnique, mapDup } from "@/server/auth/users";
 import { settleExpired } from "@/server/bookings/expire";
+import { deleteImage, publicIdFromImage } from "@/server/cloudinary";
 import { ensureConfig, persistConfig } from "@/server/config";
 import { connectDb } from "@/server/db/connect";
 import { AppError } from "@/server/http";
@@ -79,13 +78,19 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     const b = branches.find((x) => x.id === input.id);
     if (!b) throw new AppError("NOT_FOUND", "Venue not found.", 404);
 
-    const sports = uniq(input.sportConfigs.filter(s => s.active).map(s => s.name));
+    const sports = uniq(input.sportConfigs.filter((s) => s.active).map((s) => s.name));
     for (const p of pitches) {
         if (p.branchId === b.id && !sports.includes(p.sport)) {
             throw new AppError("SPORT_IN_USE", `${p.name} is a ${p.sport} pitch. Change the pitch first.`, 409, {
                 sports: `${p.name} uses ${p.sport}`,
             });
         }
+    }
+
+    // [CLOUDINARY] Capture old sport background image URLs so we can delete any replaced/removed asset.
+    const oldImages = new Map<string, string>();
+    for (const s of b.sportConfigs ?? []) {
+        if (s.image) oldImages.set(s.id, s.image);
     }
 
     const next = {
@@ -100,8 +105,22 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
         sportConfigs: input.sportConfigs,
     };
     const changes = diff(b as unknown as Record<string, unknown>, next);
-    Object.assign(b, next); // the slug/ID never changes
+    Object.assign(b, next);
     await persistConfig("branches");
+
+    // [CLOUDINARY] Delete any sport background that was replaced or removed.
+    const newImageById = new Map<string, string | null>();
+    for (const s of input.sportConfigs) {
+        newImageById.set(s.id, s.image || null);
+    }
+    for (const [key, oldImg] of oldImages) {
+        const newImg = newImageById.get(key) ?? null;
+        if (oldImg && oldImg !== newImg) {
+            const oldPublicId = publicIdFromImage(oldImg);
+            if (oldPublicId) await deleteImage(oldPublicId);
+        }
+    }
+
     if (Object.keys(changes).length > 0) {
         await logAudit(user, { action: "BRANCH_CHANGED", entityType: "BRANCH", entityId: b.id, branchId: b.id, meta: changes });
     }
@@ -120,7 +139,7 @@ function assertPitchRules(branch: Branch, input: { name: string; sport: string }
     if (clash) throw new AppError("NAME_TAKEN", "Another pitch here already has this name.", 409, { name: "Already used" });
 }
 
-/** New hours must still fit every upcoming booking, hold and block (spec 7.8). */
+/** New hours must still fit every upcoming booking, hold and block. */
 async function assertScheduleSafe(pitchId: string, openTime: string, closeTime: string, now: Date) {
     const step = policies.slotMinutes;
     const open = toMinutes(openTime);
@@ -198,6 +217,9 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
         await assertScheduleSafe(p.id, input.openTime, input.closeTime, now);
     }
 
+    // [CLOUDINARY] Capture the old image URL BEFORE we overwrite the pitch.
+    const oldImage = p.image;
+
     const next = {
         name: input.name,
         sport: input.sport,
@@ -214,6 +236,13 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
     const changes = diff(p as unknown as Record<string, unknown>, next);
     Object.assign(p, next);
     await persistConfig("pitches");
+
+    // [CLOUDINARY] If the image URL changed, delete the old Cloudinary asset.
+    if (oldImage && oldImage !== next.image) {
+        const oldPublicId = publicIdFromImage(oldImage);
+        if (oldPublicId) await deleteImage(oldPublicId);
+    }
+
     if (Object.keys(changes).length > 0) {
         await logAudit(user, {
             action: "PITCH_CHANGED",
@@ -223,6 +252,55 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
             meta: { pitch: p.name, ...changes },
         });
     }
+}
+
+export async function deletePitch(user: ServerUser, id: string, now: Date = new Date()) {
+    await begin();
+    const idx = pitches.findIndex((x) => x.id === id);
+    if (idx === -1) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
+
+    const p = pitches[idx];
+    assertPitchEditor(user, p.branchId);
+
+    // Refuse if there are any upcoming live bookings.
+    const upcoming = await BookingModel.countDocuments({
+        pitchId: id,
+        bookingStatus: { $in: ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] },
+        startAt: { $gte: now.toISOString() },
+    });
+    if (upcoming > 0) {
+        throw new AppError(
+            "PITCH_IN_USE",
+            `This pitch has ${upcoming} upcoming booking${upcoming === 1 ? "" : "s"}. Disable it instead of deleting, or cancel the bookings first.`,
+            409
+        );
+    }
+
+    await SlotClaimModel.deleteMany({ pitchId: id });
+
+    // Capture the Cloudinary public_id BEFORE we splice the pitch out.
+    const cloudinaryPublicId = publicIdFromImage(p.image);
+
+    pitches.splice(idx, 1);
+    await persistConfig("pitches");
+
+    // Best-effort Cloudinary cleanup.
+    if (cloudinaryPublicId) {
+        await deleteImage(cloudinaryPublicId);
+    }
+
+    await logAudit(user, {
+        action: "PITCH_CHANGED",
+        entityType: "PITCH",
+        entityId: p.id,
+        branchId: p.branchId,
+        meta: {
+            change: "deleted",
+            name: p.name,
+            sport: p.sport,
+            cloudinaryPublicId: cloudinaryPublicId ?? null,
+        },
+    });
 }
 
 /* ---------- rates ---------- */
@@ -503,10 +581,8 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
     const step = policies.slotMinutes;
     const today = await todayDhaka(now);
 
-    await settleExpired({}, now); // expired holds do not count as upcoming
+    await settleExpired({}, now);
 
-    // Single venue: scope by access so staff with pitches.edit still only see
-    // pitches they can edit (enforced by branchIds on the user).
     const myVenue = branches.find((b) => canAccessBranch(user, b.id)) ?? null;
     const venueId = myVenue?.id;
     const myPitches = venueId ? pitches.filter((p) => p.branchId === venueId) : [];

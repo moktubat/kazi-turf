@@ -1,7 +1,7 @@
-// ONE pricing function reused by every screen. Client amounts are never trusted.
 import { pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
 import { dhakaParts, toMinutes } from "@/lib/time";
+import { AppError } from "@/server/http";
 import type { PricingRule } from "@/types";
 
 export function ruleFor(pitchId: string, cellStart: Date): PricingRule | null {
@@ -36,34 +36,57 @@ export interface Quote {
 }
 
 export function quote(pitchId: string, cellStarts: Date[]): Quote {
+    const { advancePercent, vatRatePercent, vatMode } = policies;
+
+    if (typeof advancePercent !== "number" || !Number.isFinite(advancePercent)) {
+        throw new AppError(
+            "NO_RATE_FOR_SLOT",
+            "Booking is not configured yet. Please contact the venue.",
+            500
+        );
+    }
+
     const lines = cellStarts.map((c) => {
         const p = priceForCell(pitchId, c);
-        if (!p) throw new Error("NO_RATE_FOR_SLOT");
+        if (!p || !Number.isFinite(p.price) || p.price <= 0) {
+            throw new AppError(
+                "NO_RATE_FOR_SLOT",
+                "We could not price this slot. Pick another time.",
+                400
+            );
+        }
         return { cellStart: c.toISOString(), price: p.price, tier: p.tier };
     });
 
     const subtotal = lines.reduce((s, l) => s + l.price, 0);
-    const { vatRatePercent, vatMode, advancePercent } = policies;
 
     let vat = 0;
     let total = subtotal;
-    if (vatRatePercent) {
-        if (vatMode === "exclusive") {
-            vat = Math.round((subtotal * vatRatePercent) / 100);
-            total = subtotal + vat;
-        } else {
-            vat = Math.round(subtotal - subtotal / (1 + vatRatePercent / 100));
-        }
+    if (vatRatePercent && vatMode === "exclusive") {
+        vat = Math.round((subtotal * vatRatePercent) / 100);
+        total = subtotal + vat;
+    } else if (vatRatePercent) {
+        vat = Math.round(subtotal - subtotal / (1 + vatRatePercent / 100));
     }
 
     const advance = Math.round((total * advancePercent) / 100);
+    const balance = total - advance;
+
+    if (![subtotal, vat, total, advance, balance].every(Number.isFinite)) {
+        throw new AppError(
+            "NO_RATE_FOR_SLOT",
+            "We could not price this slot. Pick another time.",
+            400
+        );
+    }
+
     return {
         lines,
         subtotal,
         vat,
         total,
         advance,
-        balance: total - advance,
+        balance,
         advancePercent,
         vatRatePercent: vatRatePercent ?? null,
     };

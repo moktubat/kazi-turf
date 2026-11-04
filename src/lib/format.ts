@@ -2,8 +2,14 @@ import { site } from "@/data/site";
 
 const bdt = new Intl.NumberFormat("en-BD", { maximumFractionDigits: 0 });
 
-export function formatBDT(amount: number): string {
-    return `৳${bdt.format(amount)}`;
+export function formatBDT(amount: unknown): string {
+    const n = typeof amount === "number" ? amount : Number(amount);
+    if (!Number.isFinite(n)) return "৳—";
+    return `৳${bdt.format(n)}`;
+}
+
+export function isPayableAmount(amount: unknown): amount is number {
+    return typeof amount === "number" && Number.isFinite(amount) && amount > 0;
 }
 
 export function formatTime(d: Date | string): string {
