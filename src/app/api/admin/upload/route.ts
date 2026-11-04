@@ -5,8 +5,6 @@ import { assertSameOrigin } from "@/server/security/origin";
 import { rateLimit } from "@/server/security/rateLimit";
 import { uploadImage } from "@/server/cloudinary";
 
-export const runtime = "nodejs";
-
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
