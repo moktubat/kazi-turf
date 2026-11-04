@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { venue } from "@/data/branches";
 import { footerLinks, legalLinks, site } from "@/data/site";
+import { formatHourRange } from "@/lib/format";
 
 export async function Footer() {
     return (
@@ -18,7 +19,7 @@ export async function Footer() {
                     <ul className="mt-3 space-y-1 text-sm">
                         <li>
                             <p className="text-white/80">{venue.address}</p>
-                            <p className="text-white/80">{venue.hours}</p>
+                            <p className="text-white/80">{formatHourRange(venue.hours)}</p>
                             <p className="flex flex-wrap gap-x-4">
                                 <a href={`tel:${venue.phone}`} className="underline underline-offset-2">
                                     {venue.phone}

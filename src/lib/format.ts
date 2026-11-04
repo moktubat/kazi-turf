@@ -12,13 +12,35 @@ export function isPayableAmount(amount: unknown): amount is number {
     return typeof amount === "number" && Number.isFinite(amount) && amount > 0;
 }
 
+/** Date/ISO → "7:30 PM" (12-hour, Asia/Dhaka). */
 export function formatTime(d: Date | string): string {
-    return new Intl.DateTimeFormat("en-GB", {
+    return new Intl.DateTimeFormat("en-US", {
         timeZone: site.timezone,
-        hour: "2-digit",
+        hour: "numeric",
         minute: "2-digit",
-        hour12: false,
+        hour12: true,
     }).format(typeof d === "string" ? new Date(d) : d);
+}
+
+/** "HH:MM" string → "h:MM AM/PM". Handles "24:00" as 12:00 AM (end of day). */
+export function formatTime12(time: string): string {
+    if (!time || !/^\d{1,2}:\d{2}$/.test(time)) return time ?? "";
+    const [h, m] = time.split(":").map(Number);
+    if (h === 24) return `12:${String(m).padStart(2, "0")} AM`;
+    const period = h < 12 ? "AM" : "PM";
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+/** "06:00 – 24:00" → "6:00 AM – 12:00 AM". Accepts –, — or -. */
+export function formatHourRange(range: string): string {
+    if (!range) return range;
+    return range
+        .split(/[–—-]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(formatTime12)
+        .join(" – ");
 }
 
 export function formatDateLong(date: string): string {

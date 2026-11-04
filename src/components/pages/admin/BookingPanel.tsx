@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { ApiError, api } from "@/lib/api";
-import { formatBDT, formatDateLong } from "@/lib/format";
+import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { formatDateTime } from "@/lib/formatAdmin";
 import { hasVerifiedPayment, printReceipt } from "@/lib/printReceipt";
 import type { Role } from "@/types";
@@ -148,9 +148,9 @@ export function BookingPanel({
                         </a>
                     }
                 />
-                <Line label="Pitch" value={`${b.pitchName} · ${b.sport}`} />
+                <Line label="Field" value={`${b.pitchName} · ${b.sport}`} />
                 <Line label="Date" value={formatDateLong(b.date)} />
-                <Line label="Time" value={`${b.start}–${b.end}`} />
+                <Line label="Time" value={`${formatTime12(b.start)}–${formatTime12(b.end)}`} />
             </dl>
 
             <dl className="space-y-1.5 rounded-xl bg-mint p-3 text-sm">

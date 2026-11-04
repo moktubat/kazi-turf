@@ -5,6 +5,7 @@ import { houseRules } from "@/data/home";
 import { getBranchPitches } from "@/server/availability";
 import type { Branch } from "@/types";
 import { PitchCard } from "./PitchCard";
+import { formatHourRange } from "@/lib/format";
 
 export function VenuePanel({ venue }: { venue: Branch }) {
     const pitches = getBranchPitches(venue.id);
@@ -18,7 +19,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
                         <MapPin size={16} aria-hidden className="text-teal" /> {venue.address}
                     </p>
                     <p className="flex items-center gap-2 text-sm">
-                        <Clock size={16} aria-hidden className="text-teal" /> Open {venue.hours}
+                        <Clock size={16} aria-hidden className="text-teal" /> Open {formatHourRange(venue.hours)}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

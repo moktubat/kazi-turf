@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/Card";
-import { formatBDT, formatDateLong, isPayableAmount } from "@/lib/format";
+import { formatBDT, formatDateLong, formatTime12, isPayableAmount } from "@/lib/format";
 
 export interface SelectionInfo {
     pitchName: string;
@@ -51,9 +51,9 @@ export function SummaryCard({
             ) : (
                 <>
                     <dl className="space-y-1.5 text-sm">
-                        <Row label="Pitch" value={`${info.pitchName} · ${info.sport}`} />
+                        <Row label="Field" value={`${info.pitchName} · ${info.sport}`} />
                         <Row label="Date" value={formatDateLong(info.date)} />
-                        <Row label="Time" value={`${info.start}–${info.end}`} />
+                        <Row label="Time" value={`${formatTime12(info.start)}–${formatTime12(info.end)}`} />
                         <Row label="Duration" value={`${info.minutes} min (${info.slotCount} ${info.slotCount === 1 ? "slot" : "slots"})`} />
                     </dl>
 
@@ -67,7 +67,10 @@ export function SummaryCard({
                             <div className="h-4 w-2/3 animate-pulse rounded bg-evergreen/10" />
                         </div>
                     ) : (
-                        <dl className={`space-y-1.5 text-sm ${loading ? "opacity-60" : ""}`} aria-live="polite">
+                        <dl className={`space-y-1.5 text-sm ${loading ? "opacity-70" : ""}`} aria-live="polite">
+                            {loading && (
+                                <p className="text-xs font-medium text-evergreen/70">Updating price…</p>
+                            )}
                             <Row label="Subtotal" value={formatBDT(amounts.subtotal)} />
                             {amounts.vatRate && amounts.vat > 0 && (
                                 <Row

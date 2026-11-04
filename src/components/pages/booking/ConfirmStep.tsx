@@ -216,7 +216,7 @@ export function ConfirmStep({
                                 Read the full policy
                             </Link>
                         </p>
-                        <label className="flex min-h-11 items-start gap-3 text-sm font-medium">
+                        <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
                             <input type="checkbox" className="mt-1 size-5 accent-teal" {...register("acceptPolicy")} />
                             <span>I have read and accept the cancellation and refund policy.</span>
                         </label>

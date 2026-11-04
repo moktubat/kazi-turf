@@ -30,7 +30,7 @@ export function RatesTab({
     const pitch = pitches.find((p) => p.id === pitchId);
 
     if (pitches.length === 0 || !pitch) {
-        return <Card><p className="font-semibold">Add a pitch first, then set its rates.</p></Card>;
+        return <Card><p className="font-semibold">Add a field first, then set its slot prices.</p></Card>;
     }
 
     const mine = rates
@@ -42,25 +42,25 @@ export function RatesTab({
         <div className="space-y-5">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div className="min-w-56">
-                    <Select label="Pitch" value={pitch.id} onChange={(e) => setPitchId(e.target.value)}>
+                    <Select label="Field" value={pitch.id} onChange={(e) => setPitchId(e.target.value)}>
                         {pitches.map((p) => (
                             <option key={p.id} value={p.id}>{p.name} · {p.sport}</option>
                         ))}
                     </Select>
                 </div>
                 <Button onClick={() => setEditing("new")}>
-                    <Plus size={18} aria-hidden /> Add rate
+                    <Plus size={18} aria-hidden /> Add slot
                 </Button>
             </div>
 
             <p className="text-sm text-evergreen/80">
-                Price per {slotMinutes}-minute slot. A change affects new bookings only. Existing bookings keep the price they were saved with.
+                Price per {slotMinutes}-minute slot. Changes apply to new bookings only; existing bookings keep their saved price.
             </p>
 
             {gaps.length > 0 && (
                 <div role="alert" className="rounded-xl bg-held-soft p-3 text-sm text-held">
                     <p className="flex items-center gap-2 font-bold">
-                        <AlertTriangle size={18} aria-hidden /> Price gaps: these slots cannot be booked until they have a price
+                        <AlertTriangle size={18} aria-hidden /> Price gaps — these slots cannot be booked until priced
                     </p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-6">
                         {gaps.map((g) => (
@@ -71,7 +71,7 @@ export function RatesTab({
             )}
 
             {mine.length === 0 ? (
-                <Card><p className="font-semibold">No rates yet for this pitch.</p></Card>
+                <Card><p className="font-semibold">No slot prices yet for this field.</p></Card>
             ) : (
                 <ul className="grid gap-3 md:grid-cols-2">
                     {mine.map((r) => (
@@ -91,7 +91,7 @@ export function RatesTab({
                                 )}
                                 {!r.aligned && (
                                     <p className="flex items-start gap-1.5 text-xs font-semibold text-held">
-                                        <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the pitch&apos;s current schedule. Edit this window.
+                                        <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field's current schedule. Edit this window.
                                     </p>
                                 )}
                                 <Button variant="outline" onClick={() => setEditing(r)}>
@@ -103,7 +103,7 @@ export function RatesTab({
                 </ul>
             )}
 
-            <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add rate" : "Edit rate"}>
+            <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add slot price" : "Edit slot price"}>
                 {editing && (
                     <RateForm
                         key={editing === "new" ? "new" : editing.id}
@@ -179,11 +179,14 @@ function RateForm({
     }
 
     return (
-        <form onSubmit={submit} noValidate className="space-y-4" aria-label={isNew ? "Add rate" : "Edit rate"}>
-            <p className="text-sm font-semibold">{pitch.name} · {pitch.openTime}–{pitch.closeTime}</p>
+        <form onSubmit={submit} noValidate className="space-y-5" aria-label={isNew ? "Add slot price" : "Edit slot price"}>
+            <p className="rounded-xl bg-mint p-3 text-sm">
+                <strong>{pitch.name}</strong> · open {pitch.openTime}–{pitch.closeTime}
+            </p>
 
+            {/* Days */}
             <fieldset>
-                <legend className="mb-1 text-sm font-semibold">Days</legend>
+                <legend className="mb-1 text-sm font-semibold">Days (which weekdays this price applies to)</legend>
                 <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
                     {DAY_NAMES.map((name, d) => (
                         <Check key={name} label={name} checked={f.days.includes(d)} onChange={() => toggleDay(d)} />
@@ -192,11 +195,18 @@ function RateForm({
                 {fields.days && <p role="alert" className="text-sm font-medium text-booked">{fields.days}</p>}
             </fieldset>
 
-            <Select label="Rate type" value={f.tier} onChange={(e) => set("tier", e.target.value as FormState["tier"])}>
+            {/* Tier */}
+            <Select
+                label="Pricing tier"
+                value={f.tier}
+                hint="Peak = evenings & weekends. Off-peak = daytime weekdays."
+                onChange={(e) => set("tier", e.target.value as FormState["tier"])}
+            >
                 <option value="Off-peak">Off-peak</option>
                 <option value="Peak">Peak</option>
             </Select>
 
+            {/* Time window */}
             <div className="grid grid-cols-2 gap-4">
                 <Select label="From" value={f.startTime} error={fields.startTime} onChange={(e) => set("startTime", e.target.value)}>
                     {times.slice(0, -1).map((t) => (
@@ -209,38 +219,60 @@ function RateForm({
                     ))}
                 </Select>
             </div>
+            <p className="-mt-2 text-xs text-evergreen/70">
+                Times must align to the field's {slotMinutes}-minute slot grid.
+            </p>
 
+            {/* Price */}
             <Input
                 label={`Price per ${slotMinutes}-minute slot (৳)`}
                 type="number"
                 inputMode="numeric"
                 value={f.price}
+                placeholder="e.g. 2400"
+                hint="Whole taka only. 100–100,000."
                 error={fields.pricePerSlot}
                 onChange={(e) => set("price", e.target.value)}
             />
 
+            {/* Effective dates */}
             <div className="grid grid-cols-2 gap-4">
-                <Input label="Effective from (optional)" type="date" value={f.effectiveFrom} error={fields.effectiveFrom} onChange={(e) => set("effectiveFrom", e.target.value)} />
-                <Input label="Effective until (optional)" type="date" value={f.effectiveTo} error={fields.effectiveTo} onChange={(e) => set("effectiveTo", e.target.value)} />
+                <Input
+                    label="Effective from (optional)"
+                    type="date"
+                    value={f.effectiveFrom}
+                    error={fields.effectiveFrom}
+                    onChange={(e) => set("effectiveFrom", e.target.value)}
+                />
+                <Input
+                    label="Effective until (optional)"
+                    type="date"
+                    value={f.effectiveTo}
+                    error={fields.effectiveTo}
+                    onChange={(e) => set("effectiveTo", e.target.value)}
+                />
             </div>
+            <p className="-mt-2 text-xs text-evergreen/70">
+                Leave both empty for “always”. Use these for seasonal pricing (e.g. winter rates).
+            </p>
 
-            <FormActions busy={busy} error={error} label={isNew ? "Add rate" : "Save changes"} onCancel={onDone} />
+            <FormActions busy={busy} error={error} label={isNew ? "Add slot price" : "Save changes"} onCancel={onDone} />
 
             {!isNew &&
                 (confirmDelete ? (
                     <div className="space-y-2 rounded-xl bg-booked-soft p-3 text-sm">
-                        <p className="font-medium text-booked">Delete this rate? Existing bookings keep their saved prices, but slots without a price cannot be booked.</p>
+                        <p className="font-medium text-booked">Delete this slot price? Existing bookings keep their saved prices, but unpriced slots cannot be booked.</p>
                         <Button
                             variant="danger"
                             disabled={busy}
                             onClick={() => save(rateDeleteSchema, { id: rate.id }, "/api/admin/setup/rates", "DELETE", onDone)}
                         >
-                            Yes, delete rate
+                            Yes, delete
                         </Button>
                     </div>
                 ) : (
                     <Button variant="ghost" className="text-booked" onClick={() => setConfirmDelete(true)}>
-                        Delete this rate
+                        Delete this slot price
                     </Button>
                 ))}
         </form>

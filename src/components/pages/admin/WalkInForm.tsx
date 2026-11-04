@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
 import { policies } from "@/data/site";
 import { ApiError, api, isAbort } from "@/lib/api";
-import { formatBDT, formatDateLong } from "@/lib/format";
+import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { isBdPhone, normalizePhone } from "@/lib/phone";
 import { printReceipt } from "@/lib/printReceipt";
 import type { Quote } from "@/server/pricing";
@@ -142,7 +142,7 @@ export function WalkInForm({
                 <p className="font-mono text-3xl font-extrabold tracking-widest">{created.code}</p>
                 <dl className="space-y-1.5 text-left text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Customer</dt><dd className="font-semibold">{created.customerName}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-evergreen/80">When</dt><dd className="font-semibold">{formatDateLong(created.date)}, {created.start}–{created.end}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-evergreen/80">When</dt><dd className="font-semibold">{formatDateLong(created.date)}, {formatTime12(created.start)}–{formatTime12(created.end)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Total</dt><dd className="font-semibold">{formatBDT(created.total)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Cash received</dt><dd className="font-semibold">{formatBDT(created.advancePaid)}</dd></div>
                     <div className="flex justify-between gap-4 font-bold"><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
@@ -163,9 +163,9 @@ export function WalkInForm({
     return (
         <form onSubmit={submit} noValidate className="space-y-5" aria-label="Walk-in booking">
             <dl className="space-y-1.5 text-sm">
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Pitch</dt><dd className="font-semibold">{pitch.name}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Field</dt><dd className="font-semibold">{pitch.name}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Date</dt><dd className="font-semibold">{formatDateLong(date)}</dd></div>
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="font-semibold">{picked[0]?.start}–{picked[picked.length - 1]?.end}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="font-semibold">{formatTime12(picked[0]?.start ?? "")}–{formatTime12(picked[picked.length - 1]?.end ?? "")}</dd></div>
             </dl>
 
             {maxCount > 1 && (

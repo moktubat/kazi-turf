@@ -8,7 +8,7 @@ import { Input, Select } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { ApiError, api, isAbort } from "@/lib/api";
-import { formatBDT, formatDateLong } from "@/lib/format";
+import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import type { Role } from "@/types";
 import type { AdminBookingDto } from "@/types/admin";
 import { BookingPanel } from "./BookingPanel";
@@ -160,7 +160,7 @@ export function BookingsView({
                             <caption className="sr-only">Bookings</caption>
                             <thead>
                                 <tr className="border-b border-evergreen/10 text-xs uppercase tracking-wide text-evergreen/70">
-                                    {["Code", "When", "Customer", "Pitch", "Status", "Total", "Source"].map((h) => (
+                                    {["Code", "When", "Customer", "Field", "Status", "Total", "Source"].map((h) => (
                                         <th key={h} scope="col" className="px-3 py-3 font-semibold">{h}</th>
                                     ))}
                                 </tr>
@@ -173,7 +173,7 @@ export function BookingsView({
                                                 {b.code}
                                             </button>
                                         </th>
-                                        <td className="px-3 py-3">{formatDateLong(b.date)}<span className="block text-xs text-evergreen/70">{b.start}–{b.end}</span></td>
+                                        <td className="px-3 py-3">{formatDateLong(b.date)}<span className="block text-xs text-evergreen/70">{formatTime12(b.start)}–{formatTime12(b.end)}</span></td>
                                         <td className="px-3 py-3">{b.customerName}<span className="block text-xs text-evergreen/70">{b.phone}</span></td>
                                         <td className="px-3 py-3">{b.pitchName}<span className="block text-xs text-evergreen/70">{b.sport}</span></td>
                                         <td className="px-3 py-3">
@@ -209,7 +209,7 @@ export function BookingsView({
                                         {sourceBadge(b.source)}
                                     </div>
                                     <p className="text-sm">{b.customerName} · {b.phone}</p>
-                                    <p className="text-sm text-evergreen/80">{formatDateLong(b.date)} · {b.start}–{b.end} · {b.pitchName}</p>
+                                    <p className="text-sm text-evergreen/80">{formatDateLong(b.date)} · {formatTime12(b.start)}–{formatTime12(b.end)} · {b.pitchName}</p>
                                     <div className="flex flex-wrap gap-2">
                                         <BookingStatusBadge status={b.bookingStatus} />
                                         <PaymentStatusBadge status={b.paymentStatus} />

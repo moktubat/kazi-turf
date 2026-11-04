@@ -21,6 +21,7 @@
   html {
     scroll-padding-top: 5rem;
     scroll-behavior: smooth;
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -76,6 +77,30 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Custom scrollbar — replaces the thick default one on the slot grid and other horizontal scrollers */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(11, 110, 79, 0.35) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(11, 110, 79, 0.3);
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 110, 79, 0.5);
 }
 
 @keyframes fadeIn {

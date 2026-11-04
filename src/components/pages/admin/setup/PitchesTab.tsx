@@ -63,14 +63,17 @@ export function PitchesTab({
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-xl font-bold">Pitches</h2>
+                <div>
+                    <h2 className="text-xl font-bold">Fields</h2>
+                    <p className="text-sm text-evergreen/70">Each sports field/court the venue offers.</p>
+                </div>
                 <Button onClick={() => setEditing("new")}>
-                    <Plus size={18} aria-hidden /> Add pitch
+                    <Plus size={18} aria-hidden /> Add field
                 </Button>
             </div>
 
             {pitches.length === 0 ? (
-                <p className="text-sm text-evergreen/70">No pitches yet.</p>
+                <Card><p className="text-sm text-evergreen/70">No fields yet. Click “Add field” to create one.</p></Card>
             ) : (
                 <ul className="grid gap-4 md:grid-cols-2">
                     {pitches.map((p) => (
@@ -80,7 +83,7 @@ export function PitchesTab({
                                     <div>
                                         <h4 className="text-lg font-bold">{p.name}</h4>
                                         <p className="text-sm text-evergreen/80">
-                                            {p.sport} · {p.format} · {p.openTime}–{p.closeTime} · max {p.maxConsecutiveSlots} slots
+                                            {p.sport} · {p.format} · {p.openTime}–{p.closeTime}
                                         </p>
                                     </div>
                                     <Badge tone={p.status === "ACTIVE" ? "success" : "maint"}>
@@ -102,7 +105,7 @@ export function PitchesTab({
                                             setDeleting(p);
                                         }}
                                         disabled={p.upcomingBookings > 0}
-                                        title={p.upcomingBookings > 0 ? "Disable the pitch instead — it has upcoming bookings" : "Delete this pitch"}
+                                        title={p.upcomingBookings > 0 ? "Disable the field instead — it has upcoming bookings" : "Delete this field"}
                                     >
                                         <Trash2 size={16} aria-hidden /> Delete
                                     </Button>
@@ -113,7 +116,7 @@ export function PitchesTab({
                 </ul>
             )}
 
-            <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add pitch" : "Edit pitch"}>
+            <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add field" : "Edit field"}>
                 {editing && (
                     <PitchForm
                         key={editing === "new" ? "new" : editing.id}
@@ -127,14 +130,14 @@ export function PitchesTab({
                 )}
             </SideSheet>
 
-            <SideSheet open={!!deleting} onClose={() => setDeleting(null)} title="Delete pitch">
+            <SideSheet open={!!deleting} onClose={() => setDeleting(null)} title="Delete field">
                 {deleting && (
                     <div className="space-y-4">
                         <p className="text-sm">
                             Delete <strong>{deleting.name}</strong> ({deleting.sport})?
                         </p>
                         <p className="text-sm text-evergreen/80">
-                            The pitch is removed from the database and its Cloudinary image is deleted.
+                            The field is removed from the database and its Cloudinary image is deleted.
                             Existing bookings stay valid; only new bookings are affected.
                         </p>
                         {deleteError && (
@@ -144,7 +147,7 @@ export function PitchesTab({
                         )}
                         <div className="flex gap-2">
                             <Button variant="danger" className="flex-1" disabled={deleteBusy} onClick={confirmDelete}>
-                                {deleteBusy ? "Deleting…" : "Delete pitch"}
+                                {deleteBusy ? "Deleting…" : "Delete field"}
                             </Button>
                             <Button variant="ghost" onClick={() => setDeleting(null)} disabled={deleteBusy}>
                                 Cancel
@@ -211,87 +214,141 @@ function PitchForm({
     }
 
     return (
-        <form onSubmit={submit} noValidate className="space-y-4" aria-label={isNew ? "Add pitch" : "Edit pitch"}>
-            <Input label="Pitch label" value={f.name} error={fields.name} onChange={(e) => set("name", e.target.value)} />
-            <Select
-                label="Sport"
-                value={f.sport}
-                error={fields.sport}
-                hint={sports.length === 0 ? "Add sports in the Venue tab first." : undefined}
-                onChange={(e) => set("sport", e.target.value)}
-            >
-                {sports.length === 0 && <option value="">No sports yet</option>}
-                {sports.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                ))}
-            </Select>
-            <Input label="Format" placeholder="7-a-side" value={f.format} error={fields.format} onChange={(e) => set("format", e.target.value)} />
-            <Input
-                label="Dimensions"
-                placeholder="Verified size, e.g. 40m × 20m"
-                hint="Only enter a size the owner has verified."
-                value={f.dimensions}
-                error={fields.dimensions}
-                onChange={(e) => set("dimensions", e.target.value)}
-            />
-            <Input label="Surface notes" value={f.surface} error={fields.surface} onChange={(e) => set("surface", e.target.value)} />
+        <form onSubmit={submit} noValidate className="space-y-5" aria-label={isNew ? "Add field" : "Edit field"}>
+            {/* Basics */}
+            <div className="space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Basics</p>
 
-            <div className="grid grid-cols-2 gap-4">
-                <Input label="Opens" type="time" value={f.openTime} error={fields.openTime} onChange={(e) => e.target.value && setOpen(e.target.value)} />
-                <Select label="Closes" value={f.closeTime} error={fields.closeTime} onChange={(e) => set("closeTime", e.target.value)}>
-                    {closes.map((c) => (
-                        <option key={c} value={c}>{c}</option>
+                <Input
+                    label="Field name"
+                    value={f.name}
+                    placeholder="e.g. Field A, Cricket Net"
+                    error={fields.name}
+                    onChange={(e) => set("name", e.target.value)}
+                />
+
+                <Select
+                    label="Sport"
+                    value={f.sport}
+                    error={fields.sport}
+                    hint={sports.length === 0 ? "Add sports in the Venue tab first." : undefined}
+                    onChange={(e) => set("sport", e.target.value)}
+                >
+                    {sports.length === 0 && <option value="">No sports yet</option>}
+                    {sports.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                    ))}
+                </Select>
+
+                <Input
+                    label="Format (playing style)"
+                    value={f.format}
+                    placeholder="e.g. 7-a-side, 5-a-side, Net practice"
+                    error={fields.format}
+                    onChange={(e) => set("format", e.target.value)}
+                />
+            </div>
+
+            {/* Field details */}
+            <div className="space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Field details</p>
+
+                <Input
+                    label="Dimensions (verified size)"
+                    value={f.dimensions}
+                    placeholder="e.g. 40m × 20m"
+                    hint="Only enter a size the owner has measured."
+                    error={fields.dimensions}
+                    onChange={(e) => set("dimensions", e.target.value)}
+                />
+
+                <Input
+                    label="Surface"
+                    value={f.surface}
+                    placeholder="e.g. Artificial turf, Turf wicket"
+                    error={fields.surface}
+                    onChange={(e) => set("surface", e.target.value)}
+                />
+
+                <ListInput
+                    label="Facilities (comma-separated)"
+                    value={f.facilities}
+                    placeholder="e.g. Floodlights, Parking, Washroom"
+                    hint="List what the field actually has."
+                    error={fields.facilities}
+                    onChange={(v) => set("facilities", v)}
+                />
+
+                <ImageUpload
+                    label="Field photo (optional)"
+                    value={f.image}
+                    onChange={(url) => set("image", url)}
+                    folder="kaziturf/pitches"
+                    publicIdPrefix={`pitch-${f.branchId ?? "x"}`}
+                    hint="JPEG, PNG, WebP or AVIF. Stored on Cloudinary. The old image is deleted when you replace it or remove the field."
+                    error={fields.image}
+                />
+            </div>
+
+            {/* Schedule */}
+            <div className="space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Schedule</p>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <Input
+                        label="Opens"
+                        type="time"
+                        value={f.openTime}
+                        error={fields.openTime}
+                        onChange={(e) => e.target.value && setOpen(e.target.value)}
+                    />
+                    <Select
+                        label="Closes"
+                        value={f.closeTime}
+                        error={fields.closeTime}
+                        onChange={(e) => set("closeTime", e.target.value)}
+                    >
+                        {closes.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </Select>
+                </div>
+                <p className="-mt-2 text-xs text-evergreen/70">
+                    {slotCount} slots of {slotMinutes} minutes. Closing times are limited to whole slots.
+                </p>
+
+                <Select
+                    label="Max slots per booking (how many a customer can book together)"
+                    value={String(f.maxConsecutiveSlots)}
+                    error={fields.maxConsecutiveSlots}
+                    onChange={(e) => set("maxConsecutiveSlots", Number(e.target.value))}
+                >
+                    {[1, 2, 3, 4].map((n) => (
+                        <option key={n} value={n}>{n}</option>
                     ))}
                 </Select>
             </div>
-            <p className="-mt-2 text-xs text-evergreen/70">
-                {slotCount} slots of {slotMinutes} minutes. Closing times are limited to whole slots.
-            </p>
 
-            <Select
-                label="Max consecutive slots"
-                value={String(f.maxConsecutiveSlots)}
-                error={fields.maxConsecutiveSlots}
-                onChange={(e) => set("maxConsecutiveSlots", Number(e.target.value))}
-            >
-                {[1, 2, 3, 4].map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                ))}
-            </Select>
-            <ListInput
-                label="Facilities"
-                value={f.facilities}
-                placeholder="Floodlights, Parking, Washroom"
-                hint="Only list what the venue really has."
-                error={fields.facilities}
-                onChange={(v) => set("facilities", v)}
-            />
+            {/* Status */}
+            <div className="space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Status</p>
+                <Select
+                    label="Status"
+                    value={f.status}
+                    error={fields.status}
+                    hint={
+                        pitch && pitch.upcomingBookings > 0 && f.status === "DISABLED"
+                            ? `${pitch.upcomingBookings} upcoming bookings stay valid. Only new bookings are blocked.`
+                            : "Disabled blocks new bookings but keeps existing ones visible."
+                    }
+                    onChange={(e) => set("status", e.target.value as SetupPitch["status"])}
+                >
+                    <option value="ACTIVE">Active (taking bookings)</option>
+                    <option value="DISABLED">Disabled</option>
+                </Select>
+            </div>
 
-            <ImageUpload
-                label="Pitch photo (optional)"
-                value={f.image}
-                onChange={(url) => set("image", url)}
-                folder="kaziturf/pitches"
-                publicIdPrefix={`pitch-${f.branchId ?? "x"}`}
-                hint="JPEG, PNG, WebP or AVIF. Stored on Cloudinary. The old image is deleted when you replace it or remove the pitch."
-                error={fields.image}
-            />
-
-            <Select
-                label="Status"
-                value={f.status}
-                error={fields.status}
-                hint={
-                    pitch && pitch.upcomingBookings > 0 && f.status === "DISABLED"
-                        ? `${pitch.upcomingBookings} upcoming bookings stay valid. Only new bookings are blocked.`
-                        : undefined
-                }
-                onChange={(e) => set("status", e.target.value as SetupPitch["status"])}
-            >
-                <option value="ACTIVE">Active</option>
-                <option value="DISABLED">Disabled</option>
-            </Select>
-            <FormActions busy={busy} error={error} label={isNew ? "Add pitch" : "Save changes"} onCancel={onDone} />
+            <FormActions busy={busy} error={error} label={isNew ? "Add field" : "Save changes"} onCancel={onDone} />
         </form>
     );
 }

@@ -1,6 +1,6 @@
 import { Check, Timer, X, Wrench, Clock } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { formatBDT } from "@/lib/format";
+import { formatBDT, formatTime12 } from "@/lib/format";
 import type { Cell } from "@/server/availability";
 import type { SlotStatus } from "@/types";
 
@@ -31,7 +31,7 @@ export function SlotChip({
             type="button"
             disabled={!available}
             aria-pressed={available ? selected : undefined}
-            aria-label={`${cell.start} to ${cell.end}, ${formatBDT(cell.price)}, ${selected ? "Selected" : look.label}`}
+            aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${formatBDT(cell.price)}, ${selected ? "Selected" : look.label}`}
             onClick={onSelect}
             className={cn(
                 "flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center rounded-xl border-2 px-2 py-2 text-center transition-colors",
@@ -39,9 +39,11 @@ export function SlotChip({
                 selected ? "border-teal bg-teal text-white" : look.cls
             )}
         >
-            <span className="font-heading text-base font-bold leading-tight">{cell.start}</span>
-            <span className="text-sm font-semibold">{formatBDT(cell.price)}</span>
-            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium">
+            <span className="font-heading text-sm font-bold leading-tight whitespace-nowrap tabular-nums sm:text-base">
+                {formatTime12(cell.start)}
+            </span>
+            <span className="text-sm font-semibold whitespace-nowrap tabular-nums">{formatBDT(cell.price)}</span>
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium whitespace-nowrap">
                 <Icon size={12} aria-hidden /> {selected ? "Selected" : look.label}
             </span>
         </button>

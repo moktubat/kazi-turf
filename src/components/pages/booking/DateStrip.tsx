@@ -23,7 +23,7 @@ export function DateStrip({
     }, [value]);
 
     return (
-        <div ref={ref} role="group" aria-label="Choose a date" className="flex gap-2 overflow-x-auto pb-2">
+        <div ref={ref} role="group" aria-label="Choose a date" className="flex gap-2 scrollbar-thin overflow-x-auto pb-2">
             {dates.map((d) => {
                 const p = formatDateShort(d);
                 const selected = d === value;

@@ -7,6 +7,7 @@ import { Input, Select } from "@/components/ui/Field";
 import { pitches } from "@/data/pitches";
 import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
+import { formatTime12 } from "@/lib/format";
 
 export function BookingSearchForm({
     sport,
@@ -68,7 +69,7 @@ export function BookingSearchForm({
                 <option value="">Any time</option>
                 {times.map((t) => (
                     <option key={t} value={t}>
-                        {t}
+                        {formatTime12(t)}
                     </option>
                 ))}
             </Select>

@@ -2,10 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Timer } from "lucide-react";
 
-/**
- * Display only. The server decides expiry. We offset by the server clock so a wrong
- * device clock does not skew the display, and call onExpire once at zero.
- */
+
 export function HoldCountdown({
     expiresAt,
     serverNow,
@@ -15,30 +12,58 @@ export function HoldCountdown({
     serverNow: string;
     onExpire: () => void;
 }) {
-    const offset = useRef(Date.parse(serverNow) - Date.now());
-    const onExpireRef = useRef(onExpire);
-    onExpireRef.current = onExpire;
-    const fired = useRef(false);
+    // Date.parse on a string is pure — same input always yields the same output.
+    const expiresMs = Date.parse(expiresAt);
+    const serverMs = Date.parse(serverNow);
+    const valid = Number.isFinite(expiresMs) && Number.isFinite(serverMs);
 
-    const remaining = () => Math.max(0, Date.parse(expiresAt) - (Date.now() + offset.current));
-    const [left, setLeft] = useState(remaining);
+    // Keep the latest onExpire in a ref so the interval doesn't capture a stale one.
+    // Written inside an effect, never during render.
+    const onExpireRef = useRef(onExpire);
+    useEffect(() => {
+        onExpireRef.current = onExpire;
+    }, [onExpire]);
+
+    // Offset between server clock and client clock, computed once per (expires, now) pair.
+    const offsetRef = useRef(0);
+    const firedRef = useRef(false);
+
+    // `left` is null until the first effect tick — we display "00:00" for that brief moment.
+    const [left, setLeft] = useState<number | null>(null);
 
     useEffect(() => {
+        if (!valid) return;
+
+        // Compute the clock offset here — Date.now() is allowed inside an effect.
+        offsetRef.current = serverMs - Date.now();
+        firedRef.current = false;
+
         const tick = () => {
-            const ms = remaining();
+            const ms = Math.max(0, expiresMs - (Date.now() + offsetRef.current));
             setLeft(ms);
-            if (ms === 0 && !fired.current) {
-                fired.current = true;
+            if (ms === 0 && !firedRef.current) {
+                firedRef.current = true;
                 onExpireRef.current();
             }
         };
         tick();
         const id = setInterval(tick, 1000);
         return () => clearInterval(id);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [expiresAt]);
+    }, [valid, expiresMs, serverMs]);
 
-    const total = Math.ceil(left / 1000);
+    // Bad data: show a static label, never "NaN:NaN".
+    if (!valid) {
+        return (
+            <p
+                role="timer"
+                className="inline-flex items-center gap-2 rounded-full bg-held-soft px-3 py-1.5 text-sm font-semibold text-held"
+            >
+                <Timer size={16} aria-hidden /> Slot is held — finish payment to confirm
+            </p>
+        );
+    }
+
+    const total = left === null ? 0 : Math.ceil(left / 1000);
     const mm = String(Math.floor(total / 60)).padStart(2, "0");
     const ss = String(total % 60).padStart(2, "0");
 

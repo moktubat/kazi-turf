@@ -3,7 +3,7 @@ import { Check } from "lucide-react";
 import { venue } from "@/data/branches";
 import { getNextOpenSlots, getPitch } from "@/server/availability";
 import { addDays } from "@/lib/time";
-import { formatBDT } from "@/lib/format";
+import { formatBDT, formatTime12 } from "@/lib/format";
 import { Section } from "./Section";
 import { todayDhaka } from "@/lib/time.server";
 
@@ -42,7 +42,7 @@ export async function OpenToday() {
                                 <li key={`${s.pitchId}-${s.cellStart}`}>
                                     <Link
                                         href={href}
-                                        aria-label={`Book ${s.start} on ${s.pitchName}, ${formatBDT(s.price)}`}
+                                        aria-label={`Book ${formatTime12(s.start)} on ${s.pitchName}, ${formatBDT(s.price)}`}
                                         className="flex min-h-16 flex-col justify-center rounded-xl border-2 border-emerald bg-emerald/15 px-3 py-2 hover:bg-emerald/30"
                                     >
                                         <span className="flex items-center gap-1.5 font-heading font-bold">

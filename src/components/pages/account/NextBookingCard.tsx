@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { MapPin, Timer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { formatBDT, formatDateLong } from "@/lib/format";
+import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import type { AccountBookingDto } from "@/types/account";
 
 function left(ms: number): string {
@@ -41,7 +41,7 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
 
             <div>
                 <p className="font-heading text-xl font-extrabold">
-                    {formatDateLong(b.date)} · {b.start}–{b.end}
+                    {formatDateLong(b.date)} · {formatTime12(b.start)}–{formatTime12(b.end)}
                 </p>
                 <p className="text-sm text-evergreen/80">
                     {b.pitchName} · {b.sport}

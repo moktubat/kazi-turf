@@ -1,9 +1,8 @@
-// src/components/admin/DeskBoard.tsx
 "use client";
 import { useRef } from "react";
 import { LogIn, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { formatBDT } from "@/lib/format";
+import { formatBDT, formatTime12 } from "@/lib/format";
 import type { BoardCell, BoardPitch } from "@/types/admin";
 import { slotLook } from "../booking/SlotChip";
 
@@ -48,8 +47,7 @@ function Cell({
             <button
                 type="button"
                 disabled={!interactive}
-                aria-label={`${cell.start} to ${cell.end}, ${label}${bk ? `, ${bk.customerName}, ${bk.code}` : ""}${cell.reason ? `, ${cell.reason}` : ""
-                    }`}
+                aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${label}${bk ? `, ${bk.customerName}, ${bk.code}` : ""}${cell.reason ? `, ${cell.reason}` : ""}`}
                 onPointerDown={start}
                 onPointerUp={clear}
                 onPointerLeave={clear}
@@ -72,7 +70,7 @@ function Cell({
                     checkedIn ? "border-teal/40 bg-mint text-teal" : look.cls
                 )}
             >
-                <span className="font-heading text-base font-bold leading-tight">{cell.start}</span>
+                <span className="font-heading text-base font-bold leading-tight">{formatTime12(cell.start)}</span>
                 <span className="flex items-center gap-1 text-xs font-semibold">
                     <Icon size={12} aria-hidden /> {label}
                 </span>
@@ -137,7 +135,7 @@ export function DeskBoard({
                             {p.sport} · {p.format}
                         </p>
                     </div>
-                    <div className="overflow-x-auto pb-2">
+                    <div className="scrollbar-thin overflow-x-auto pb-2">
                         <div className="grid grid-flow-col auto-cols-[7rem] gap-2">
                             {p.cells.map((c) => (
                                 <Cell

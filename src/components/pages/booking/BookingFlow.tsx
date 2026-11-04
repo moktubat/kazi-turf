@@ -221,7 +221,22 @@ export function BookingFlow({
         };
     }, [data, sel, date, policy.slotMinutes]);
 
+    // Estimated subtotal from the per-cell prices we already have. Used as a
+    // fallback while the live quote is loading, or if it ever fails — so the
+    // summary never shows ৳— when the user has clearly selected a slot.
+    const estimatedSubtotal = useMemo(() => {
+        if (!data || !sel.pitchId || sel.cellStarts.length === 0) return 0;
+        const p = data.pitches.find((x) => x.id === sel.pitchId);
+        if (!p) return 0;
+        return sel.cellStarts.reduce((sum, s) => {
+            const c = p.cells.find((cell) => cell.cellStart === s);
+            return sum + (c?.price ?? 0);
+        }, 0);
+    }, [data, sel]);
+
     // After the hold exists, show the server's saved amounts, not the preview.
+    // While the quote is loading or has failed, fall back to the per-cell estimate
+    // so the user always sees a real number.
     const amounts: Amounts | null = hold
         ? {
             subtotal: hold.subtotal,
@@ -231,7 +246,7 @@ export function BookingFlow({
             advance: hold.advanceAmount,
             balance: hold.balanceAmount,
         }
-        : quoteState.quote
+        : quoteState.status === "ready" && quoteState.quote && quoteState.quote.total > 0
             ? {
                 subtotal: quoteState.quote.subtotal,
                 vat: quoteState.quote.vat,
@@ -240,7 +255,16 @@ export function BookingFlow({
                 advance: quoteState.quote.advance,
                 balance: quoteState.quote.balance,
             }
-            : null;
+            : estimatedSubtotal > 0
+                ? {
+                    subtotal: estimatedSubtotal,
+                    vat: 0,
+                    vatRate: null,
+                    total: estimatedSubtotal,
+                    advance: Math.round((estimatedSubtotal * policy.advancePercent) / 100),
+                    balance: estimatedSubtotal - Math.round((estimatedSubtotal * policy.advancePercent) / 100),
+                }
+                : null;
 
     const quoteLoading = quoteState.status === "loading";
     const canContinue = !!info && !!amounts && !quoteLoading && quoteState.status !== "error";

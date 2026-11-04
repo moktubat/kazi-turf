@@ -8,8 +8,8 @@ export function VenuesSection() {
     return (
         <Section
             id="venues"
-            title="Pitches & rates"
-            intro="Our pitches, rates and location in one place. Prices are per 90-minute slot."
+            title="Fields & slots"
+            intro="Our fields, slots and location in one place. Prices are per 90-minute slot."
         >
             <VenuePanel venue={venue} />
         </Section>

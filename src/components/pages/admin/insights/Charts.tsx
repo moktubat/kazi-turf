@@ -1,7 +1,7 @@
 // Server-rendered, no chart library. Every bar and cell also shows its number as text.
 import { Banknote, CalendarCheck, Gauge, Hourglass } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { formatBDT } from "@/lib/format";
+import { formatBDT, formatTime12 } from "@/lib/format";
 import type { InsightsData } from "@/types/insights";
 
 const PALETTE = ["bg-teal", "bg-emerald", "bg-evergreen", "bg-held", "bg-maint"];
@@ -142,8 +142,7 @@ export function OccupancyHeatmap({ data }: { data: InsightsData["heatmap"] }) {
                         <tbody>
                             {data.times.map((t, ri) => (
                                 <tr key={t}>
-                                    <th scope="row" className="px-2 py-1 text-left font-semibold">{t}</th>
-                                    {data.cells[ri].map((v, ci) => (
+                                    <th scope="row" className="px-2 py-1 text-left font-semibold">{formatTime12(t)}</th>                                    {data.cells[ri].map((v, ci) => (
                                         <td
                                             key={ci}
                                             className="rounded-md px-2 py-2 font-semibold text-evergreen"

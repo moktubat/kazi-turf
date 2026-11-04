@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/Card";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { ApiError, api } from "@/lib/api";
 import { googleCalendarUrl } from "@/lib/calendar";
-import { formatBDT, formatDateLong } from "@/lib/format";
+import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { startBkashPayment } from "@/lib/payments";
 import type { BookingDto } from "@/types/booking";
 import { HoldCountdown } from "./HoldCountdown";
@@ -117,7 +117,7 @@ export function BookingResult({ code }: { code: string }) {
 
     const b = state.booking;
     const pickAnother = `/book?${new URLSearchParams({ sport: b.sport, date: b.date })}`;
-    const when = `${formatDateLong(b.date)}, ${b.start}–${b.end}`;
+    const when = `${formatDateLong(b.date)}, ${formatTime12(b.start)}–${formatTime12(b.end)}`;
 
     return (
         <Shell>
@@ -280,7 +280,7 @@ function Line({ label, value, strong }: { label: string; value: string; strong?:
 function Details({ b, when }: { b: BookingDto; when: string }) {
     return (
         <dl className="space-y-1.5 text-sm">
-            <Line label="Pitch" value={`${b.pitchName} · ${b.sport}`} />
+            <Line label="Field" value={`${b.pitchName} · ${b.sport}`} />
             <Line label="When" value={when} />
         </dl>
     );

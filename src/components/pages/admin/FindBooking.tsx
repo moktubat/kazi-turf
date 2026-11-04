@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/Field";
 import { BookingStatusBadge } from "@/components/ui/StatusBadge";
 import { ApiError, api, isAbort } from "@/lib/api";
-import { formatDateLong } from "@/lib/format";
+import { formatDateLong, formatTime12 } from "@/lib/format";
 import type { AdminBookingDto } from "@/types/admin";
 
 // Always visible on the Desk. Search by booking code, phone or name.
@@ -83,7 +83,7 @@ export function FindBooking({ onPick }: { onPick: (code: string) => void }) {
                                     <span className="font-mono font-bold">{b.code}</span>
                                     <span className="ml-2 text-sm">{b.customerName}</span>
                                     <span className="block text-xs text-evergreen/70">
-                                        {formatDateLong(b.date)} · {b.start}–{b.end} · {b.pitchName}
+                                        {formatDateLong(b.date)} · {formatTime12(b.start)}–{formatTime12(b.end)} · {b.pitchName}
                                     </span>
                                 </span>
                                 <BookingStatusBadge status={b.bookingStatus} />

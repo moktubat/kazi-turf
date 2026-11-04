@@ -10,8 +10,8 @@ import { StaffTab } from "./StaffTab";
 
 const LABELS: Record<SetupTab, string> = {
     venue: "Venue",
-    pitches: "Pitches",
-    rates: "Rates",
+    pitches: "Fields",   // was "Pitches"
+    rates: "Slots",      // was "Rates"
     staff: "Staff",
     policies: "Policies",
 };

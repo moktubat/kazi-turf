@@ -20,7 +20,7 @@ export function Hero({ today }: { today: string }) {
     }, [sportId, current?.image, background]);
 
     return (
-        <section className="relative h-[min(700px,100svh)] overflow-hidden">
+        <section className="relative -mt-16 h-[min(700px,100svh)] overflow-hidden">
             <div className="absolute inset-0 bg-evergreen">
                 {background && <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${background})` }} />}
                 {nextBackground && (
