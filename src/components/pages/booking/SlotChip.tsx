@@ -36,7 +36,7 @@ export function SlotChip({
             className={cn(
                 "flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center rounded-xl border-2 px-2 py-2 text-center transition-colors",
                 "disabled:cursor-not-allowed",
-                selected ? "border-teal bg-teal text-white" : look.cls
+                selected ? "border-teal bg-teal text-white shadow-md" : look.cls
             )}
         >
             <span className="font-heading text-sm font-bold leading-tight whitespace-nowrap tabular-nums sm:text-base">

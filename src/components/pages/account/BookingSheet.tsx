@@ -63,12 +63,12 @@ export function BookingSheet({
 
     return (
         <div className="space-y-5">
-            <div className="space-y-3 text-center">
-                <p className="text-sm text-evergreen/80">Booking code</p>
+            <div className="space-y-3 rounded-2xl bg-evergreen p-5 text-center text-white">
+                <p className="text-sm text-white/75">Booking code</p>
                 <p className="font-mono text-3xl font-extrabold tracking-widest" aria-label={`Booking code ${b.code}`}>
                     {b.code}
                 </p>
-                <div className="flex flex-wrap items-center justify-center gap-2">
+                <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-xl bg-white px-3 py-2">
                     <BookingStatusBadge status={b.bookingStatus} />
                     <PaymentStatusBadge status={b.paymentStatus} />
                 </div>

@@ -62,7 +62,7 @@ export function Tabs({
                         onKeyDown={(e) => onKeyDown(e, i)}
                         className={cn(
                             "min-h-11 shrink-0 rounded-full px-5 text-sm font-semibold font-heading transition-colors",
-                            selected ? "bg-teal text-white" : "bg-mint text-evergreen hover:bg-emerald/40"
+                            selected ? "bg-teal text-white shadow-sm" : "bg-mint text-evergreen hover:bg-emerald/40"
                         )}
                     >
                         {t.label}

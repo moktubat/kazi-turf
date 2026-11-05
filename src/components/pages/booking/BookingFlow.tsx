@@ -318,132 +318,138 @@ export function BookingFlow({
 
     /* ---------- render ---------- */
     return (
-        <div className="mx-auto max-w-6xl px-4 py-6 pb-32 lg:pb-10">
-            <Stepper step={step} />
-
-            <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
-                <div className="min-w-0 space-y-5">
-                    {step === 1 && (
-                        <>
-                            <h1 className="text-2xl font-extrabold md:text-3xl">Choose your slot</h1>
-
-                            <FilterBar
-                                venue={venue}
-                                sport={sport}
-                                date={date}
-                                minDate={minDate}
-                                maxDate={maxDate}
-                                onSport={changeSport}
-                                onDate={changeDate}
-                            />
-
-                            {notice && (
-                                <p role="alert" className="flex items-start gap-2 rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
-                                    <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> {notice}
-                                </p>
-                            )}
-
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-evergreen/80">
-                                <p aria-live="polite">
-                                    {data ? `Last updated ${formatTime(data.updatedAt)}` : "Loading slots…"}
-                                </p>
-                                <Button variant="ghost" onClick={() => load(true)} disabled={refreshing} aria-label="Refresh availability">
-                                    <RefreshCw size={16} aria-hidden className={refreshing ? "animate-spin" : ""} /> Refresh
-                                </Button>
-                            </div>
-
-                            {status === "loading" && !data && <SlotSkeleton />}
-
-                            {status === "error" && !data && (
-                                <Card className="space-y-3" role="alert">
-                                    <p className="font-semibold">{loadError}</p>
-                                    <Button onClick={() => load()}>Try again</Button>
-                                </Card>
-                            )}
-
-                            {data && data.pitches.length === 0 && (
-                                <Card>
-                                    <p className="font-semibold">No pitches for this sport yet.</p>
-                                </Card>
-                            )}
-
-                            {data && data.pitches.length > 0 && (
-                                <>
-                                    {!hasOpen && (
-                                        <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <p className="font-semibold">No slots are available for this date.</p>
-                                            {data.nextAvailableDate ? (
-                                                <Button variant="outline" onClick={() => changeDate(data.nextAvailableDate!)}>
-                                                    <CalendarSearch size={18} aria-hidden /> Next available
-                                                </Button>
-                                            ) : (
-                                                <p className="text-sm text-evergreen/70">Nothing open in the booking window.</p>
-                                            )}
-                                        </Card>
-                                    )}
-                                    <SlotGrid
-                                        pitches={data.pitches}
-                                        selectedPitchId={sel.pitchId}
-                                        selected={sel.cellStarts}
-                                        preferPitchId={initial.pitchId}
-                                        onToggle={onToggle}
-                                    />
-                                </>
-                            )}
-                        </>
-                    )}
-
-                    {step === 2 && info && sel.pitchId && (
-                        <ConfirmStep
-                            info={info}
-                            amounts={amounts}
-                            loading={quoteLoading}
-                            advancePercent={policy.advancePercent}
-                            user={user}
-                            selection={{ pitchId: sel.pitchId, cellStarts: sel.cellStarts }}
-                            hold={hold}
-                            onBack={goBack}
-                            onHeld={setHold}
-                            onTaken={taken}
-                            onPickAgain={pickAgain}
-                            onAuthed={() => router.refresh()}
-                        />
-                    )}
+        <>
+            <div className="bg-evergreen text-white">
+                <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+                    <Stepper step={step} />
+                    <h1 className="text-2xl font-extrabold text-white md:text-3xl">
+                        {step === 1 ? "Choose your slot" : "Confirm & pay"}
+                    </h1>
                 </div>
-
-                {/* Desktop: sticky summary */}
-                <aside className="hidden lg:block">
-                    <div className="sticky top-20 space-y-3">
-                        <SummaryCard
-                            info={info}
-                            amounts={amounts}
-                            loading={quoteLoading}
-                            advancePercent={policy.advancePercent}
-                            error={quoteState.error}
-                        />
+            </div>
+            <div className="mx-auto max-w-6xl px-4 py-6 pb-32 lg:pb-10">
+                <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+                    <div className="min-w-0 space-y-5">
                         {step === 1 && (
-                            <Button size="lg" className="w-full" disabled={!canContinue} onClick={goConfirm}>
-                                Continue
-                            </Button>
+                            <>
+                                <FilterBar
+                                    venue={venue}
+                                    sport={sport}
+                                    date={date}
+                                    minDate={minDate}
+                                    maxDate={maxDate}
+                                    onSport={changeSport}
+                                    onDate={changeDate}
+                                />
+
+                                {notice && (
+                                    <p role="alert" className="flex items-start gap-2 rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
+                                        <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> {notice}
+                                    </p>
+                                )}
+
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-evergreen/80">
+                                    <p aria-live="polite">
+                                        {data ? `Last updated ${formatTime(data.updatedAt)}` : "Loading slots…"}
+                                    </p>
+                                    <Button variant="ghost" onClick={() => load(true)} disabled={refreshing} aria-label="Refresh availability">
+                                        <RefreshCw size={16} aria-hidden className={refreshing ? "animate-spin" : ""} /> Refresh
+                                    </Button>
+                                </div>
+
+                                {status === "loading" && !data && <SlotSkeleton />}
+
+                                {status === "error" && !data && (
+                                    <Card className="space-y-3" role="alert">
+                                        <p className="font-semibold">{loadError}</p>
+                                        <Button onClick={() => load()}>Try again</Button>
+                                    </Card>
+                                )}
+
+                                {data && data.pitches.length === 0 && (
+                                    <Card>
+                                        <p className="font-semibold">No pitches for this sport yet.</p>
+                                    </Card>
+                                )}
+
+                                {data && data.pitches.length > 0 && (
+                                    <>
+                                        {!hasOpen && (
+                                            <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                <p className="font-semibold">No slots are available for this date.</p>
+                                                {data.nextAvailableDate ? (
+                                                    <Button variant="outline" onClick={() => changeDate(data.nextAvailableDate!)}>
+                                                        <CalendarSearch size={18} aria-hidden /> Next available
+                                                    </Button>
+                                                ) : (
+                                                    <p className="text-sm text-evergreen/70">Nothing open in the booking window.</p>
+                                                )}
+                                            </Card>
+                                        )}
+                                        <SlotGrid
+                                            pitches={data.pitches}
+                                            selectedPitchId={sel.pitchId}
+                                            selected={sel.cellStarts}
+                                            preferPitchId={initial.pitchId}
+                                            onToggle={onToggle}
+                                        />
+                                    </>
+                                )}
+                            </>
+                        )}
+
+                        {step === 2 && info && sel.pitchId && (
+                            <ConfirmStep
+                                info={info}
+                                amounts={amounts}
+                                loading={quoteLoading}
+                                advancePercent={policy.advancePercent}
+                                user={user}
+                                selection={{ pitchId: sel.pitchId, cellStarts: sel.cellStarts }}
+                                hold={hold}
+                                onBack={goBack}
+                                onHeld={setHold}
+                                onTaken={taken}
+                                onPickAgain={pickAgain}
+                                onAuthed={() => router.refresh()}
+                            />
                         )}
                     </div>
-                </aside>
-            </div>
 
-            {/* Phone: sticky summary bar for Step 1 (Step 2 renders its own action bar) */}
-            {step === 1 && (
-                <SummaryBar
-                    total={amounts?.total ?? null}
-                    detail={
-                        info
-                            ? `${info.pitchName} · ${info.start}–${info.end}${amounts ? ` · ${policy.advancePercent}% advance` : ""}`
-                            : "Pick a slot to continue"
-                    }
-                    disabled={!canContinue}
-                    onContinue={goConfirm}
-                />
-            )}
-        </div>
+                    {/* Desktop: sticky summary */}
+                    <aside className="hidden lg:block">
+                        <div className="sticky top-20 space-y-3">
+                            <SummaryCard
+                                info={info}
+                                amounts={amounts}
+                                loading={quoteLoading}
+                                advancePercent={policy.advancePercent}
+                                error={quoteState.error}
+                            />
+                            {step === 1 && (
+                                <Button size="lg" className="w-full" disabled={!canContinue} onClick={goConfirm}>
+                                    Continue
+                                </Button>
+                            )}
+                        </div>
+                    </aside>
+                </div>
+
+                {/* Phone: sticky summary bar for Step 1 (Step 2 renders its own action bar) */}
+                {step === 1 && (
+                    <SummaryBar
+                        total={amounts?.total ?? null}
+                        detail={
+                            info
+                                ? `${info.pitchName} · ${info.start}–${info.end}${amounts ? ` · ${policy.advancePercent}% advance` : ""}`
+                                : "Pick a slot to continue"
+                        }
+                        disabled={!canContinue}
+                        onContinue={goConfirm}
+                    />
+                )}
+            </div>
+        </>
     );
 }
 

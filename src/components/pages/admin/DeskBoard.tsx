@@ -128,7 +128,7 @@ export function DeskBoard({
             </ul>
 
             {pitches.map((p) => (
-                <section key={p.id} aria-label={p.name}>
+                <section key={p.id} aria-label={p.name} className="rounded-2xl border border-evergreen/10 bg-white p-4 shadow-sm">
                     <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
                         <h3 className="text-base font-bold">{p.name}</h3>
                         <p className="text-sm text-evergreen/70">

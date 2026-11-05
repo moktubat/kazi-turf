@@ -79,6 +79,15 @@ export function PitchesTab({
                     {pitches.map((p) => (
                         <li key={p.id}>
                             <Card className="space-y-3">
+                                {p.image && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={p.image}
+                                        alt={`${p.name} — ${p.sport}`}
+                                        className="aspect-video w-full rounded-xl object-cover"
+                                        loading="lazy"
+                                    />
+                                )}
                                 <div className="flex items-start justify-between gap-2">
                                     <div>
                                         <h4 className="text-lg font-bold">{p.name}</h4>

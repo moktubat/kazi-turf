@@ -41,11 +41,11 @@ export function AuditPanel({
             {rows.length === 0 ? (
                 <Card><p className="text-sm text-evergreen/80">No audit entries match.</p></Card>
             ) : (
-                <div className="overflow-x-auto rounded-2xl border border-evergreen/10 bg-white">
+                <div className="overflow-x-auto rounded-2xl border border-evergreen/10 bg-white shadow-sm">
                     <table className="w-full min-w-[40rem] text-left text-sm">
                         <caption className="sr-only">Audit log, newest first</caption>
                         <thead>
-                            <tr className="border-b border-evergreen/10 text-xs uppercase tracking-wide text-evergreen/70">
+                            <tr className="border-b border-evergreen/10 bg-mint/60 text-xs uppercase tracking-wide text-evergreen/70">
                                 {["When", "Who", "Action", "Item", "Details"].map((h) => (
                                     <th key={h} scope="col" className="px-3 py-3 font-semibold">{h}</th>
                                 ))}

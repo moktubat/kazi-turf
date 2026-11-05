@@ -155,11 +155,11 @@ export function BookingsView({
             {rows && rows.length > 0 && (
                 <>
                     {/* Desktop table */}
-                    <div className="hidden overflow-x-auto rounded-2xl border border-evergreen/10 bg-white md:block">
+                    <div className="hidden overflow-x-auto rounded-2xl border border-evergreen/10 bg-white shadow-sm md:block">
                         <table className="w-full text-left text-sm">
                             <caption className="sr-only">Bookings</caption>
                             <thead>
-                                <tr className="border-b border-evergreen/10 text-xs uppercase tracking-wide text-evergreen/70">
+                                <tr className="border-b border-evergreen/10 bg-mint/60 text-xs uppercase tracking-wide text-evergreen/70">
                                     {["Code", "When", "Customer", "Field", "Status", "Total", "Source"].map((h) => (
                                         <th key={h} scope="col" className="px-3 py-3 font-semibold">{h}</th>
                                     ))}
@@ -167,7 +167,7 @@ export function BookingsView({
                             </thead>
                             <tbody>
                                 {rows.map((b) => (
-                                    <tr key={b.code} className="border-b border-evergreen/5 align-top last:border-0">
+                                    <tr key={b.code} className="border-b border-evergreen/5 align-top transition-colors last:border-0 hover:bg-mint/30">
                                         <th scope="row" className="px-3 py-3">
                                             <button type="button" onClick={() => setOpenCode(b.code)} className="min-h-11 font-mono font-bold text-teal underline underline-offset-2">
                                                 {b.code}

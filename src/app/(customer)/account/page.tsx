@@ -13,18 +13,30 @@ const CODE = /^KT-[A-HJ-NP-Z2-9]{6}$/;
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
-function AccountFallback() {
+function Band({ children }: { children: React.ReactNode }) {
     return (
-        <div className="mx-auto max-w-3xl px-4 py-8 pb-28 md:pb-10">
-            <div className="mb-6">
-                <h1 className="text-2xl font-extrabold md:text-3xl">My account</h1>
-                <p className="text-evergreen/80">Loading…</p>
-            </div>
-            <div className="space-y-4">
-                <div className="h-32 animate-pulse rounded-2xl bg-evergreen/10" />
-                <div className="h-32 animate-pulse rounded-2xl bg-evergreen/10" />
+        <div className="bg-evergreen text-white">
+            <div className="mx-auto flex max-w-3xl flex-wrap items-end justify-between gap-3 px-4 py-8 md:py-10">
+                {children}
             </div>
         </div>
+    );
+}
+
+function AccountFallback() {
+    return (
+        <>
+            <Band>
+                <div>
+                    <h1 className="text-2xl font-extrabold text-white md:text-3xl">My account</h1>
+                    <p className="text-white/75">Loading…</p>
+                </div>
+            </Band>
+            <div className="mx-auto max-w-3xl space-y-4 px-4 py-8 pb-28 md:pb-10">
+                <div className="h-32 animate-pulse rounded-2xl bg-evergreen/10" />
+                <div className="h-32 animate-pulse rounded-2xl bg-evergreen/10" />
+            </div>
+        </>
     );
 }
 
@@ -42,27 +54,32 @@ async function AccountContent({ searchParams }: { searchParams: Params }) {
     const isStaff = user.role === "STAFF" || user.role === "SUPER_ADMIN";
 
     return (
-        <div className="mx-auto max-w-3xl px-4 py-8 pb-28 md:pb-10">
-            <div className="mb-6 flex flex-wrap items-end justify-between gap-2">
+        <>
+            <Band>
                 <div>
-                    <h1 className="text-2xl font-extrabold md:text-3xl">My account</h1>
-                    <p className="text-evergreen/80">Hello, {user.name}.</p>
+                    <h1 className="text-2xl font-extrabold text-white md:text-3xl">My account</h1>
+                    <p className="text-white/75">Hello, {user.name}.</p>
                 </div>
                 {isStaff && (
-                    <Link href="/admin" className="font-semibold text-teal underline underline-offset-2">
+                    <Link
+                        href="/admin"
+                        className="inline-flex min-h-11 items-center rounded-xl border-2 border-white/40 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                    >
                         Open Staff Desk
                     </Link>
                 )}
-            </div>
+            </Band>
 
-            <AccountView
-                profile={{ name: user.name, phone: user.phone, email: user.email ?? "" }}
-                upcoming={upcoming}
-                history={history}
-                initialCode={code}
-                showBookings={showBookings}
-            />
-        </div>
+            <div className="mx-auto max-w-3xl px-4 py-8 pb-28 md:pb-10">
+                <AccountView
+                    profile={{ name: user.name, phone: user.phone, email: user.email ?? "" }}
+                    upcoming={upcoming}
+                    history={history}
+                    initialCode={code}
+                    showBookings={showBookings}
+                />
+            </div>
+        </>
     );
 }
 

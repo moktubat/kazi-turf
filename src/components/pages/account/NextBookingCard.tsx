@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { MapPin, Timer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import type { AccountBookingDto } from "@/types/account";
 
@@ -29,9 +28,9 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
     const ms = now === null ? null : Date.parse(b.startAt) - now;
 
     return (
-        <Card className="space-y-4 border-teal/30">
+        <div className="space-y-4 rounded-2xl bg-evergreen p-5 text-white shadow-lg">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-lg font-bold">Next booking</h2>
+                <h2 className="text-lg font-bold text-white">Next booking</h2>
                 {ms !== null && (
                     <p className="inline-flex items-center gap-1.5 rounded-full bg-mint px-3 py-1 text-sm font-semibold text-teal">
                         <Timer size={14} aria-hidden /> {ms <= 0 ? "Happening now" : `Starts in ${left(ms)}`}
@@ -40,21 +39,21 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
             </div>
 
             <div>
-                <p className="font-heading text-xl font-extrabold">
+                <p className="font-heading text-xl font-extrabold text-white">
                     {formatDateLong(b.date)} · {formatTime12(b.start)}–{formatTime12(b.end)}
                 </p>
-                <p className="text-sm text-evergreen/80">
+                <p className="text-sm text-white/75">
                     {b.pitchName} · {b.sport}
                 </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-mint p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-evergreen/70">Booking code</p>
+                <div className="rounded-xl bg-white/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Booking code</p>
                     <p className="font-mono text-2xl font-extrabold tracking-widest">{b.code}</p>
                 </div>
-                <div className="rounded-xl bg-mint p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-evergreen/70">Balance due at venue</p>
+                <div className="rounded-xl bg-white/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Balance due at venue</p>
                     <p className="font-heading text-2xl font-extrabold">{formatBDT(b.balanceDue)}</p>
                 </div>
             </div>
@@ -65,10 +64,10 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
                         <MapPin size={18} aria-hidden /> Directions
                     </Button>
                 )}
-                <Button variant="outline" onClick={onOpen}>
+                <Button variant="light" onClick={onOpen}>
                     View details
                 </Button>
             </div>
-        </Card>
+        </div>
     );
 }

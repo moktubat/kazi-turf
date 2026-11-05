@@ -37,12 +37,14 @@ function Stat({
 }) {
     const body = (
         <>
-            <Icon size={18} aria-hidden className="text-teal" />
+            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-mint">
+                <Icon size={18} aria-hidden className="text-teal" />
+            </span>
             <span className="text-xs font-semibold uppercase tracking-wide text-evergreen/70">{label}</span>
-            <span className="font-heading text-xl font-extrabold">{value}</span>
+            <span className="font-heading text-2xl font-extrabold">{value}</span>
         </>
     );
-    const cls = "flex flex-col gap-1 rounded-2xl border border-evergreen/10 bg-white p-3";
+    const cls = "flex flex-col gap-1 rounded-2xl border border-evergreen/10 bg-white p-4 shadow-sm";
     return href ? (
         <Link href={href} className={`${cls} hover:border-teal`}>
             {body}

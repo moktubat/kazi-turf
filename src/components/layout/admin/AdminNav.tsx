@@ -26,7 +26,7 @@ export function AdminNav({ role, canSetup }: { role: Role; canSetup: boolean }) 
                         aria-current={active ? "page" : undefined}
                         className={cn(
                             "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 font-heading text-sm font-semibold",
-                            active ? "bg-teal text-white" : "bg-mint text-evergreen hover:bg-emerald/40"
+                            active ? "bg-teal text-white shadow-sm" : "bg-mint text-evergreen hover:bg-emerald/40"
                         )}
                     >
                         <Icon size={16} aria-hidden /> {label}

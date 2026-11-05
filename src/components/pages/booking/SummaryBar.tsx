@@ -14,7 +14,7 @@ export function SummaryBar({
     onContinue: () => void;
 }) {
     return (
-        <div className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-evergreen/10 bg-white lg:hidden">
+        <div className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-evergreen/10 bg-white shadow-[0_-8px_24px_-12px_rgba(1,50,32,0.25)] lg:hidden">
             <div className="mx-auto flex max-w-xl items-center gap-3 p-3">
                 <div className="min-w-0 flex-1" aria-live="polite">
                     <p className="font-heading text-lg font-extrabold leading-tight">

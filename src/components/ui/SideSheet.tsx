@@ -68,8 +68,8 @@ export function SideSheet({
                 aria-labelledby={titleId}
                 className="absolute inset-y-0 right-0 flex w-full flex-col bg-white shadow-xl sm:max-w-md"
             >
-                <div className="flex items-center justify-between border-b border-evergreen/10 px-4 py-3">
-                    <h2 id={titleId} className="text-lg font-bold">
+                <div className="flex items-center justify-between bg-evergreen px-4 py-3 text-white">
+                    <h2 id={titleId} className="text-lg font-bold text-white">
                         {title}
                     </h2>
                     <button
@@ -77,7 +77,7 @@ export function SideSheet({
                         type="button"
                         aria-label="Close"
                         onClick={onClose}
-                        className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-mint"
+                        className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-white/10"
                     >
                         <X size={22} aria-hidden />
                     </button>

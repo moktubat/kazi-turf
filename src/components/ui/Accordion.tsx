@@ -13,11 +13,11 @@ export function Accordion({ items }: { items: AccordionItem[] }) {
     const [open, setOpen] = useState<string | null>(null);
 
     return (
-        <div className="divide-y divide-evergreen/10 rounded-2xl border border-evergreen/10 bg-white">
+        <div className="divide-y divide-evergreen/10 overflow-hidden rounded-2xl border border-evergreen/10 bg-white shadow-sm">
             {items.map((item) => {
                 const isOpen = open === item.id;
                 return (
-                    <div key={item.id}>
+                    <div key={item.id} className={cn("transition-colors", isOpen && "bg-mint/40")}>
                         <h3>
                             <button
                                 type="button"
@@ -31,7 +31,7 @@ export function Accordion({ items }: { items: AccordionItem[] }) {
                                 <ChevronDown
                                     size={20}
                                     aria-hidden
-                                    className={cn("shrink-0 transition-transform", isOpen && "rotate-180")}
+                                    className={cn("shrink-0 text-teal transition-transform", isOpen && "rotate-180")}
                                 />
                             </button>
                         </h3>

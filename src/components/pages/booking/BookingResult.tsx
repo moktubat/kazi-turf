@@ -22,6 +22,7 @@ import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { startBkashPayment } from "@/lib/payments";
 import type { BookingDto } from "@/types/booking";
 import { HoldCountdown } from "./HoldCountdown";
+import { Stepper } from "./Stepper";
 
 type State =
     | { kind: "loading" }
@@ -123,21 +124,21 @@ export function BookingResult({ code }: { code: string }) {
         <Shell>
             {view === "confirmed" && (
                 <div className="space-y-5">
-                    <Card className="space-y-5 border-teal/30 text-center">
-                        <p className="inline-flex items-center justify-center gap-2 font-heading font-bold text-teal">
+                    <div className="space-y-5 rounded-2xl bg-evergreen p-6 text-center text-white shadow-lg">
+                        <p className="inline-flex items-center justify-center gap-2 font-heading font-bold text-emerald">
                             <BadgeCheck size={22} aria-hidden /> Booking confirmed
                         </p>
                         <div>
-                            <p className="text-sm text-evergreen/80">Show this at the venue</p>
+                            <p className="text-sm text-white/75">Show this at the venue</p>
                             <p className="mt-1 font-mono text-4xl font-extrabold tracking-widest md:text-5xl" aria-label={`Booking code ${b.code}`}>
                                 {b.code}
                             </p>
                         </div>
-                        <div className="flex flex-wrap items-center justify-center gap-2">
+                        <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-xl bg-white px-3 py-2">
                             <BookingStatusBadge status={b.bookingStatus} />
                             <PaymentStatusBadge status={b.paymentStatus} />
                         </div>
-                    </Card>
+                    </div>
 
                     <Card className="space-y-4">
                         <Details b={b} when={when} />
@@ -147,7 +148,7 @@ export function BookingResult({ code }: { code: string }) {
                             <Line label="Balance due at venue" value={formatBDT(b.balanceDue)} strong />
                         </dl>
                         <p className="text-sm text-evergreen/85">
-                            Arrive early. Check-in opens {b.checkInOpensMinutes} minutes before your slot starts and stays
+                            Arrive early. Check-in opens {b.checkInOpensMinutes} minutes before your slot starts and stays open until it ends.
                         </p>
                     </Card>
 
@@ -257,14 +258,21 @@ export function BookingResult({ code }: { code: string }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
     return (
-        <div className="mx-auto max-w-2xl px-4 py-8 pb-32 md:pb-10">
-            {children}
-            <p className="mt-6 text-sm">
-                <Link href="/" className="font-semibold text-teal underline underline-offset-2">
-                    Back to Home
-                </Link>
-            </p>
-        </div>
+        <>
+            <div className="bg-evergreen text-white">
+                <div className="mx-auto max-w-2xl px-4 py-6">
+                    <Stepper step={3} />
+                </div>
+            </div>
+            <div className="mx-auto max-w-2xl px-4 py-8 pb-32 md:pb-10">
+                {children}
+                <p className="mt-6 text-sm">
+                    <Link href="/" className="font-semibold text-teal underline underline-offset-2">
+                        Back to Home
+                    </Link>
+                </p>
+            </div>
+        </>
     );
 }
 

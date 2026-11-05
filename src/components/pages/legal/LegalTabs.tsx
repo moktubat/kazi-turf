@@ -38,15 +38,20 @@ export function LegalTabs({ docs }: { docs: LegalDoc[] }) {
                 id={`panel-${doc.id}`}
                 aria-labelledby={`tab-${doc.id}`}
                 tabIndex={0}
-                className="mt-6 rounded-2xl border border-evergreen/10 bg-white p-5 md:p-8"
+                className="mt-6 rounded-2xl border border-evergreen/10 bg-white p-5 shadow-sm md:p-8"
             >
                 <h2 className="text-xl font-extrabold md:text-2xl">{doc.label}</h2>
                 <p className="mt-1 text-evergreen/80">{doc.intro}</p>
 
                 <div className="mt-6 space-y-6">
-                    {doc.sections.map((s) => (
-                        <section key={s.heading} aria-label={s.heading}>
-                            <h3 className="text-base font-bold md:text-lg">{s.heading}</h3>
+                    {doc.sections.map((s, i) => (
+                        <section key={s.heading} aria-label={s.heading} className="border-t border-evergreen/10 pt-6 first:border-t-0 first:pt-0">
+                            <h3 className="flex items-baseline gap-3 text-base font-bold md:text-lg">
+                                <span aria-hidden className="font-heading text-sm font-extrabold text-teal">
+                                    {String(i + 1).padStart(2, "0")}
+                                </span>
+                                {s.heading}
+                            </h3>
                             {s.paragraphs?.map((p) => (
                                 <p key={p} className="mt-2 text-sm leading-relaxed text-evergreen/90">
                                     {p}

@@ -20,9 +20,12 @@ function Kpi({
     return (
         <Card className="space-y-1">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-evergreen/70">
-                <Icon size={16} aria-hidden className="text-teal" /> {label}
+                <span className="inline-flex size-8 items-center justify-center rounded-lg bg-mint">
+                    <Icon size={16} aria-hidden className="text-teal" />
+                </span>
+                {label}
             </p>
-            <p className="font-heading text-2xl font-extrabold">{value}</p>
+            <p className="font-heading text-3xl font-extrabold">{value}</p>
             {sub && <p className="text-xs text-evergreen/70">{sub}</p>}
         </Card>
     );
@@ -69,6 +72,7 @@ export function RevenueChart({ data }: { data: InsightsData["revenue"] }) {
                                 <span className="truncate">{r.label}</span>
                                 <div
                                     role="img"
+                                    aria-label={`${r.label}: ${r.total ? formatBDT(r.total) : "no revenue"}`}
                                     className="flex h-5 overflow-hidden rounded bg-evergreen/5"
                                 >
                                     <div
