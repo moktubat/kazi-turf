@@ -52,7 +52,6 @@ export function ContactForm() {
             setServerMsg(err?.message ?? "We could not send your message. Please try again.");
             setStatus("error");
         } catch {
-            // Network failure: form values are kept so the user can retry.
             setServerMsg("Network problem. Check your connection and try again.");
             setStatus("error");
         }
@@ -62,17 +61,23 @@ export function ContactForm() {
         <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
-            className="space-y-4 rounded-2xl border border-evergreen/10 bg-white p-5"
+            className="relative space-y-4 rounded-2xl border border-evergreen/10 bg-white p-5 shadow-lg md:p-6"
             aria-label="Send us a message"
         >
-            <Input label="Name" autoComplete="name" error={errors.name?.message} {...register("name")} />
-            <Input
-                label="Phone or email"
-                autoComplete="email"
-                hint="We will reply on this."
-                error={errors.contact?.message}
-                {...register("contact")}
-            />
+            <div>
+                <h3 className="text-lg font-bold">Send a message</h3>
+                <p className="text-sm text-evergreen/70">We usually reply the same day.</p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Name" autoComplete="name" error={errors.name?.message} {...register("name")} />
+                <Input
+                    label="Phone or email"
+                    autoComplete="email"
+                    error={errors.contact?.message}
+                    {...register("contact")}
+                />
+            </div>
             <Textarea label="Message" rows={4} error={errors.message?.message} {...register("message")} />
 
             {/* Honeypot: hidden from people and assistive tech */}

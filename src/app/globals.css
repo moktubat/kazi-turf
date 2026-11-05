@@ -13,6 +13,13 @@
   --color-maint: #4b5563;
   --color-maint-soft: #e5e7eb;
 
+  --color-pitch: #02261a;
+  --color-paper: #ffffff;
+  --radius-card: 1rem;
+  --shadow-card: 0 4px 12px rgba(1, 50, 32, 0.08);
+  --shadow-lift: 0 12px 32px rgba(1, 50, 32, 0.14);
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+
   --font-heading: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-vietnam), ui-sans-serif, system-ui, sans-serif;
 }

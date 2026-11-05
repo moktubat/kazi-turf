@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+// "light" is for buttons that sit on dark or teal bands (white fill, dark text).
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "light";
 type Size = "md" | "lg";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -16,6 +17,7 @@ const variants: Record<Variant, string> = {
     outline: "border-2 border-teal text-teal hover:bg-mint",
     ghost: "text-evergreen hover:bg-mint",
     danger: "bg-booked text-white hover:opacity-90",
+    light: "bg-white text-evergreen hover:bg-mint",
 };
 
 const sizes: Record<Size, string> = {

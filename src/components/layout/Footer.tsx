@@ -1,59 +1,62 @@
 import Link from "next/link";
+import { CalendarCheck, MapPin, Phone } from "lucide-react";
 import { venue } from "@/data/branches";
 import { footerLinks, legalLinks, site } from "@/data/site";
 import { formatHourRange } from "@/lib/format";
 
+const head = "font-heading text-sm font-bold uppercase tracking-wide text-emerald";
+const link = "text-white/80 underline-offset-2 transition-colors hover:text-white hover:underline";
+
 export async function Footer() {
     return (
-        <footer className="bg-evergreen text-white">
-            <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3">
-                <div>
-                    <p className="font-heading text-xl font-extrabold">
+        <footer className="border-t-4 border-teal bg-evergreen text-white">
+            <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-[1.2fr_1fr_1fr]">
+                <div className="space-y-4">
+                    <p className="font-heading text-2xl font-extrabold">
                         Kazi<span className="text-emerald">Turf</span>
                     </p>
-                    <p className="mt-2 text-sm text-white/80">{site.tagline}</p>
+                    <p className="max-w-xs text-sm text-white/80">{site.tagline}</p>
+                    <Link
+                        href="/book"
+                        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald px-4 text-sm font-bold text-evergreen transition-colors hover:bg-mint"
+                    >
+                        <CalendarCheck size={18} aria-hidden /> Book a slot
+                    </Link>
                 </div>
 
                 <div>
-                    <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">Location</h2>
-                    <ul className="mt-3 space-y-1 text-sm">
-                        <li>
-                            <p className="text-white/80">{venue.address}</p>
-                            <p className="text-white/80">{formatHourRange(venue.hours)}</p>
-                            <p className="flex flex-wrap gap-x-4">
-                                <a href={`tel:${venue.phone}`} className="underline underline-offset-2">
-                                    {venue.phone}
-                                </a>
-                                <a href={venue.mapUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-                                    Open in Maps
-                                </a>
-                            </p>
+                    <h2 className={head}>Visit us</h2>
+                    <ul className="mt-3 space-y-2 text-sm">
+                        <li className="flex items-start gap-2 text-white/80">
+                            <MapPin size={16} aria-hidden className="mt-0.5 shrink-0 text-emerald" /> {venue.address}
+                        </li>
+                        <li className="pl-6 text-white/80">{formatHourRange(venue.hours)}</li>
+                        <li className="flex items-center gap-2">
+                            <Phone size={16} aria-hidden className="shrink-0 text-emerald" />
+                            <a href={`tel:${venue.phone}`} className={link}>{venue.phone}</a>
+                        </li>
+                        <li className="pl-6">
+                            <a href={venue.mapUrl} target="_blank" rel="noopener noreferrer" className={link}>
+                                Open in Maps
+                            </a>
                         </li>
                     </ul>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 text-sm">
                     <div>
-                        <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">Quick links</h2>
+                        <h2 className={head}>Quick links</h2>
                         <ul className="mt-3 space-y-2">
                             {footerLinks.map((l) => (
-                                <li key={l.label}>
-                                    <Link href={l.href} className="underline-offset-2 hover:underline">
-                                        {l.label}
-                                    </Link>
-                                </li>
+                                <li key={l.label}><Link href={l.href} className={link}>{l.label}</Link></li>
                             ))}
                         </ul>
                     </div>
                     <div>
-                        <h2 className="font-heading text-sm font-bold uppercase tracking-wide text-emerald">Legal</h2>
+                        <h2 className={head}>Legal</h2>
                         <ul className="mt-3 space-y-2">
                             {legalLinks.map((l) => (
-                                <li key={l.label}>
-                                    <Link href={l.href} className="underline-offset-2 hover:underline">
-                                        {l.label}
-                                    </Link>
-                                </li>
+                                <li key={l.label}><Link href={l.href} className={link}>{l.label}</Link></li>
                             ))}
                         </ul>
                     </div>

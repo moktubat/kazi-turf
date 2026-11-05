@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { formatBDT } from "@/lib/format";
 import { getRateTable } from "@/server/pricing/rateTable";
 import type { Pitch } from "@/types";
+import { PitchDetails } from "./PitchDetails";
 
 const facilityIcon: Record<string, React.ElementType> = {
     Floodlights: Lightbulb,
@@ -11,21 +12,35 @@ const facilityIcon: Record<string, React.ElementType> = {
     Washroom: Droplets,
 };
 
+const MAX_CHIPS = 3;
+
 export async function PitchCard({ pitch }: { pitch: Pitch }) {
     const rows = await getRateTable(pitch.id);
-    // Hide placeholder text until a real, verified size is entered.
     const sizeKnown = pitch.dimensions && !/verified/i.test(pitch.dimensions);
 
+    // Starting price = lowest real price in this pitch's rate table. Hidden if none exist.
+    const prices = rows
+        .flatMap((r) => [r.offPeak?.price, r.peak?.price])
+        .filter((p): p is number => typeof p === "number" && p > 0);
+    const from = prices.length ? Math.min(...prices) : null;
+
+    const shown = pitch.facilities.slice(0, MAX_CHIPS);
+    const extra = pitch.facilities.length - shown.length;
+    const meta = [pitch.sport, pitch.format, pitch.surface, sizeKnown ? pitch.dimensions : null]
+        .filter(Boolean)
+        .join(" · ");
+    const active = pitch.status === "ACTIVE";
+
     return (
-        <article className="flex flex-col overflow-hidden rounded-2xl border border-evergreen/10 bg-white shadow-sm">
-            <div className="relative aspect-video bg-mint">
+        <article className="group flex flex-col overflow-hidden rounded-2xl border border-evergreen/10 bg-white shadow-sm transition-shadow duration-300 hover:shadow-lg">
+            <div className="relative aspect-video overflow-hidden bg-mint">
                 {pitch.image ? (
                     <Image
                         src={pitch.image}
                         alt={`${pitch.name} — ${pitch.sport}`}
                         fill
                         sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                        className="object-cover"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
                         loading="lazy"
                     />
                 ) : (
@@ -34,56 +49,31 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
                         <span className="text-sm">Photo coming soon</span>
                     </div>
                 )}
+                <span
+                    className={`absolute left-3 top-3 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${active ? "bg-white text-evergreen" : "bg-maint-soft text-maint"
+                        }`}
+                >
+                    {active ? "Active" : "Disabled"}
+                </span>
             </div>
 
             <div className="flex flex-1 flex-col gap-4 p-5">
-                <div>
-                    <h4 className="text-lg font-bold">{pitch.name}</h4>
-                    <p className="text-sm text-evergreen/80">
-                        {pitch.sport} · {pitch.format} · {pitch.surface}
-                        {sizeKnown && <> · {pitch.dimensions}</>}
-                    </p>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <caption className="sr-only">Rates per 90-minute slot for {pitch.name}</caption>
-                        <thead>
-                            <tr className="border-b border-evergreen/10 text-xs uppercase tracking-wide text-evergreen/70">
-                                <th scope="col" className="py-2 pr-3 font-semibold">Days</th>
-                                <th scope="col" className="py-2 pr-3 font-semibold">Off-peak</th>
-                                <th scope="col" className="py-2 font-semibold">Peak</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.map((r) => (
-                                <tr key={r.days} className="border-b border-evergreen/5 last:border-0">
-                                    <th scope="row" className="py-2 pr-3 font-semibold">{r.days}</th>
-                                    <td className="py-2 pr-3">
-                                        {r.offPeak ? (
-                                            <>
-                                                <span className="font-semibold">{formatBDT(r.offPeak.price)}</span>
-                                                <span className="block text-xs text-evergreen/70">{r.offPeak.window}</span>
-                                            </>
-                                        ) : "–"}
-                                    </td>
-                                    <td className="py-2">
-                                        {r.peak ? (
-                                            <>
-                                                <span className="font-semibold">{formatBDT(r.peak.price)}</span>
-                                                <span className="block text-xs text-evergreen/70">{r.peak.window}</span>
-                                            </>
-                                        ) : "–"}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <p className="mt-1 text-xs text-evergreen/70">Price per 90-minute slot.</p>
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <h4 className="text-lg font-bold">{pitch.name}</h4>
+                        <p className="text-sm text-evergreen/80">{meta}</p>
+                    </div>
+                    {from !== null && (
+                        <div className="shrink-0 text-right">
+                            <p className="text-xs text-evergreen/70">From</p>
+                            <p className="font-heading text-lg font-extrabold text-teal">{formatBDT(from)}</p>
+                            <p className="text-xs text-evergreen/70">per slot</p>
+                        </div>
+                    )}
                 </div>
 
                 <ul className="flex flex-wrap gap-2" aria-label="Facilities">
-                    {pitch.facilities.map((f) => {
+                    {shown.map((f) => {
                         const Icon = facilityIcon[f] ?? Check;
                         return (
                             <li key={f} className="inline-flex items-center gap-1.5 rounded-full bg-mint px-3 py-1 text-xs font-semibold">
@@ -91,11 +81,21 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
                             </li>
                         );
                     })}
+                    {extra > 0 && (
+                        <li className="inline-flex items-center rounded-full bg-evergreen/5 px-3 py-1 text-xs font-semibold">
+                            +{extra} more
+                        </li>
+                    )}
                 </ul>
 
-                <Button href={`/book?pitch=${pitch.id}`} className="mt-auto w-full">
-                    Book this pitch
-                </Button>
+                <div className="mt-auto grid grid-cols-2 gap-2">
+                    <PitchDetails name={pitch.name} meta={meta} facilities={pitch.facilities} rows={rows} />
+                    <Button
+                        href={`/book?${new URLSearchParams({ sport: pitch.sport, pitch: pitch.id })}`}
+                    >
+                        Book now
+                    </Button>
+                </div>
             </div>
         </article>
     );

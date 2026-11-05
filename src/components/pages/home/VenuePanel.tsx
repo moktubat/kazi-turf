@@ -1,6 +1,5 @@
 import { MapPin, Clock, Phone, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { houseRules } from "@/data/home";
 import { getBranchPitches } from "@/server/availability";
 import type { Branch } from "@/types";
@@ -13,24 +12,24 @@ export function VenuePanel({ venue }: { venue: Branch }) {
 
     return (
         <div className="space-y-6">
-            <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="space-y-1">
-                    <p className="flex items-center gap-2 text-sm">
-                        <MapPin size={16} aria-hidden className="text-teal" /> {venue.address}
+            <div className="flex flex-col gap-4 rounded-2xl bg-evergreen p-5 text-white md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1.5">
+                    <p className="flex items-start gap-2 text-sm">
+                        <MapPin size={16} aria-hidden className="mt-0.5 shrink-0 text-emerald" /> {venue.address}
                     </p>
                     <p className="flex items-center gap-2 text-sm">
-                        <Clock size={16} aria-hidden className="text-teal" /> Open {formatHourRange(venue.hours)}
+                        <Clock size={16} aria-hidden className="shrink-0 text-emerald" /> Open {formatHourRange(venue.hours)}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <Button href={venue.mapUrl} variant="outline">
+                    <Button href={venue.mapUrl} variant="light">
                         <MapPin size={18} aria-hidden /> Open in Maps
                     </Button>
-                    <Button href={`tel:${venue.phone}`} variant="secondary">
+                    <Button href={`tel:${venue.phone}`} className="border-2 border-white/40 bg-transparent text-white hover:bg-white/10">
                         <Phone size={18} aria-hidden /> Call
                     </Button>
                 </div>
-            </Card>
+            </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {pitches.map((p) => (
@@ -38,7 +37,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
                 ))}
             </div>
 
-            <Card className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 rounded-2xl border border-evergreen/10 bg-mint/50 p-5 md:grid-cols-2">
                 <div>
                     <h4 className="font-bold">Facilities</h4>
                     <ul className="mt-2 space-y-1.5 text-sm">
@@ -59,7 +58,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
                         ))}
                     </ul>
                 </div>
-            </Card>
+            </div>
         </div>
     );
 }
