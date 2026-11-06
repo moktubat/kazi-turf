@@ -4,19 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     Menu, X, UserRound, LogOut, UserCog,
-    CalendarCheck, MapPin, Tag, Camera, HelpCircle, Phone,
+    CalendarCheck
 } from "lucide-react";
 import { site } from "@/data/site";
 import { cn } from "@/lib/cn";
 import type { SessionUser } from "@/types";
-
-const navIcon: Record<string, React.ElementType> = {
-    Pitches: MapPin,
-    Rates: Tag,
-    Gallery: Camera,
-    FAQ: HelpCircle,
-    Contact: Phone,
-};
 
 const barLink =
     "inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-surface/10";
@@ -85,7 +77,7 @@ export function Header({ user }: { user: SessionUser | null }) {
             </header>
         );
     }
-    
+
     return (
         <header
             className={cn(
@@ -202,11 +194,6 @@ export function Header({ user }: { user: SessionUser | null }) {
                                 <li>
                                     <MenuLink href="/book" icon={CalendarCheck} label="Book a slot" primary />
                                 </li>
-                                {navLinks.map((l) => (
-                                    <li key={l.label}>
-                                        <MenuLink href={l.href} icon={navIcon[l.label] ?? MapPin} label={l.label} />
-                                    </li>
-                                ))}
 
                                 {user ? (
                                     <>
