@@ -9,7 +9,7 @@ export function BookingRow({ b, onOpen }: { b: AccountBookingDto; onOpen: () => 
             type="button"
             onClick={onOpen}
             aria-label={`Open booking ${b.code}, ${formatDateLong(b.date)}, ${formatTime12(b.start)} to ${formatTime12(b.end)}`}
-            className="flex w-full items-center gap-3 rounded-2xl border border-evergreen/10 bg-white p-4 text-left shadow-sm transition-shadow hover:border-teal hover:shadow-md"
+            className="flex w-full items-center gap-3 rounded-2xl border border-evergreen/10 bg-surfacece p-4 text-left shadow-sm transition-shadow hover:border-teal hover:shadow-md"
         >
             <div className="min-w-0 flex-1 space-y-2">
                 <p className="font-heading font-bold">

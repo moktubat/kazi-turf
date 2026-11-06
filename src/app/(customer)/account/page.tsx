@@ -63,7 +63,7 @@ async function AccountContent({ searchParams }: { searchParams: Params }) {
                 {isStaff && (
                     <Link
                         href="/admin"
-                        className="inline-flex min-h-11 items-center rounded-xl border-2 border-white/40 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                        className="inline-flex min-h-11 items-center rounded-xl border-2 border-white/40 px-4 text-sm font-semibold text-white transition-colors hover:bg-surface/10"
                     >
                         Open Staff Desk
                     </Link>

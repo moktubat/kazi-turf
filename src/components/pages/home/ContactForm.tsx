@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, AlertTriangle, Send } from "lucide-react";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
 import { contactSchema, type ContactInput } from "@/schemas/contact";
@@ -61,15 +62,10 @@ export function ContactForm() {
         <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
-            className="relative space-y-4 rounded-2xl border border-evergreen/10 bg-white p-5 shadow-lg md:p-6"
+            className="relative space-y-5"
             aria-label="Send us a message"
         >
-            <div>
-                <h3 className="text-lg font-bold">Send a message</h3>
-                <p className="text-sm text-evergreen/70">We usually reply the same day.</p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
                 <Input label="Name" autoComplete="name" error={errors.name?.message} {...register("name")} />
                 <Input
                     label="Phone or email"
@@ -78,7 +74,14 @@ export function ContactForm() {
                     {...register("contact")}
                 />
             </div>
-            <Textarea label="Message" rows={4} error={errors.message?.message} {...register("message")} />
+
+            <Textarea
+                label="Message"
+                rows={7}
+                placeholder="Tell us what we can help you with"
+                error={errors.message?.message}
+                {...register("message")}
+            />
 
             {/* Honeypot: hidden from people and assistive tech */}
             <div aria-hidden className="absolute -left-[9999px]">
@@ -88,8 +91,16 @@ export function ContactForm() {
                 </label>
             </div>
 
+            <p className="text-sm text-evergreen/80">
+                By sending this message you agree to our{" "}
+                <Link href="/legal#privacy" className="font-semibold text-teal underline underline-offset-2">
+                    Privacy Policy
+                </Link>
+                . We usually reply the same day.
+            </p>
+
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-                <Send size={18} aria-hidden /> {isSubmitting ? "Sending…" : "Send message"}
+                {isSubmitting ? "Sending…" : "Send message"}
             </Button>
 
             {status === "success" && (

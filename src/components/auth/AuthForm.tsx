@@ -26,8 +26,8 @@ export function AuthForm({
             <Tabs
                 label="Account"
                 items={[
-                    { id: "signin", label: "Sign in" },
-                    { id: "signup", label: "Create account" },
+                    { id: "signin", label: "Login" },
+                    { id: "signup", label: "Register" },
                 ]}
                 value={mode}
                 onChange={(m) => setMode(m as Mode)}

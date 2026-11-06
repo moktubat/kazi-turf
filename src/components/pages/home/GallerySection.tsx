@@ -1,20 +1,10 @@
-import { Camera } from "lucide-react";
-import { gallery } from "@/data/gallery";
 import { Section } from "./Section";
-import { GalleryGrid } from "./GalleryGrid";
+import { GalleryBento } from "./GalleryBento";
 
 export function GallerySection() {
     return (
         <Section id="gallery" eyebrow="The venue" title="Gallery" intro="Photos from our venues.">
-            {gallery.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-evergreen/20 bg-mint/40 p-10 text-center">
-                    <Camera size={32} aria-hidden className="text-teal" />
-                    <p className="font-heading font-bold">Venue photos coming soon</p>
-                    <p className="text-sm text-evergreen/70">We only show real photos of the venue.</p>
-                </div>
-            ) : (
-                <GalleryGrid items={gallery} />
-            )}
+            <GalleryBento />
         </Section>
     );
 }

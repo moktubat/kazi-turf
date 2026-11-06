@@ -4,20 +4,20 @@ export const getHowSteps = () => [
     {
         id: "pick",
         icon: "calendar",
-        title: "Pick a slot",
-        text: "Choose your sport, date and time. The price is shown on every slot.",
+        title: "Pick your slot",
+        text: "Choose your sport, date and time. Check the price and availability before booking.",
     },
     {
         id: "pay",
         icon: "wallet",
-        title: "Pay the advance with bKash",
-        text: `Pay ${policies.advancePercent}% now to confirm your booking.`,
+        title: "Pay the advance",
+        text: `Pay ${policies.advancePercent}% of the total price through bKash to confirm and secure your booking.`,
     },
     {
         id: "play",
         icon: "ticket",
-        title: "Show your code, pay the balance",
-        text: "Show your booking code at the venue and pay the remaining balance in cash.",
+        title: "Confirm at the venue",
+        text: "Show your booking code to staff and pay the remaining balance in cash.",
     },
 ] as const;
 

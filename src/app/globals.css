@@ -15,6 +15,8 @@
 
   --color-pitch: #02261a;
   --color-paper: #ffffff;
+  --color-canvas: #e8f3ee;
+  --color-surface: #f3f9f6;
   --radius-card: 1rem;
   --shadow-card: 0 4px 12px rgba(1, 50, 32, 0.08);
   --shadow-lift: 0 12px 32px rgba(1, 50, 32, 0.14);
@@ -32,7 +34,7 @@
   }
 
   body {
-    background: #f8fcfa;
+    background: var(--color-canvas);
     color: var(--color-evergreen);
     font-family: var(--font-body);
     line-height: 1.6;
@@ -86,6 +88,13 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .float-drift {
+    animation-duration: var(--dur) !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
 /* Custom scrollbar — replaces the thick default one on the slot grid and other horizontal scrollers */
 .scrollbar-thin {
   scrollbar-width: thin;
@@ -117,4 +126,32 @@
   to {
     opacity: 1;
   }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  width: max-content;
+  animation: marquee 36s linear infinite;
+}
+
+@keyframes float-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot));
+  }
+}
+
+.float-drift {
+  animation: float-drift var(--dur) ease-in-out var(--delay) infinite;
 }

@@ -42,7 +42,7 @@ export function SummaryCard({
     error?: string;
 }) {
     return (
-        <section aria-label="Booking summary" className="overflow-hidden rounded-2xl border border-evergreen/10 bg-white shadow-sm">
+        <section aria-label="Booking summary" className="overflow-hidden rounded-2xl border border-evergreen/10 bg-surfacece shadow-sm">
             <div className="bg-evergreen px-5 py-3">
                 <h2 className="text-lg font-bold text-white">Your booking</h2>
             </div>

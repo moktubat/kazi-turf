@@ -12,7 +12,7 @@ export const faqItems: FaqItem[] = [
         id: "how-book",
         question: "How do I book a slot?",
         answer:
-            "Pick a sport and date, choose a slot, then pay the advance with bKash. You can browse and select slots without logging in. You sign in at the payment step.",
+            "Choose a sport, date, and slot, then pay the advance with bKash. No login is needed until payment.",
         link: { label: "Start booking", href: "/book" },
     },
     {
@@ -28,7 +28,7 @@ export const faqItems: FaqItem[] = [
     {
         id: "how-checkin",
         question: "How does check-in work?",
-        answer: `Show your booking code to staff. Check-in opens ${policies.checkInOpensMinutesBefore} minutes before your slot starts and stays open until it ends. Staff may ask for the last digits of your phone number.`,
+        answer: `Show your booking code to staff. Check-in opens before your slot starts and closes when it ends.`,
     },
     {
         id: "what-rain",
@@ -36,5 +36,18 @@ export const faqItems: FaqItem[] = [
         answer:
             "Weather alone does not automatically mean a refund. Rain-check eligibility and expiry are set out in our policy.",
         link: { label: "Read the rain-check policy", href: "/legal#refund" },
+    },
+    {
+        id: "how-cancel",
+        question: "Can I cancel my booking?",
+        answer:
+            "You can request cancellation according to our policy. Refund eligibility and conditions are explained there.",
+        link: { label: "Read the cancellation policy", href: "/legal#refund" },
+    },
+    {
+        id: "how-confirm",
+        question: "How do I know my booking is confirmed?",
+        answer:
+            "Your booking is confirmed once the advance payment is successful. You can view your booking details and code from your account after signing in.",
     },
 ];

@@ -178,7 +178,7 @@ export function WalkInForm({
                                 type="button"
                                 aria-pressed={count === n}
                                 onClick={() => setCount(n)}
-                                className={`min-h-11 flex-1 rounded-xl border-2 font-heading font-semibold ${count === n ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-white"
+                                className={`min-h-11 flex-1 rounded-xl border-2 font-heading font-semibold ${count === n ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-surfacece"
                                     }`}
                             >
                                 {n} × {policies.slotMinutes} min

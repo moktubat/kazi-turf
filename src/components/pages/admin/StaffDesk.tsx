@@ -37,16 +37,16 @@ function Stat({
 }) {
     const body = (
         <>
-            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-mint">
-                <Icon size={18} aria-hidden className="text-teal" />
+            <span className="flex items-center justify-between gap-2 text-sm text-evergreen/70">
+                {label}
+                <Icon size={16} aria-hidden className="text-evergreen/40" />
             </span>
-            <span className="text-xs font-semibold uppercase tracking-wide text-evergreen/70">{label}</span>
-            <span className="font-heading text-2xl font-extrabold">{value}</span>
+            <span className="font-heading text-3xl font-extrabold">{value}</span>
         </>
     );
-    const cls = "flex flex-col gap-1 rounded-2xl border border-evergreen/10 bg-white p-4 shadow-sm";
+    const cls = "flex flex-col gap-2 rounded-2xl border border-evergreen/10 bg-surface p-5 shadow-sm";
     return href ? (
-        <Link href={href} className={`${cls} hover:border-teal`}>
+        <Link href={href} className={`${cls} transition-colors hover:border-teal`}>
             {body}
         </Link>
     ) : (

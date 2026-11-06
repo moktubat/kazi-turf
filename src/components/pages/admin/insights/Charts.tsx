@@ -18,12 +18,10 @@ function Kpi({
     sub?: string;
 }) {
     return (
-        <Card className="space-y-1">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-evergreen/70">
-                <span className="inline-flex size-8 items-center justify-center rounded-lg bg-mint">
-                    <Icon size={16} aria-hidden className="text-teal" />
-                </span>
+        <Card className="space-y-2">
+            <p className="flex items-center justify-between gap-2 text-sm text-evergreen/70">
                 {label}
+                <Icon size={16} aria-hidden className="text-evergreen/40" />
             </p>
             <p className="font-heading text-3xl font-extrabold">{value}</p>
             {sub && <p className="text-xs text-evergreen/70">{sub}</p>}

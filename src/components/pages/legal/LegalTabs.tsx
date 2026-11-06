@@ -38,7 +38,7 @@ export function LegalTabs({ docs }: { docs: LegalDoc[] }) {
                 id={`panel-${doc.id}`}
                 aria-labelledby={`tab-${doc.id}`}
                 tabIndex={0}
-                className="mt-6 rounded-2xl border border-evergreen/10 bg-white p-5 shadow-sm md:p-8"
+                className="mt-6 rounded-2xl border border-evergreen/10 bg-surfacece p-5 shadow-sm md:p-8"
             >
                 <h2 className="text-xl font-extrabold md:text-2xl">{doc.label}</h2>
                 <p className="mt-1 text-evergreen/80">{doc.intro}</p>

@@ -3,7 +3,7 @@ import { forwardRef, useId } from "react";
 import { cn } from "@/lib/cn";
 
 const control =
-    "min-h-11 w-full rounded-xl border bg-white px-3 text-base text-evergreen placeholder:text-evergreen/50";
+    "min-h-11 w-full rounded-xl border bg-surface px-3 text-base text-evergreen placeholder:text-evergreen/50";
 
 interface ShellProps {
     label: string;

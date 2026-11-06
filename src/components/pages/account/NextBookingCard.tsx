@@ -48,11 +48,11 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-white/10 p-3">
+                <div className="rounded-xl bg-surface/10 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Booking code</p>
                     <p className="font-mono text-2xl font-extrabold tracking-widest">{b.code}</p>
                 </div>
-                <div className="rounded-xl bg-white/10 p-3">
+                <div className="rounded-xl bg-surface/10 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Balance due at venue</p>
                     <p className="font-heading text-2xl font-extrabold">{formatBDT(b.balanceDue)}</p>
                 </div>

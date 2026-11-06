@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Hero } from "@/components/pages/home/Hero";
-import { OpenToday } from "@/components/pages/home/OpenToday";
+import { HeroKickOffs, KickOffsFallback } from "@/components/pages/home/HeroKickOffs";
+import { Ticker } from "@/components/pages/home/Ticker";
 import { VenuesSection } from "@/components/pages/home/VenuesSection";
 import { HowItWorks } from "@/components/pages/home/HowItWorks";
 import { GallerySection } from "@/components/pages/home/GallerySection";
@@ -15,13 +16,18 @@ function HeroFallback() {
     );
 }
 
-function SectionFallback() {
-    return <div className="py-14 md:py-20" />;
-}
-
 async function HeroSection() {
     const today = await todayDhaka();
-    return <Hero today={today} />;
+    return (
+        <Hero
+            today={today}
+            aside={
+                <Suspense fallback={<KickOffsFallback />}>
+                    <HeroKickOffs today={today} />
+                </Suspense>
+            }
+        />
+    );
 }
 
 export default function HomePage() {
@@ -30,9 +36,7 @@ export default function HomePage() {
             <Suspense fallback={<HeroFallback />}>
                 <HeroSection />
             </Suspense>
-            <Suspense fallback={<SectionFallback />}>
-                <OpenToday />
-            </Suspense>
+            <Ticker />
             <VenuesSection />
             <HowItWorks />
             <GallerySection />

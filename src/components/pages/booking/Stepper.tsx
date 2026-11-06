@@ -21,8 +21,8 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
                             className={cn(
                                 "inline-flex size-7 items-center justify-center rounded-full text-xs font-bold",
                                 done && "bg-emerald text-evergreen",
-                                current && "bg-white text-evergreen",
-                                !done && !current && "bg-white/15 text-white/80"
+                                current && "bg-surface text-evergreen",
+                                !done && !current && "bg-surface/15 text-white/80"
                             )}
                         >
                             {done ? <Check size={14} aria-hidden /> : n}
@@ -30,7 +30,7 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
                         <span className={cn("font-semibold text-white", !current && "hidden text-white/70 sm:inline")}>
                             {label}
                         </span>
-                        {n < steps.length && <span aria-hidden className="h-px w-6 bg-white/25 sm:w-10" />}
+                        {n < steps.length && <span aria-hidden className="h-px w-6 bg-surface/25 sm:w-10" />}
                     </li>
                 );
             })}

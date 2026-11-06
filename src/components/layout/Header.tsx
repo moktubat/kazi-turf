@@ -6,7 +6,7 @@ import {
     Menu, X, UserRound, LogOut, UserCog,
     CalendarCheck, MapPin, Tag, Camera, HelpCircle, Phone,
 } from "lucide-react";
-import { navLinks, site } from "@/data/site";
+import { site } from "@/data/site";
 import { cn } from "@/lib/cn";
 import type { SessionUser } from "@/types";
 
@@ -19,13 +19,14 @@ const navIcon: Record<string, React.ElementType> = {
 };
 
 const barLink =
-    "inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10";
+    "inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-surface/10";
 
 export function Header({ user }: { user: SessionUser | null }) {
     const [open, setOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const pathname = usePathname();
     const isStaff = user?.role === "STAFF" || user?.role === "SUPER_ADMIN";
+    const isLogin = pathname === "/login";
 
     // Only the homepage has a dark hero for the bar to sit on. Every other route
     // gets a solid evergreen bar, so white text never lands on a near-white page.
@@ -54,6 +55,37 @@ export function Header({ user }: { user: SessionUser | null }) {
         };
     }, [open]);
 
+    if (isLogin) {
+        return (
+            <header className="absolute inset-x-0 top-0 z-40">
+                <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-8">
+                    <Link
+                        href="/"
+                        className="whitespace-nowrap font-heading text-xl font-extrabold text-evergreen lg:text-white"
+                    >
+                        Kazi<span className="text-teal lg:text-emerald">Turf</span>
+                        <span className="sr-only"> — {site.tagline}</span>
+                    </Link>
+
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href="/"
+                            className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-evergreen transition-colors hover:bg-evergreen/10"
+                        >
+                            Home
+                        </Link>
+                        <Link
+                            href="/book"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-evergreen px-4 text-sm font-bold text-white transition-colors hover:bg-teal"
+                        >
+                            <CalendarCheck size={18} aria-hidden /> Book now
+                        </Link>
+                    </div>
+                </div>
+            </header>
+        );
+    }
+    
     return (
         <header
             className={cn(
@@ -64,16 +96,29 @@ export function Header({ user }: { user: SessionUser | null }) {
             )}
         >
             <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
-                <Link href="/" className="whitespace-nowrap font-heading text-xl font-extrabold text-white">
-                    Kazi<span className="text-emerald">Turf</span>
-                    <span className="sr-only"> — {site.tagline}</span>
-                </Link>
+                <div className="flex items-center gap-6">
+                    <Link href="/" className="whitespace-nowrap font-heading text-xl font-extrabold text-white">
+                        Kazi<span className="text-emerald">Turf</span>
+                        <span className="sr-only"> — {site.tagline}</span>
+                    </Link>
+
+                    {/* Desktop primary nav */}
+                    <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
+                        <Link
+                            href="/"
+                            aria-current={pathname === "/" ? "page" : undefined}
+                            className={cn(barLink, pathname === "/" && "bg-surface/10")}
+                        >
+                            Home
+                        </Link>
+                    </nav>
+                </div>
 
                 <div className="flex items-center gap-1">
                     <Link
                         href="/"
                         aria-current={pathname === "/" ? "page" : undefined}
-                        className={cn(barLink, pathname === "/" && "bg-white/10")}
+                        className={cn(barLink, "lg:hidden", pathname === "/" && "bg-surface/10")}
                     >
                         Home
                     </Link>
@@ -92,7 +137,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                             {isStaff && (
                                 <Link
                                     href="/admin"
-                                    className="hidden min-h-11 items-center rounded-xl border-2 border-white/40 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 sm:inline-flex"
+                                    className="hidden min-h-11 items-center rounded-xl border-2 border-white/40 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-surface/10 sm:inline-flex"
                                 >
                                     Admin
                                 </Link>
@@ -101,7 +146,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                     ) : (
                         <Link
                             href="/login"
-                            className="inline-flex min-h-11 items-center rounded-xl border-2 border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                            className="inline-flex min-h-11 items-center rounded-xl bg-emerald px-4 py-2 text-sm font-bold text-evergreen transition-colors hover:bg-mint"
                         >
                             Sign In
                         </Link>
@@ -110,7 +155,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                     {/* Primary CTA: desktop only. Phones already have the bottom action bar. */}
                     <Link
                         href="/book"
-                        className="ml-1 hidden min-h-11 items-center gap-2 rounded-xl bg-emerald px-4 text-sm font-bold text-evergreen transition-colors hover:bg-mint md:inline-flex"
+                        className="ml-1 hidden min-h-11 items-center gap-2 rounded-xl border-2 border-emerald px-4 text-sm font-bold text-emerald transition-colors hover:bg-emerald hover:text-evergreen md:inline-flex"
                     >
                         <CalendarCheck size={18} aria-hidden /> Book now
                     </Link>
@@ -121,7 +166,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                         aria-label={open ? "Close menu" : "Open menu"}
                         aria-expanded={open}
                         aria-controls="site-menu"
-                        className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white transition-colors hover:bg-white/10"
+                        className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white transition-colors hover:bg-surface/10 lg:hidden"
                     >
                         <span className="relative block h-6 w-6">
                             <Menu
@@ -150,7 +195,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                     />
                     <div
                         id="site-menu"
-                        className="absolute inset-x-0 top-full z-40 max-h-[calc(100svh-4rem)] overflow-y-auto border-t border-evergreen/10 bg-white shadow-2xl"
+                        className="absolute inset-x-0 top-full z-40 max-h-[calc(100svh-4rem)] overflow-y-auto border-t border-evergreen/10 bg-surface shadow-2xl lg:hidden"
                     >
                         <nav aria-label="Site menu" className="mx-auto max-w-6xl px-4 py-6">
                             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -223,7 +268,7 @@ function MenuLink({
             <span
                 className={cn(
                     "inline-flex size-10 items-center justify-center rounded-xl",
-                    primary ? "bg-white/20 text-white" : "bg-mint text-teal"
+                    primary ? "bg-surface/20 text-white" : "bg-mint text-teal"
                 )}
             >
                 <Icon size={20} aria-hidden />

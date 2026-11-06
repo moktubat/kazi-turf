@@ -22,6 +22,8 @@ const BOOKING = [
     ["EXPIRED", "Expired"],
 ] as const;
 
+const STATUS_PILLS: ReadonlyArray<readonly [string, string]> = [["", "All"], ...BOOKING];
+
 const PAYMENT = [
     ["NOT_STARTED", "Not paid"],
     ["PENDING", "Processing"],
@@ -103,6 +105,22 @@ export function BookingsView({
     return (
         <div className="space-y-5">
             <Card className="space-y-4">
+                <div role="group" aria-label="Booking status" className="scrollbar-thin flex gap-2 overflow-x-auto pb-1">
+                    {STATUS_PILLS.map(([v, l]) => (
+                        <button
+                            key={v || "all"}
+                            type="button"
+                            aria-pressed={bookingStatus === v}
+                            onClick={() => setBookingStatus(v)}
+                            className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors ${bookingStatus === v
+                                ? "border-teal bg-mint text-teal"
+                                : "border-evergreen/15 text-evergreen/80 hover:border-teal"
+                                }`}
+                        >
+                            {l}
+                        </button>
+                    ))}
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Input label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
                     <Input label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
@@ -110,10 +128,6 @@ export function BookingsView({
                         <option value="">Online and counter</option>
                         <option value="online">Online</option>
                         <option value="counter">Counter</option>
-                    </Select>
-                    <Select label="Booking status" value={bookingStatus} onChange={(e) => setBookingStatus(e.target.value)}>
-                        <option value="">All (except expired)</option>
-                        {BOOKING.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </Select>
                     <Select label="Payment status" value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
                         <option value="">All</option>
@@ -155,11 +169,11 @@ export function BookingsView({
             {rows && rows.length > 0 && (
                 <>
                     {/* Desktop table */}
-                    <div className="hidden overflow-x-auto rounded-2xl border border-evergreen/10 bg-white shadow-sm md:block">
+                    <div className="hidden overflow-x-auto rounded-2xl border border-evergreen/10 bg-surface shadow-sm md:block">
                         <table className="w-full text-left text-sm">
                             <caption className="sr-only">Bookings</caption>
                             <thead>
-                                <tr className="border-b border-evergreen/10 bg-mint/60 text-xs uppercase tracking-wide text-evergreen/70">
+                                <tr className="border-b border-evergreen/10 text-xs uppercase tracking-wide text-evergreen/70">
                                     {["Code", "When", "Customer", "Field", "Status", "Total", "Source"].map((h) => (
                                         <th key={h} scope="col" className="px-3 py-3 font-semibold">{h}</th>
                                     ))}
@@ -202,7 +216,7 @@ export function BookingsView({
                                     type="button"
                                     onClick={() => setOpenCode(b.code)}
                                     aria-label={`Open booking ${b.code}, ${b.customerName}`}
-                                    className="w-full space-y-2 rounded-2xl border border-evergreen/10 bg-white p-4 text-left hover:border-teal"
+                                    className="w-full space-y-2 rounded-2xl border border-evergreen/10 bg-surface p-4 text-left hover:border-teal"
                                 >
                                     <div className="flex items-center justify-between gap-2">
                                         <span className="font-mono font-bold">{b.code}</span>

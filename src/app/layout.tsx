@@ -10,6 +10,7 @@ import { Footer } from "@/components/layout/Footer";
 import { MobileActionBar } from "@/components/layout/MobileActionBar";
 import { getSessionUser } from "@/server/auth/session";
 import { connectDb } from "@/server/db/connect";
+import { HideOnRoutes } from "@/components/layout/HideOnRoutes";
 
 const jakarta = Plus_Jakarta_Sans({
     subsets: ["latin"],
@@ -50,10 +51,10 @@ async function HeaderWithUser() {
 
     const user = u
         ? {
-              id: u.id,
-              name: u.name,
-              role: u.role,
-          }
+            id: u.id,
+            name: u.name,
+            role: u.role,
+        }
         : null;
 
     return <Header user={user} />;
@@ -79,7 +80,9 @@ export default async function RootLayout({
                     {children}
                 </main>
 
-                <Footer />
+                <HideOnRoutes prefixes={["/login"]}>
+                    <Footer />
+                </HideOnRoutes>
 
                 <MobileActionBar />
             </body>

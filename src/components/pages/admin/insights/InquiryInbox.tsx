@@ -60,7 +60,7 @@ export function InquiryInbox({ items }: { items: InquiryDto[] }) {
             )}
 
             {done.length > 0 && (
-                <details className="rounded-xl border border-evergreen/10 bg-white p-3 text-sm">
+                <details className="rounded-xl border border-evergreen/10 bg-surfacece p-3 text-sm">
                     <summary className="min-h-11 cursor-pointer py-2 font-semibold">Handled ({done.length})</summary>
                     <ul className="mt-2 space-y-2">
                         {done.map((q) => (
