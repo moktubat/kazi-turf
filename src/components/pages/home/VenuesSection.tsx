@@ -10,6 +10,7 @@ export function VenuesSection() {
     return (
         <Section
             id="venues"
+            tone="canvas"
             eyebrow="Our fields"
             title="Browse by sport"
             intro="Pick a sport, compare the fields and what each one offers. Prices are per 90-minute slot."

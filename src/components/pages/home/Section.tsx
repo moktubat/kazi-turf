@@ -2,12 +2,13 @@ import { Suspense } from "react";
 import { cn } from "@/lib/cn";
 import { Reveal } from "./Reveal";
 
-export type SectionTone = "white" | "mint" | "dark";
+export type SectionTone = "surface" | "canvas" | "mint" | "dark";
 
 const toneBg: Record<SectionTone, string> = {
-    white: "bg-surface",
+    surface: "bg-surface",
+    canvas: "bg-canvas",
     mint: "bg-mint/70",
-    dark: "bg-evergreen text-white",
+    dark: "bg-evergreen text-surface",
 };
 
 export function Section({
@@ -15,7 +16,7 @@ export function Section({
     title,
     intro,
     eyebrow,
-    tone = "white",
+    tone = "surface",
     action,
     children,
 }: {
@@ -32,7 +33,12 @@ export function Section({
         <section
             id={id}
             aria-labelledby={`${id}-title`}
-            className={cn("py-14 md:py-20", toneBg[tone])}
+            className={cn(
+                "py-14 md:py-20",
+                toneBg[tone],
+                // Hairline between neighbouring light sections so close shades still read as separate bands.
+                !dark && "border-t border-evergreen/10"
+            )}
         >
             <Reveal className="mx-auto max-w-6xl px-4">
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -52,13 +58,13 @@ export function Section({
                             id={`${id}-title`}
                             className={cn(
                                 "text-3xl font-extrabold uppercase tracking-tight md:text-5xl",
-                                dark && "text-white"
+                                dark && "text-surface"
                             )}
                         >
                             {title}
                         </h2>
                         {intro && (
-                            <p className={cn("mt-2 max-w-2xl", dark ? "text-white/75" : "text-evergreen/80")}>{intro}</p>
+                            <p className={cn("mt-2 max-w-2xl", dark ? "text-surface/75" : "text-evergreen/80")}>{intro}</p>
                         )}
                     </div>
                     {action}

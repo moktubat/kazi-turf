@@ -19,7 +19,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
             count: list.length,
             content:
                 list.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-evergreen/20 bg-mint/40 p-6 text-sm text-evergreen/80">
+                    <p className="rounded-2xl border border-dashed border-evergreen/20 bg-surface p-6 text-sm text-evergreen/80">
                         No fields for {s.name} yet.
                     </p>
                 ) : (
@@ -45,7 +45,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
             )}
 
             {houseRules.length > 0 && (
-                <div className="rounded-2xl border border-evergreen/10 bg-mint/50 p-5 md:p-6">
+                <div className="rounded-2xl border border-evergreen/10 bg-surface p-5 shadow-sm md:p-6">
                     <h4 className="font-heading font-bold">House rules</h4>
                     <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm md:grid-cols-2">
                         {houseRules.map((r) => (

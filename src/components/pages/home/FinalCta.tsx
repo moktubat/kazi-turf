@@ -32,63 +32,61 @@ export function FinalCta() {
     const icons = (names.length ? names : ["Football"]).map(iconFor);
 
     return (
-        <section
-            aria-labelledby="cta-title"
-            className="bg-surface py-20 md:py-28"
-        >
-            <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-cover bg-center bg-no-repeat"
-                style={{
-                    backgroundImage: "url('/sports/cta-bg.webp')"
-                }}
-            >
-                {/* Dark overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-evergreen/85 via-evergreen/55 to-evergreen/80" />
+        <section aria-labelledby="cta-title" className="border-t border-evergreen/10 bg-surface py-14 md:py-20">
+            <div className="mx-auto max-w-6xl px-4">
+                <div
+                    className="relative overflow-hidden rounded-3xl bg-cover bg-center bg-no-repeat"
+                    style={{ backgroundImage: "url('/sports/cta-bg.webp')" }}
+                >
+                    {/* Dark overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-evergreen/85 via-evergreen/55 to-evergreen/80" />
 
-                {/* Floating sport icons */}
-                <div aria-hidden className="pointer-events-none absolute inset-0">
-                    {slots.map((s, i) => {
-                        const Icon = icons[i % icons.length];
-                        return (
-                            <span
-                                key={i}
-                                style={
-                                    {
-                                        left: `${s.x}%`,
-                                        top: `${s.y}%`,
-                                        width: s.size,
-                                        height: s.size,
-                                        "--dx": `${s.dx}px`,
-                                        "--dy": `${s.dy}px`,
-                                        "--rot": `${s.rot}deg`,
-                                        "--dur": `${s.dur}s`,
-                                        "--delay": `${s.delay}s`,
-                                    } as React.CSSProperties
-                                }
-                                className={`float-drift absolute place-items-center rounded-full shadow-card ring-4 ring-surface bg-mint text-teal ${s.edge ? "hidden md:grid" : "hidden lg:grid"
-                                    }`}
-                            >
-                                <Icon size={Math.round(s.size * 0.45)} />
-                            </span>
-                        );
-                    })}
-                </div>
+                    {/* Floating sport icons */}
+                    <div aria-hidden className="pointer-events-none absolute inset-0">
+                        {slots.map((s, i) => {
+                            const Icon = icons[i % icons.length];
+                            return (
+                                <span
+                                    key={i}
+                                    style={
+                                        {
+                                            left: `${s.x}%`,
+                                            top: `${s.y}%`,
+                                            width: s.size,
+                                            height: s.size,
+                                            "--dx": `${s.dx}px`,
+                                            "--dy": `${s.dy}px`,
+                                            "--rot": `${s.rot}deg`,
+                                            "--dur": `${s.dur}s`,
+                                            "--delay": `${s.delay}s`,
+                                        } as React.CSSProperties
+                                    }
+                                    className={`float-drift absolute place-items-center rounded-full shadow-card ring-4 ring-surface bg-mint text-teal ${s.edge ? "hidden md:grid" : "hidden lg:grid"
+                                        }`}
+                                >
+                                    <Icon size={Math.round(s.size * 0.45)} />
+                                </span>
+                            );
+                        })}
+                    </div>
 
-                {/* CTA content */}
-                <div className="relative z-10 mx-auto flex max-w-xl flex-col items-center gap-5 px-6 py-24 text-center md:py-32">
-                    <h2 id="cta-title" className="text-4xl font-extrabold text-white md:text-5xl">
-                        Ready to play?
-                    </h2>
+                    {/* CTA content */}
+                    <div className="relative z-10 mx-auto flex max-w-xl flex-col items-center gap-5 px-6 py-24 text-center md:py-32">
+                        <h2 id="cta-title" className="text-4xl font-extrabold text-white md:text-5xl">
+                            Ready to play?
+                        </h2>
 
-                    <p className="text-white/80">
-                        See which slots are open, lock yours in with a bKash advance and pay the rest at the venue.
-                    </p>
+                        <p className="text-white/80">
+                            See which slots are open, lock yours in with a bKash advance and pay the rest at the venue.
+                        </p>
 
-                    <Link
-                        href="/book"
-                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 font-heading text-base font-semibold text-evergreen transition-colors hover:bg-mint"
-                    >
-                        Book now <ArrowRight size={18} aria-hidden />
-                    </Link>
+                        <Link
+                            href="/book"
+                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 font-heading text-base font-semibold text-evergreen transition-colors hover:bg-mint"
+                        >
+                            Book now <ArrowRight size={18} aria-hidden />
+                        </Link>
+                    </div>
                 </div>
             </div>
         </section>
