@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, KeyRound, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Field";
@@ -20,9 +20,31 @@ function Notice({ ok, children }: { ok: boolean; children: React.ReactNode }) {
     );
 }
 
+function SectionHeader({
+    icon: Icon,
+    title,
+    description,
+}: {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+}) {
+    return (
+        <div className="flex items-start gap-3 border-b border-evergreen/10 pb-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-mint text-teal">
+                <Icon size={18} aria-hidden />
+            </span>
+            <div className="min-w-0">
+                <h2 className="font-heading text-base font-bold leading-tight">{title}</h2>
+                <p className="mt-0.5 text-xs text-evergreen/70">{description}</p>
+            </div>
+        </div>
+    );
+}
+
 export function ProfileForms({ profile }: { profile: { name: string; phone: string; email: string } }) {
     return (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2">
             <ProfileForm profile={profile} />
             <PasswordForm />
         </div>
@@ -56,7 +78,11 @@ function ProfileForm({ profile }: { profile: { name: string; phone: string; emai
     return (
         <Card>
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4" aria-label="Profile">
-                <h2 className="text-lg font-bold">Profile</h2>
+                <SectionHeader
+                    icon={UserRound}
+                    title="Profile"
+                    description="Update the name and contact details attached to your account."
+                />
                 <Input label="Name" autoComplete="name" error={errors.name?.message} {...register("name")} />
                 <Input label="Phone" type="tel" inputMode="tel" autoComplete="tel" error={errors.phone?.message} {...register("phone")} />
                 <Input label="Email (optional)" type="email" autoComplete="email" error={errors.email?.message} {...register("email")} />
@@ -99,7 +125,11 @@ function PasswordForm() {
     return (
         <Card>
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4" aria-label="Change password">
-                <h2 className="text-lg font-bold">Change password</h2>
+                <SectionHeader
+                    icon={KeyRound}
+                    title="Change password"
+                    description="Use at least 8 characters. Changing it signs out every other device."
+                />
                 <Input
                     label="Current password"
                     type="password"

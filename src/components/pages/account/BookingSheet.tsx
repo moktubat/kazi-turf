@@ -22,6 +22,14 @@ function Line({ label, value, strong }: { label: string; value: React.ReactNode;
     );
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <p className="font-heading text-[11px] font-bold uppercase tracking-[0.14em] text-evergreen/60">
+            {children}
+        </p>
+    );
+}
+
 export function BookingSheet({
     b,
     onRequested,
@@ -63,12 +71,18 @@ export function BookingSheet({
 
     return (
         <div className="space-y-5">
-            <div className="space-y-3 rounded-2xl bg-evergreen p-5 text-center text-white">
-                <p className="text-sm text-white/75">Booking code</p>
-                <p className="font-mono text-3xl font-extrabold tracking-widest" aria-label={`Booking code ${b.code}`}>
+            {/* Code header */}
+            <div className="space-y-3 rounded-2xl border border-evergreen/10 bg-mint/40 p-5 text-center">
+                <p className="font-heading text-[11px] font-bold uppercase tracking-[0.18em] text-evergreen/60">
+                    Booking code
+                </p>
+                <p
+                    className="font-mono text-2xl font-extrabold tracking-widest sm:text-3xl"
+                    aria-label={`Booking code ${b.code}`}
+                >
                     {b.code}
                 </p>
-                <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-xl bg-surfacece px-3 py-2">
+                <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2">
                     <BookingStatusBadge status={b.bookingStatus} />
                     <PaymentStatusBadge status={b.paymentStatus} />
                 </div>
@@ -77,34 +91,47 @@ export function BookingSheet({
             {b.bookingStatus === "PENDING_PAYMENT" && b.holdActive && (
                 <div className="rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
                     Your slot is held but not paid yet.{" "}
-                    <Link href={`/book?booking=${encodeURIComponent(b.code)}`} className="font-bold underline underline-offset-2">
+                    <Link
+                        href={`/book?booking=${encodeURIComponent(b.code)}`}
+                        className="font-bold underline underline-offset-2"
+                    >
                         Continue payment
                     </Link>
                 </div>
             )}
 
-            <dl className="space-y-1.5 text-sm">
-                <Line label="Field" value={`${b.pitchName} · ${b.sport}`} />
-                <Line label="Date" value={formatDateLong(b.date)} />
-                <Line label="Time" value={`${formatTime12(b.start)}–${formatTime12(b.end)}`} />
-            </dl>
+            {/* Booking details */}
+            <div className="space-y-2">
+                <SectionLabel>Details</SectionLabel>
+                <dl className="space-y-1.5 rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
+                    <Line label="Field" value={`${b.pitchName} · ${b.sport}`} />
+                    <Line label="Date" value={formatDateLong(b.date)} />
+                    <Line label="Time" value={`${formatTime12(b.start)}–${formatTime12(b.end)}`} />
+                </dl>
+            </div>
 
-            <dl className="space-y-1.5 rounded-xl bg-mint p-3 text-sm">
-                <Line label="Subtotal" value={formatBDT(b.subtotal)} />
-                {b.vatRatePercent && b.vatAmount > 0 && (
-                    <Line
-                        label={b.total === b.subtotal ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}
-                        value={formatBDT(b.vatAmount)}
-                    />
-                )}
-                <Line label="Total" value={formatBDT(b.total)} strong />
-                <Line label="Advance paid" value={formatBDT(b.advancePaid)} />
-                <Line label="Balance due at venue" value={formatBDT(b.balanceDue)} strong />
-                {b.paymentReference && <Line label="Payment reference" value={<span className="font-mono">{b.paymentReference}</span>} />}
-            </dl>
+            {/* Payment breakdown */}
+            <div className="space-y-2">
+                <SectionLabel>Payment</SectionLabel>
+                <dl className="space-y-1.5 rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
+                    <Line label="Subtotal" value={formatBDT(b.subtotal)} />
+                    {b.vatRatePercent && b.vatAmount > 0 && (
+                        <Line
+                            label={b.total === b.subtotal ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}
+                            value={formatBDT(b.vatAmount)}
+                        />
+                    )}
+                    <Line label="Total" value={formatBDT(b.total)} strong />
+                    <Line label="Advance paid" value={formatBDT(b.advancePaid)} />
+                    <Line label="Balance due at venue" value={formatBDT(b.balanceDue)} strong />
+                    {b.paymentReference && (
+                        <Line label="Payment reference" value={<span className="font-mono">{b.paymentReference}</span>} />
+                    )}
+                </dl>
+            </div>
 
             {confirmed && (
-                <p className="text-sm text-evergreen/85">
+                <p className="rounded-xl bg-mint/40 p-3 text-sm text-evergreen/85">
                     Show your code at the venue. Check-in opens {b.checkInOpensMinutes} minutes before your slot
                     starts and stays open until it ends. Staff may ask for the last digits of your phone number.
                 </p>
@@ -112,12 +139,11 @@ export function BookingSheet({
 
             <div className="flex flex-wrap gap-2">
                 {b.branchMapUrl && (
-                    <Button href={b.branchMapUrl} variant="secondary">
+                    <Button href={b.branchMapUrl} variant="outline">
                         <MapPin size={18} aria-hidden /> Directions
                     </Button>
                 )}
                 {b.advancePaid > 0 && (
-                    // Receipt route arrives in Batch 6. Never offered before an advance is verified.
                     <a
                         href={`/api/bookings/${encodeURIComponent(b.code)}/receipt`}
                         download

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Clock, FileEdit, Plus, Ruler, ToggleLeft, Trash2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -15,6 +15,7 @@ import { venue } from "@/data/branches";
 import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
 import { ImageUpload } from "./ImageUpload";
+import { SheetSection } from "../SheetSection";
 
 interface FormState {
     branchId: string;
@@ -89,9 +90,9 @@ export function PitchesTab({
                                     />
                                 )}
                                 <div className="flex items-start justify-between gap-2">
-                                    <div>
+                                    <div className="min-w-0">
                                         <h4 className="text-lg font-bold">{p.name}</h4>
-                                        <p className="text-sm text-evergreen/80">
+                                        <p className="mt-0.5 text-sm text-evergreen/80">
                                             {p.sport} · {p.format} · {p.openTime}–{p.closeTime}
                                         </p>
                                     </div>
@@ -102,7 +103,7 @@ export function PitchesTab({
                                 <p className="text-sm text-evergreen/80">
                                     {p.upcomingBookings} upcoming {p.upcomingBookings === 1 ? "booking" : "bookings"}
                                 </p>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2 border-t border-evergreen/10 pt-3">
                                     <Button variant="outline" onClick={() => setEditing(p)}>
                                         <Pencil size={16} aria-hidden /> Edit
                                     </Button>
@@ -125,7 +126,13 @@ export function PitchesTab({
                 </ul>
             )}
 
-            <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add field" : "Edit field"}>
+            <SideSheet
+                open={!!editing}
+                onClose={() => setEditing(null)}
+                title={editing === "new" ? "Add field" : "Edit field"}
+                description={editing === "new" ? "Create a new sports field or court." : "Update this field's details, schedule and status."}
+                icon={FileEdit}
+            >
                 {editing && (
                     <PitchForm
                         key={editing === "new" ? "new" : editing.id}
@@ -139,7 +146,13 @@ export function PitchesTab({
                 )}
             </SideSheet>
 
-            <SideSheet open={!!deleting} onClose={() => setDeleting(null)} title="Delete field">
+            <SideSheet
+                open={!!deleting}
+                onClose={() => setDeleting(null)}
+                title="Delete field"
+                description="This cannot be undone."
+                icon={Trash2}
+            >
                 {deleting && (
                     <div className="space-y-4">
                         <p className="text-sm">
@@ -223,11 +236,8 @@ function PitchForm({
     }
 
     return (
-        <form onSubmit={submit} noValidate className="space-y-5" aria-label={isNew ? "Add field" : "Edit field"}>
-            {/* Basics */}
-            <div className="space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Basics</p>
-
+        <form onSubmit={submit} noValidate className="space-y-6" aria-label={isNew ? "Add field" : "Edit field"}>
+            <SheetSection icon={FileEdit} title="Basics" description="What this field is called and what sport it hosts.">
                 <Input
                     label="Field name"
                     value={f.name}
@@ -235,7 +245,6 @@ function PitchForm({
                     error={fields.name}
                     onChange={(e) => set("name", e.target.value)}
                 />
-
                 <Select
                     label="Sport"
                     value={f.sport}
@@ -248,7 +257,6 @@ function PitchForm({
                         <option key={s} value={s}>{s}</option>
                     ))}
                 </Select>
-
                 <Input
                     label="Format (playing style)"
                     value={f.format}
@@ -256,21 +264,16 @@ function PitchForm({
                     error={fields.format}
                     onChange={(e) => set("format", e.target.value)}
                 />
-            </div>
+            </SheetSection>
 
-            {/* Field details */}
-            <div className="space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Field details</p>
-
+            <SheetSection icon={Ruler} title="Field details" description="Physical attributes and amenities. Only enter a size the owner has measured.">
                 <Input
                     label="Dimensions (verified size)"
                     value={f.dimensions}
                     placeholder="e.g. 40m × 20m"
-                    hint="Only enter a size the owner has measured."
                     error={fields.dimensions}
                     onChange={(e) => set("dimensions", e.target.value)}
                 />
-
                 <Input
                     label="Surface"
                     value={f.surface}
@@ -278,7 +281,6 @@ function PitchForm({
                     error={fields.surface}
                     onChange={(e) => set("surface", e.target.value)}
                 />
-
                 <ListInput
                     label="Facilities (comma-separated)"
                     value={f.facilities}
@@ -287,7 +289,6 @@ function PitchForm({
                     error={fields.facilities}
                     onChange={(v) => set("facilities", v)}
                 />
-
                 <ImageUpload
                     label="Field photo (optional)"
                     value={f.image}
@@ -297,12 +298,9 @@ function PitchForm({
                     hint="JPEG, PNG, WebP or AVIF. Stored on Cloudinary. The old image is deleted when you replace it or remove the field."
                     error={fields.image}
                 />
-            </div>
+            </SheetSection>
 
-            {/* Schedule */}
-            <div className="space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Schedule</p>
-
+            <SheetSection icon={Clock} title="Schedule" description="Operating hours and how many slots a customer can book at once.">
                 <div className="grid grid-cols-2 gap-4">
                     <Input
                         label="Opens"
@@ -325,7 +323,6 @@ function PitchForm({
                 <p className="-mt-2 text-xs text-evergreen/70">
                     {slotCount} slots of {slotMinutes} minutes. Closing times are limited to whole slots.
                 </p>
-
                 <Select
                     label="Max slots per booking (how many a customer can book together)"
                     value={String(f.maxConsecutiveSlots)}
@@ -336,11 +333,9 @@ function PitchForm({
                         <option key={n} value={n}>{n}</option>
                     ))}
                 </Select>
-            </div>
+            </SheetSection>
 
-            {/* Status */}
-            <div className="space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Status</p>
+            <SheetSection icon={ToggleLeft} title="Status" description="Disabled blocks new bookings but keeps existing ones visible.">
                 <Select
                     label="Status"
                     value={f.status}
@@ -355,7 +350,7 @@ function PitchForm({
                     <option value="ACTIVE">Active (taking bookings)</option>
                     <option value="DISABLED">Disabled</option>
                 </Select>
-            </div>
+            </SheetSection>
 
             <FormActions busy={busy} error={error} label={isNew ? "Add field" : "Save changes"} onCancel={onDone} />
         </form>

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, Pencil, Plus } from "lucide-react";
+import { AlertTriangle, Banknote, Calendar, CalendarRange, Clock, Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,6 +13,7 @@ import { rateDeleteSchema, rateSchema, rateUpdateSchema } from "@/schemas/setup"
 import type { SetupPitch, SetupRate } from "@/types/setup";
 import { Check, FormActions, num } from "./ui";
 import { useSave } from "./useSave";
+import { SheetSection } from "../SheetSection";
 
 export function RatesTab({
     rates,
@@ -94,16 +95,24 @@ export function RatesTab({
                                         <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field's current schedule. Edit this window.
                                     </p>
                                 )}
-                                <Button variant="outline" onClick={() => setEditing(r)}>
-                                    <Pencil size={16} aria-hidden /> Edit
-                                </Button>
+                                <div className="border-t border-evergreen/10 pt-2">
+                                    <Button variant="outline" onClick={() => setEditing(r)}>
+                                        <Pencil size={16} aria-hidden /> Edit
+                                    </Button>
+                                </div>
                             </Card>
                         </li>
                     ))}
                 </ul>
             )}
 
-            <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add slot price" : "Edit slot price"}>
+            <SideSheet
+                open={!!editing}
+                onClose={() => setEditing(null)}
+                title={editing === "new" ? "Add slot price" : "Edit slot price"}
+                description={editing === "new" ? "Set a price for a day range and time window." : "Update this price window."}
+                icon={Banknote}
+            >
                 {editing && (
                     <RateForm
                         key={editing === "new" ? "new" : editing.id}
@@ -179,82 +188,83 @@ function RateForm({
     }
 
     return (
-        <form onSubmit={submit} noValidate className="space-y-5" aria-label={isNew ? "Add slot price" : "Edit slot price"}>
-            <p className="rounded-xl bg-mint p-3 text-sm">
-                <strong>{pitch.name}</strong> · open {pitch.openTime}–{pitch.closeTime}
-            </p>
+        <form onSubmit={submit} noValidate className="space-y-6" aria-label={isNew ? "Add slot price" : "Edit slot price"}>
+            <div className="rounded-xl bg-mint/40 p-3 text-sm">
+                <span className="text-evergreen/70">Field:</span>{" "}
+                <strong>{pitch.name}</strong>{" "}
+                <span className="text-evergreen/70">· open {pitch.openTime}–{pitch.closeTime}</span>
+            </div>
 
-            {/* Days */}
-            <fieldset>
-                <legend className="mb-1 text-sm font-semibold">Days (which weekdays this price applies to)</legend>
-                <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
-                    {DAY_NAMES.map((name, d) => (
-                        <Check key={name} label={name} checked={f.days.includes(d)} onChange={() => toggleDay(d)} />
-                    ))}
+            <SheetSection icon={Calendar} title="Days & tier" description="Which weekdays this price applies to, and whether it is peak or off-peak.">
+                <fieldset>
+                    <legend className="mb-1.5 text-sm font-semibold">Days</legend>
+                    <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
+                        {DAY_NAMES.map((name, d) => (
+                            <Check key={name} label={name} checked={f.days.includes(d)} onChange={() => toggleDay(d)} />
+                        ))}
+                    </div>
+                    {fields.days && <p role="alert" className="text-sm font-medium text-booked">{fields.days}</p>}
+                </fieldset>
+                <Select
+                    label="Pricing tier"
+                    value={f.tier}
+                    hint="Peak = evenings & weekends. Off-peak = daytime weekdays."
+                    onChange={(e) => set("tier", e.target.value as FormState["tier"])}
+                >
+                    <option value="Off-peak">Off-peak</option>
+                    <option value="Peak">Peak</option>
+                </Select>
+            </SheetSection>
+
+            <SheetSection icon={Clock} title="Time window" description="Must align to the field's slot grid.">
+                <div className="grid grid-cols-2 gap-4">
+                    <Select label="From" value={f.startTime} error={fields.startTime} onChange={(e) => set("startTime", e.target.value)}>
+                        {times.slice(0, -1).map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </Select>
+                    <Select label="Until" value={f.endTime} error={fields.endTime} onChange={(e) => set("endTime", e.target.value)}>
+                        {times.slice(1).map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </Select>
                 </div>
-                {fields.days && <p role="alert" className="text-sm font-medium text-booked">{fields.days}</p>}
-            </fieldset>
+                <p className="-mt-2 text-xs text-evergreen/70">
+                    Times must align to the field's {slotMinutes}-minute slot grid.
+                </p>
+            </SheetSection>
 
-            {/* Tier */}
-            <Select
-                label="Pricing tier"
-                value={f.tier}
-                hint="Peak = evenings & weekends. Off-peak = daytime weekdays."
-                onChange={(e) => set("tier", e.target.value as FormState["tier"])}
-            >
-                <option value="Off-peak">Off-peak</option>
-                <option value="Peak">Peak</option>
-            </Select>
-
-            {/* Time window */}
-            <div className="grid grid-cols-2 gap-4">
-                <Select label="From" value={f.startTime} error={fields.startTime} onChange={(e) => set("startTime", e.target.value)}>
-                    {times.slice(0, -1).map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                    ))}
-                </Select>
-                <Select label="Until" value={f.endTime} error={fields.endTime} onChange={(e) => set("endTime", e.target.value)}>
-                    {times.slice(1).map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                    ))}
-                </Select>
-            </div>
-            <p className="-mt-2 text-xs text-evergreen/70">
-                Times must align to the field's {slotMinutes}-minute slot grid.
-            </p>
-
-            {/* Price */}
-            <Input
-                label={`Price per ${slotMinutes}-minute slot (৳)`}
-                type="number"
-                inputMode="numeric"
-                value={f.price}
-                placeholder="e.g. 2400"
-                hint="Whole taka only. 100–100,000."
-                error={fields.pricePerSlot}
-                onChange={(e) => set("price", e.target.value)}
-            />
-
-            {/* Effective dates */}
-            <div className="grid grid-cols-2 gap-4">
+            <SheetSection icon={Banknote} title="Price" description="Whole taka only. 100–100,000.">
                 <Input
-                    label="Effective from (optional)"
-                    type="date"
-                    value={f.effectiveFrom}
-                    error={fields.effectiveFrom}
-                    onChange={(e) => set("effectiveFrom", e.target.value)}
+                    label={`Price per ${slotMinutes}-minute slot (৳)`}
+                    type="number"
+                    inputMode="numeric"
+                    value={f.price}
+                    placeholder="e.g. 2400"
+                    hint="Whole taka only. 100–100,000."
+                    error={fields.pricePerSlot}
+                    onChange={(e) => set("price", e.target.value)}
                 />
-                <Input
-                    label="Effective until (optional)"
-                    type="date"
-                    value={f.effectiveTo}
-                    error={fields.effectiveTo}
-                    onChange={(e) => set("effectiveTo", e.target.value)}
-                />
-            </div>
-            <p className="-mt-2 text-xs text-evergreen/70">
-                Leave both empty for “always”. Use these for seasonal pricing (e.g. winter rates).
-            </p>
+            </SheetSection>
+
+            <SheetSection icon={CalendarRange} title="Effective dates" description="Leave both empty for “always”. Use these for seasonal pricing (e.g. winter rates).">
+                <div className="grid grid-cols-2 gap-4">
+                    <Input
+                        label="Effective from (optional)"
+                        type="date"
+                        value={f.effectiveFrom}
+                        error={fields.effectiveFrom}
+                        onChange={(e) => set("effectiveFrom", e.target.value)}
+                    />
+                    <Input
+                        label="Effective until (optional)"
+                        type="date"
+                        value={f.effectiveTo}
+                        error={fields.effectiveTo}
+                        onChange={(e) => set("effectiveTo", e.target.value)}
+                    />
+                </div>
+            </SheetSection>
 
             <FormActions busy={busy} error={error} label={isNew ? "Add slot price" : "Save changes"} onCancel={onDone} />
 

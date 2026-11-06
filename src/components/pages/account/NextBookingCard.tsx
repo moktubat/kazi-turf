@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { MapPin, Timer } from "lucide-react";
+import { CalendarDays, MapPin, Timer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import type { AccountBookingDto } from "@/types/account";
@@ -28,46 +28,79 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
     const ms = now === null ? null : Date.parse(b.startAt) - now;
 
     return (
-        <div className="space-y-4 rounded-2xl bg-evergreen p-5 text-white shadow-lg">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-lg font-bold text-white">Next booking</h2>
-                {ms !== null && (
-                    <p className="inline-flex items-center gap-1.5 rounded-full bg-mint px-3 py-1 text-sm font-semibold text-teal">
-                        <Timer size={14} aria-hidden /> {ms <= 0 ? "Happening now" : `Starts in ${left(ms)}`}
+        <section
+            aria-labelledby="next-booking-title"
+            className="relative overflow-hidden rounded-2xl border border-teal/20 bg-surface shadow-lift"
+        >
+            {/* Left accent stripe */}
+            <div aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-teal" />
+
+            <div className="space-y-4 p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <span className="grid size-8 place-items-center rounded-lg bg-teal text-surface">
+                            <CalendarDays size={16} aria-hidden />
+                        </span>
+                        <h2
+                            id="next-booking-title"
+                            className="font-heading text-xs font-bold uppercase tracking-[0.14em] text-evergreen/70"
+                        >
+                            Next booking
+                        </h2>
+                    </div>
+                    {ms !== null && (
+                        <p
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${ms <= 0 ? "bg-teal text-surface" : "bg-held-soft text-held"
+                                }`}
+                        >
+                            <Timer size={12} aria-hidden />
+                            {ms <= 0 ? "Happening now" : `Starts in ${left(ms)}`}
+                        </p>
+                    )}
+                </div>
+
+                <div className="space-y-1">
+                    <p className="font-heading text-lg font-extrabold sm:text-xl">
+                        {formatDateLong(b.date)}
                     </p>
-                )}
-            </div>
-
-            <div>
-                <p className="font-heading text-xl font-extrabold text-white">
-                    {formatDateLong(b.date)} · {formatTime12(b.start)}–{formatTime12(b.end)}
-                </p>
-                <p className="text-sm text-white/75">
-                    {b.pitchName} · {b.sport}
-                </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-surface/10 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Booking code</p>
-                    <p className="font-mono text-2xl font-extrabold tracking-widest">{b.code}</p>
+                    <p className="font-heading text-base font-bold text-teal">
+                        {formatTime12(b.start)} – {formatTime12(b.end)}
+                    </p>
+                    <p className="text-sm text-evergreen/75">
+                        {b.pitchName} · {b.sport}
+                    </p>
                 </div>
-                <div className="rounded-xl bg-surface/10 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Balance due at venue</p>
-                    <p className="font-heading text-2xl font-extrabold">{formatBDT(b.balanceDue)}</p>
-                </div>
-            </div>
 
-            <div className="flex flex-wrap gap-2">
-                {b.branchMapUrl && (
-                    <Button href={b.branchMapUrl} variant="secondary">
-                        <MapPin size={18} aria-hidden /> Directions
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-evergreen/10 bg-mint/40 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-evergreen/60">
+                            Booking code
+                        </p>
+                        <p className="mt-1 font-mono text-lg font-extrabold tracking-wider sm:text-xl">
+                            {b.code}
+                        </p>
+                    </div>
+                    <div className="rounded-xl border border-evergreen/10 bg-mint/40 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-evergreen/60">
+                            Balance at venue
+                        </p>
+                        <p className="mt-1 font-heading text-lg font-extrabold sm:text-xl">
+                            {formatBDT(b.balanceDue)}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    {b.branchMapUrl && (
+                        <Button href={b.branchMapUrl} variant="outline">
+                            <MapPin size={16} aria-hidden /> Directions
+                        </Button>
+                    )}
+                    <Button variant="primary" onClick={onOpen}>
+                        View details
                     </Button>
-                )}
-                <Button variant="light" onClick={onOpen}>
-                    View details
-                </Button>
+                </div>
             </div>
-        </div>
+        </section>
     );
 }
