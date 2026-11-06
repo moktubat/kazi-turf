@@ -10,7 +10,7 @@ const link = "text-white/80 underline-offset-2 transition-colors hover:text-whit
 export async function Footer() {
     return (
         <footer className="bg-evergreen text-white">
-            <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-[1.2fr_1fr_1fr]">
+            <div className="mx-auto grid max-w-main gap-10 px-4 py-12 md:grid-cols-[1.2fr_1fr_1fr]">
                 <div className="space-y-4">
                     <p className="font-heading text-2xl font-extrabold">
                         Kazi<span className="text-emerald">Turf</span>
@@ -64,7 +64,7 @@ export async function Footer() {
             </div>
 
             <div className="border-t border-white/10">
-                <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4 text-center text-xs text-white/70 md:flex-row md:items-center md:justify-between md:text-left">
+                <div className="mx-auto flex max-w-main flex-col gap-1 px-4 py-4 text-center text-xs text-white/70 md:flex-row md:items-center md:justify-between md:text-left">
                     <p>© 2026 {site.name}. All rights reserved.</p>
                     <p>{venue.address}</p>
                 </div>

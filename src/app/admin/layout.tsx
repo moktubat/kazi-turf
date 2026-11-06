@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="min-w-0">
         {/* Phones and tablets: pill bar */}
         <div className="border-b border-evergreen/10 bg-surface shadow-sm lg:hidden">
-          <div className="mx-auto max-w-6xl px-4">
+          <div className="mx-auto max-w-main px-4">
             <AdminNav role={user.role} canSetup={setup} />
           </div>
         </div>

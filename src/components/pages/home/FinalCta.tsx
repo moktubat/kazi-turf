@@ -33,7 +33,7 @@ export function FinalCta() {
 
     return (
         <section aria-labelledby="cta-title" className="border-t border-evergreen/10 bg-surface py-14 md:py-20">
-            <div className="mx-auto max-w-6xl px-4">
+            <div className="mx-auto max-w-main px-4">
                 <div
                     className="relative overflow-hidden rounded-3xl bg-cover bg-center bg-no-repeat"
                     style={{ backgroundImage: "url('/sports/cta-bg.webp')" }}

@@ -49,7 +49,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
     ]);
 
     return (
-        <div className="mx-auto max-w-6xl space-y-8 px-4 py-5 pb-24">
+        <div className="mx-auto max-w-main space-y-8 px-4 py-5 pb-24">
             <h1 className="text-2xl font-extrabold md:text-3xl">Insights</h1>
 
             <Card>

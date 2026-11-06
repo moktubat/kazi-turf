@@ -129,7 +129,7 @@ export function StaffDesk({
         drawer?.kind === "walkin" ? "Walk-in booking" : drawer?.kind === "block" ? "Maintenance" : "Booking";
 
     return (
-        <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-24">
+        <div className="mx-auto max-w-main space-y-5 px-4 py-5 pb-24">
             <h1 className="text-2xl font-extrabold md:text-3xl">Staff Desk</h1>
 
             <Card className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">

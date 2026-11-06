@@ -51,7 +51,7 @@ export function Hero({ today, aside }: { today: string; aside?: React.ReactNode 
             </div>
             <div className="absolute inset-0 bg-gradient-to-b from-evergreen/85 via-evergreen/55 to-evergreen/80" />
 
-            <div className="relative z-10 mx-auto grid h-full max-w-6xl items-center gap-6 px-4 pb-8 pt-24 lg:grid-cols-[minmax(0,600px)_minmax(0,1fr)] lg:gap-x-12 lg:pb-6 lg:pt-20">
+            <div className="relative z-10 mx-auto grid h-full max-w-main items-center gap-6 px-4 pb-8 pt-24 lg:grid-cols-[minmax(0,600px)_minmax(0,1fr)] lg:gap-x-12 lg:pb-6 lg:pt-20">
                 {/* LEFT: headline + sport pills + search bar (max 600px on large screens) */}
                 <div className="min-w-0 space-y-8 lg:max-w-[600px] lg:space-y-7">
                     <div className="text-surface">

@@ -320,14 +320,14 @@ export function BookingFlow({
     return (
         <>
             <div className="bg-evergreen text-white">
-                <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+                <div className="mx-auto max-w-main space-y-4 px-4 py-6">
                     <Stepper step={step} />
                     <h1 className="text-2xl font-extrabold text-white md:text-3xl">
                         {step === 1 ? "Choose your slot" : "Confirm & pay"}
                     </h1>
                 </div>
             </div>
-            <div className="mx-auto max-w-6xl px-4 py-6 pb-32 lg:pb-10">
+            <div className="mx-auto max-w-main px-4 py-6 pb-32 lg:pb-10">
                 <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
                     <div className="min-w-0 space-y-5">
                         {step === 1 && (

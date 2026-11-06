@@ -18,7 +18,7 @@ type Params = Promise<Record<string, string | string[] | undefined>>;
 
 function BookFallback() {
     return (
-        <div className="mx-auto max-w-6xl px-4 py-6 pb-32 lg:pb-10">
+        <div className="mx-auto max-w-main px-4 py-6 pb-32 lg:pb-10">
             <div className="h-8 w-48 animate-pulse rounded bg-evergreen/10" />
             <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
                 <div className="space-y-5">

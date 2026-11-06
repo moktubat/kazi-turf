@@ -40,7 +40,7 @@ export function Section({
                 !dark && "border-t border-evergreen/10"
             )}
         >
-            <Reveal className="mx-auto max-w-6xl px-4">
+            <Reveal className="mx-auto max-w-main px-4">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
                         {eyebrow && (

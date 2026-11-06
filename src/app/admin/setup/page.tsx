@@ -14,7 +14,7 @@ export default async function SetupPage() {
     const setupData = await getSetupData(user, new Date());
 
     return (
-        <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 pb-24">
+        <div className="mx-auto max-w-main space-y-5 px-4 py-5 pb-24">
             <h1 className="text-2xl font-extrabold md:text-3xl">
                 Setup
             </h1>

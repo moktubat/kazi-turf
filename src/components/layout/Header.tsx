@@ -87,7 +87,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                     : "border-white/10 bg-evergreen/95 shadow-md backdrop-blur-md"
             )}
         >
-            <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
+            <div className="mx-auto flex h-16 max-w-main items-center justify-between gap-3 px-4">
                 <div className="flex items-center gap-6">
                     <Link href="/" className="whitespace-nowrap font-heading text-xl font-extrabold text-white">
                         Kazi<span className="text-emerald">Turf</span>
@@ -189,7 +189,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                         id="site-menu"
                         className="absolute inset-x-0 top-full z-40 max-h-[calc(100svh-4rem)] overflow-y-auto border-t border-evergreen/10 bg-surface shadow-2xl lg:hidden"
                     >
-                        <nav aria-label="Site menu" className="mx-auto max-w-6xl px-4 py-6">
+                        <nav aria-label="Site menu" className="mx-auto max-w-main px-4 py-6">
                             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                 <li>
                                     <MenuLink href="/book" icon={CalendarCheck} label="Book a slot" primary />
