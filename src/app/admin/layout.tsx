@@ -1,9 +1,8 @@
 import { canSetup } from "@/server/auth/permissions";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 import { AdminNav } from "@/components/layout/admin/AdminNav";
+import { Suspense } from "react";
 
-// Admin routes are auth-gated and per-request — never prerender them.
-// This applies to ALL routes under /admin/* (desk, bookings, setup, insights).
 export const instant = false;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +14,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* Desktop sidebar */}
       <aside className="hidden border-r border-evergreen/10 bg-surface lg:block">
         <div className="sticky top-16 p-4">
-          <AdminNav role={user.role} canSetup={setup} variant="sidebar" />
+          <Suspense fallback={null}>
+            <AdminNav role={user.role} canSetup={setup} variant="sidebar" />
+          </Suspense>
         </div>
       </aside>
 

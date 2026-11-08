@@ -36,7 +36,7 @@ export function FilterBar({
     onDate: (d: string) => void;
 }) {
     return (
-        <div className="space-y-4 rounded-2xl border border-evergreen/10 bg-surfacece p-4 shadow-sm md:p-5">
+        <div className="space-y-4 rounded-2xl border border-evergreen/10 bg-surface p-4 shadow-sm md:p-5">
             <div className="grid gap-4 sm:grid-cols-2">
                 <Select label="Sport" value={sport} onChange={(e) => onSport(e.target.value)}>
                     {venue.sports.map((s) => (

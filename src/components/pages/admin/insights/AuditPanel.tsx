@@ -41,7 +41,7 @@ export function AuditPanel({
             {rows.length === 0 ? (
                 <Card><p className="text-sm text-evergreen/80">No audit entries match.</p></Card>
             ) : (
-                <div className="overflow-x-auto rounded-2xl border border-evergreen/10 bg-surfacece shadow-sm">
+                <div className="overflow-x-auto rounded-2xl border border-evergreen/10 bg-surface shadow-sm">
                     <table className="w-full min-w-[40rem] text-left text-sm">
                         <caption className="sr-only">Audit log, newest first</caption>
                         <thead>

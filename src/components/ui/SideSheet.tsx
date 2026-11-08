@@ -1,10 +1,20 @@
 "use client";
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Right-hand sheet on desktop, full screen on phones. Focus-trapped, Escape closes. */
+/**
+ * Right-hand sheet on desktop, full screen on phones.
+ *
+ * Rendered in a portal at document.body so it escapes any ancestor
+ * `transform` / `will-change` / `filter` (e.g. GSAP's Reveal wrapper on the
+ * home page sections). Without the portal, `position: fixed` becomes
+ * `position: absolute` relative to the transformed ancestor, and the dialog
+ * flickers / jumps when the ancestor's transform updates.
+ */
 export function SideSheet({
     open,
     onClose,
@@ -17,11 +27,8 @@ export function SideSheet({
     open: boolean;
     onClose: () => void;
     title: string;
-    /** Optional one-line description shown under the title. */
     description?: string;
-    /** Optional icon rendered in a tile to the left of the title. */
     icon?: React.ElementType;
-    /** Optional sticky footer (e.g. Save / Cancel). */
     footer?: React.ReactNode;
     children: React.ReactNode;
 }) {
@@ -32,13 +39,31 @@ export function SideSheet({
     const titleId = useId();
     const descId = useId();
 
+    // Keep the DOM mounted briefly after close so the slide-out transition plays.
+    const [mounted, setMounted] = useState(false);
+    // Prevent the overlay from catching the opening click for a brief moment.
+    const [overlayReady, setOverlayReady] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            setMounted(true);
+            setOverlayReady(false);
+            return;
+        }
+        if (!mounted) return;
+        const t = setTimeout(() => setMounted(false), 250);
+        return () => clearTimeout(t);
+    }, [open, mounted]);
+
+    // Focus trap + body scroll lock — only while truly open.
     useEffect(() => {
         if (!open) return;
         const opener = document.activeElement as HTMLElement | null;
-        closeRef.current?.focus();
+        const raf = requestAnimationFrame(() => closeRef.current?.focus());
 
         function onKey(e: KeyboardEvent) {
             if (e.key === "Escape") {
+                e.stopPropagation();
                 onCloseRef.current();
                 return;
             }
@@ -59,29 +84,46 @@ export function SideSheet({
         document.addEventListener("keydown", onKey);
         const prev = document.body.style.overflow;
         document.body.style.overflow = "hidden";
+
+        // Let the slide-in finish before the overlay becomes clickable.
+        const readyTimer = setTimeout(() => setOverlayReady(true), 250);
+
         return () => {
+            cancelAnimationFrame(raf);
             document.removeEventListener("keydown", onKey);
             document.body.style.overflow = prev;
+            clearTimeout(readyTimer);
+            setOverlayReady(false);
             opener?.focus?.();
         };
     }, [open]);
 
-    if (!open) return null;
+    // Not mounted (or SSR) → render nothing.
+    if (!mounted || typeof document === "undefined") return null;
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50">
-            <div className="absolute inset-0 bg-evergreen/60 backdrop-blur-sm" onClick={onClose} aria-hidden />
+            {/* Overlay — fades in/out, not clickable until the slide-in finishes */}
+            <div
+                className={`absolute inset-0 bg-evergreen/60 backdrop-blur-sm transition-opacity duration-200 ease-out ${open ? "opacity-100" : "pointer-events-none opacity-0"
+                    }`}
+                onClick={overlayReady ? onClose : undefined}
+                aria-hidden
+            />
+
+            {/* Panel — slides in from the right */}
             <div
                 ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
                 aria-describedby={description ? descId : undefined}
-                className="absolute inset-y-0 right-0 flex w-full flex-col bg-surface shadow-xl sm:max-w-md"
+                className={`absolute inset-y-0 right-0 flex w-full flex-col bg-surface shadow-xl transition-transform duration-200 ease-out sm:max-w-md ${open ? "translate-x-0" : "translate-x-full"
+                    }`}
             >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 bg-evergreen px-5 py-4 text-surface">
-                    <div className="flex items-start gap-3 min-w-0">
+                    <div className="flex min-w-0 items-start gap-3">
                         {Icon && (
                             <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface/15 text-emerald">
                                 <Icon size={18} aria-hidden />
@@ -114,11 +156,10 @@ export function SideSheet({
 
                 {/* Optional sticky footer */}
                 {footer && (
-                    <div className="border-t border-evergreen/10 bg-surface px-5 py-3">
-                        {footer}
-                    </div>
+                    <div className="border-t border-evergreen/10 bg-surface px-5 py-3">{footer}</div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

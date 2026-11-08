@@ -104,7 +104,7 @@ export function ImageUpload({
                         type="button"
                         onClick={clear}
                         aria-label={`Remove ${label}`}
-                        className="absolute right-1 top-1 inline-flex size-9 items-center justify-center rounded-lg bg-surface/90 text-booked hover:bg-surfacece"
+                        className="absolute right-1 top-1 inline-flex size-9 items-center justify-center rounded-lg bg-surface/90 text-booked hover:bg-surface"
                     >
                         <X size={18} aria-hidden />
                     </button>

@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { LogIn, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatBDT, formatTime12 } from "@/lib/format";
@@ -38,7 +38,7 @@ function Cell({
         clear();
         timer.current = setTimeout(() => {
             fired.current = true;
-            onMore(); // long-press opens the maintenance drawer
+            onMore();
         }, LONG_PRESS_MS);
     };
 
@@ -111,8 +111,14 @@ export function DeskBoard({
     onBooking: (code: string) => void;
     onBlock: (pitchId: string, cell: BoardCell) => void;
 }) {
+    const [activeId, setActiveId] = useState<string>(pitches[0]?.id ?? "");
+    const active = pitches.find((p) => p.id === activeId) ?? pitches[0];
+
+    if (!active) return null;
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
+            {/* Legend */}
             <ul className="flex flex-wrap gap-2 text-xs font-semibold" aria-label="Board legend">
                 {[
                     ["Available: tap to add a walk-in", "border-emerald bg-emerald/15"],
@@ -127,32 +133,78 @@ export function DeskBoard({
                 ))}
             </ul>
 
-            {pitches.map((p) => (
-                <section key={p.id} aria-label={p.name} className="rounded-2xl border border-evergreen/10 bg-surfacece p-4 shadow-sm">
-                    <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
-                        <h3 className="text-base font-bold">{p.name}</h3>
-                        <p className="text-sm text-evergreen/70">
-                            {p.sport} · {p.format}
-                        </p>
+            {/* Pitch selector — content-width tabs, horizontal scroll when overflow */}
+            {pitches.length > 1 && (
+                <div
+                    role="tablist"
+                    aria-label="Select pitch"
+                    className="scrollbar-thin -mx-1 overflow-x-auto px-1 pb-1"
+                >
+                    <div className="flex w-max gap-2">
+                        {pitches.map((p) => {
+                            const isActive = p.id === active.id;
+                            return (
+                                <button
+                                    key={p.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={isActive}
+                                    aria-controls={`panel-${p.id}`}
+                                    onClick={() => setActiveId(p.id)}
+                                    className={cn(
+                                        "flex min-h-12 shrink-0 flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-2 text-left transition-all",
+                                        isActive
+                                            ? "border-teal bg-teal text-white shadow-md"
+                                            : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
+                                    )}
+                                >
+                                    <span className="whitespace-nowrap font-heading text-sm font-bold">{p.name}</span>
+                                    <span
+                                        className={cn(
+                                            "whitespace-nowrap text-xs",
+                                            isActive ? "text-white/80" : "text-evergreen/60"
+                                        )}
+                                    >
+                                        {p.sport} · {p.format}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
-                    <div className="scrollbar-thin overflow-x-auto pb-2">
-                        <div className="grid grid-flow-col auto-cols-[7rem] gap-2">
-                            {p.cells.map((c) => (
-                                <Cell
-                                    key={c.cellStart}
-                                    cell={c}
-                                    onOpen={() => {
-                                        if (c.status === "AVAILABLE") onAvailable(p.id, c);
-                                        else if (c.booking) onBooking(c.booking.code);
-                                        else if (c.status === "MAINTENANCE") onBlock(p.id, c);
-                                    }}
-                                    onMore={() => onBlock(p.id, c)}
-                                />
-                            ))}
-                        </div>
+                </div>
+            )}
+
+            {/* Active pitch only */}
+            <section
+                key={active.id}
+                role="tabpanel"
+                id={`panel-${active.id}`}
+                aria-label={active.name}
+                className="rounded-2xl border border-evergreen/10 bg-surface p-4 shadow-sm"
+            >
+                <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
+                    <h3 className="text-base font-bold">{active.name}</h3>
+                    <p className="text-sm text-evergreen/70">
+                        {active.sport} · {active.format}
+                    </p>
+                </div>
+                <div className="scrollbar-thin overflow-x-auto pb-2">
+                    <div className="grid grid-flow-col auto-cols-[7rem] gap-2">
+                        {active.cells.map((c) => (
+                            <Cell
+                                key={c.cellStart}
+                                cell={c}
+                                onOpen={() => {
+                                    if (c.status === "AVAILABLE") onAvailable(active.id, c);
+                                    else if (c.booking) onBooking(c.booking.code);
+                                    else if (c.status === "MAINTENANCE") onBlock(active.id, c);
+                                }}
+                                onMore={() => onBlock(active.id, c)}
+                            />
+                        ))}
                     </div>
-                </section>
-            ))}
+                </div>
+            </section>
         </div>
     );
 }

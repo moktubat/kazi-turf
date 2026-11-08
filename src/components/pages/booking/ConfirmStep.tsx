@@ -235,7 +235,7 @@ export function ConfirmStep({
             )}
 
             {/* Phone action bar: primary action in the thumb zone */}
-            <div className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-evergreen/10 bg-surfacece shadow-[0_-8px_24px_-12px_rgba(1,50,32,0.25)] lg:hidden">
+            <div className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-evergreen/10 bg-surface shadow-[0_-8px_24px_-12px_rgba(1,50,32,0.25)] lg:hidden">
                 <div className="mx-auto max-w-xl p-3">{primary}</div>
             </div>
         </div>

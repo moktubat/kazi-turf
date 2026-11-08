@@ -68,7 +68,7 @@ export function FindBooking({ onPick }: { onPick: (code: string) => void }) {
             </div>
 
             {results && results.length > 0 && (
-                <ul className="divide-y divide-evergreen/10 rounded-xl border border-evergreen/10 bg-surfacece">
+                <ul className="divide-y divide-evergreen/10 rounded-xl border border-evergreen/10 bg-surface">
                     {results.map((b) => (
                         <li key={b.code}>
                             <button

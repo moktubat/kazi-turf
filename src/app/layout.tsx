@@ -80,7 +80,7 @@ export default async function RootLayout({
                     {children}
                 </main>
 
-                <HideOnRoutes prefixes={["/login"]}>
+                <HideOnRoutes prefixes={["/login", "/admin", "/account"]}>
                     <Footer />
                 </HideOnRoutes>
 

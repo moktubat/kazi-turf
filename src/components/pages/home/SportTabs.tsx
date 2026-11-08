@@ -51,7 +51,7 @@ export function SportTabs({
                     className={cn(
                         "rounded-full px-5 py-2 text-sm font-heading font-semibold transition-all sm:px-6 sm:py-2.5",
                         value === s.id
-                            ? "bg-surfacece text-evergreen shadow-lg"
+                            ? "bg-surface text-evergreen shadow-lg"
                             : "bg-surface/10 text-white hover:bg-surface/25 backdrop-blur-sm"
                     )}
                 >

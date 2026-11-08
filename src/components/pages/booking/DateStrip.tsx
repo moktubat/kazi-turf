@@ -38,7 +38,7 @@ export function DateStrip({
                             "flex min-h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl border-2 px-2 py-1",
                             selected
                                 ? "border-teal bg-teal text-white"
-                                : "border-evergreen/15 bg-surfacece hover:border-teal"
+                                : "border-evergreen/15 bg-surface hover:border-teal"
                         )}
                     >
                         <span className="text-xs font-semibold uppercase">{d === today ? "Today" : p.weekday}</span>
