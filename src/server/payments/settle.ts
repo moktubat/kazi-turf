@@ -1,9 +1,6 @@
-// Server-side verification and settlement of a bKash advance. Idempotent: a duplicate callback,
-// a poll and the reconcile job can all call it for the same payment and get one result.
-// The payment document's "still PENDING" condition makes this safe across serverless instances.
 import "server-only";
 import { policies } from "@/data/site";
-import { BookingModel, PaymentModel } from "@/models";
+import { BookingModel, PaymentModel, UserModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import { findBookingById } from "@/server/bookings";
 import { confirmClaims, releaseClaims } from "@/server/claims";
@@ -12,9 +9,14 @@ import { plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import type { Payment } from "@/types/ops";
 import { bkashExecute, bkashQuery, type RemotePayment } from "./bkash";
+import { Booking } from "@/types/booking";
+import { getPitch } from "../availability";
+import { dhakaParts, toHHMM } from "@/lib/time";
+import { bookingConfirmationTemplate } from "../email/templates";
+import { sendEmail } from "../email";
 
 const SYSTEM = { id: "system", name: "System (bKash)" };
-const ABANDON_GRACE_MS = 2 * 60_000; // after the hold ends, an unfinished checkout is abandoned
+const ABANDON_GRACE_MS = 2 * 60_000;
 
 export type Hint = "success" | "failure" | "cancel" | "reconcile";
 export type SettleResult = "CONFIRMED" | "REFUND" | "FAILED" | "PENDING" | "NOT_FOUND";
@@ -151,7 +153,6 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
     const dup = !!r.trxId && !!(await PaymentModel.exists({ id: { $ne: p.id }, providerTxnId: r.trxId }));
 
     if (!b || bad || dup) {
-        // bKash may have taken money we cannot match. Never confirm, and flag it for a human.
         await tx(async (s) => {
             const note = `Could not verify: ${bad ?? "transaction ID already recorded"}${r.trxId ? ` (trx ${r.trxId})` : ""}. Check the bKash merchant panel.`;
             const u = await PaymentModel.updateOne(
@@ -178,15 +179,16 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
 
     const verified = { status: "SUCCESS", providerTxnId: r.trxId, verifiedAt: now.toISOString() };
 
+    let confirmedBooking: typeof b | null = null;
+
     try {
-        // Verified: bKash confirmed amount, currency and reference for the attempt we created.
         await tx(async (s) => {
             const claimed = await PaymentModel.findOneAndUpdate(
                 { id: p.id, status: "PENDING" },
                 { $set: verified },
                 { session: s }
             ).lean();
-            if (!claimed) return; // someone else settled it first
+            if (!claimed) return;
 
             const cur = plain<typeof b>(await BookingModel.findOne({ id: b.id }).session(s).lean());
 
@@ -213,7 +215,7 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
             const revivable = cur.bookingStatus === "PENDING_PAYMENT" || cur.bookingStatus === "EXPIRED";
             if (!revivable) throw new AppError("SLOT_UNAVAILABLE", "Booking is no longer open.", 409);
 
-            await confirmClaims(cur, now, s); // throws SLOT_UNAVAILABLE if another booking owns a cell
+            await confirmClaims(cur, now, s);
             await BookingModel.updateOne(
                 { id: b.id },
                 { $set: { bookingStatus: "CONFIRMED", paymentStatus: "PARTIALLY_PAID" } },
@@ -230,12 +232,12 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
                 },
                 { session: s }
             );
+
+            confirmedBooking = { ...cur, bookingStatus: "CONFIRMED", paymentStatus: "PARTIALLY_PAID" } as typeof b;
         });
     } catch (e) {
         if (!(e instanceof AppError) || e.code !== "SLOT_UNAVAILABLE") throw e;
 
-        // Late success and the slot is gone (or the booking was cancelled). The transaction above rolled
-        // back, so record the money and flag the refund in a second one. Never silently keep the money.
         await tx(async (s) => {
             const claimed = await PaymentModel.findOneAndUpdate(
                 { id: p.id, status: "PENDING" },
@@ -243,7 +245,7 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
                 { session: s }
             ).lean();
             if (!claimed) return;
-            await releaseClaims(b.id, s); // free any cell of ours that is still held
+            await releaseClaims(b.id, s);
             await BookingModel.updateOne({ id: b.id }, { $set: { paymentStatus: "REFUND_PENDING" } }, { session: s });
             await BookingModel.updateOne(
                 { id: b.id, bookingStatus: "PENDING_PAYMENT" },
@@ -262,6 +264,54 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
                 { session: s }
             );
         });
+        return after(p.id);
     }
+
+    if (confirmedBooking) {
+        void sendBookingConfirmationEmail(confirmedBooking);
+    }
+
     return after(p.id);
+}
+
+async function sendBookingConfirmationEmail(b: Booking): Promise<void> {
+    try {
+        if (!b.customerId || b.customerId.startsWith("walkin:")) return;
+
+        const user = await UserModel.findOne(
+            { id: b.customerId },
+            { name: 1, email: 1 }
+        ).lean<{ name: string; email: string | null }>();
+
+        if (!user?.email) return;
+
+        const pitch = getPitch(b.pitchId);
+        const start = toHHMM(dhakaParts(new Date(b.startAt)).minutes);
+        const end = toHHMM(dhakaParts(new Date(b.endAt)).minutes);
+
+        const tpl = bookingConfirmationTemplate({
+            name: user.name || b.customerName || "Customer",
+            code: b.bookingCode,
+            pitchName: pitch?.name ?? "the venue",
+            sport: pitch?.sport ?? "",
+            date: b.date,
+            start,
+            end,
+            total: b.total,
+            advance: b.advanceAmount,
+            balance: b.balanceAmount,
+        });
+
+        await sendEmail({
+            to: user.email,
+            subject: tpl.subject,
+            html: tpl.html,
+            text: tpl.text,
+        });
+    } catch (e) {
+        console.error(
+            "[email] booking confirmation failed:",
+            e instanceof Error ? e.message : e
+        );
+    }
 }

@@ -3,7 +3,7 @@ import { staffGuard } from "@/server/admin/guard";
 import { AppError, handleError, ok } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
 import { rateLimit } from "@/server/security/rateLimit";
-import { uploadImage } from "@/server/cloudinary";
+import { cloudinaryConfigured, uploadImage } from "@/server/cloudinary";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
@@ -19,6 +19,14 @@ export async function POST(req: NextRequest) {
 
         if (user.role !== "SUPER_ADMIN" && !user.permissions.includes("pitches.edit")) {
             throw new AppError("FORBIDDEN", "You do not have permission to upload images.", 403);
+        }
+
+        if (!cloudinaryConfigured()) {
+            throw new AppError(
+                "CLOUDINARY_NOT_CONFIGURED",
+                "Image upload is not configured. Ask a Super Admin to set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in the server environment.",
+                500
+            );
         }
 
         const form = await req.formData();

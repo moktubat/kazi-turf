@@ -1,5 +1,6 @@
 import "server-only";
 import { v2 as cloudinary } from "cloudinary";
+import { AppError } from "@/server/http";
 
 let configured = false;
 
@@ -9,8 +10,10 @@ function ensureConfigured() {
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
     if (!cloudName || !apiKey || !apiSecret) {
-        throw new Error(
-            "CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET must be set in .env.local to use image upload."
+        throw new AppError(
+            "CLOUDINARY_NOT_CONFIGURED",
+            "Image upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in .env.local to enable uploads.",
+            500
         );
     }
     cloudinary.config({
@@ -51,38 +54,47 @@ export async function uploadImage(
         .replace(/^-+|-+$/g, "")
         .slice(0, 80);
     if (slug.length < 3) {
-        throw new Error("uploadImage: publicId must slug to at least 3 characters.");
+        throw new AppError("VALIDATION", "uploadImage: publicId must slug to at least 3 characters.", 400, {
+            publicId: "Too short",
+        });
     }
     const fullPublicId = `${folder}/${slug}`;
 
-    return new Promise<UploadedImage>((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-            {
-                resource_type: "image",
-                public_id: fullPublicId,
-                overwrite: true,
-                unique_filename: false,
-            },
-            (err, result) => {
-                if (err) return reject(err);
-                if (!result) return reject(new Error("Cloudinary returned no result."));
-                resolve({
-                    secureUrl: result.secure_url,
-                    publicId: result.public_id,
-                    width: result.width,
-                    height: result.height,
-                    bytes: result.bytes,
-                    format: result.format,
-                });
-            }
-        );
-        stream.end(buffer);
-    });
+    try {
+        return await new Promise<UploadedImage>((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                {
+                    resource_type: "image",
+                    public_id: fullPublicId,
+                    overwrite: true,
+                    unique_filename: false,
+                },
+                (err, result) => {
+                    if (err) return reject(err);
+                    if (!result) return reject(new Error("Cloudinary returned no result."));
+                    resolve({
+                        secureUrl: result.secure_url,
+                        publicId: result.public_id,
+                        width: result.width,
+                        height: result.height,
+                        bytes: result.bytes,
+                        format: result.format,
+                    });
+                }
+            );
+            stream.end(buffer);
+        });
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new AppError("UPLOAD_FAILED", `Image upload failed: ${msg}`, 502, {
+            file: "Upload failed — try again",
+        });
+    }
 }
 
 export async function deleteImage(publicId: string): Promise<void> {
     if (!publicId) return;
-    ensureConfigured();
+    if (!cloudinaryConfigured()) return;
     try {
         const r = await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
         if (r.result !== "ok" && r.result !== "not found") {

@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
 import { formatBDT } from "@/lib/format";
-import { addDays, dhakaParts } from "@/lib/time";
+import { addDays, dhakaParts, toHHMM } from "@/lib/time";
 import { BookingModel, PaymentModel, UserModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import { assertBranchAccess } from "@/server/auth/guards";
@@ -20,6 +20,8 @@ import type { AdminBookingDto } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 import { toAdminDto } from "./dto";
 import { todayDhaka } from "@/lib/time.server";
+import { sendEmail } from "../email";
+import { bookingConfirmationTemplate } from "../email/templates";
 
 /** Walk-in rules: staff may book a slot already in progress; everything else matches /book. */
 export async function validateWalkIn(user: ServerUser, pitchId: string, cellStarts: string[], now: Date) {
@@ -171,6 +173,48 @@ export async function createWalkIn(
             { session: s }
         );
     });
+
+    // ── EMAIL ──
+    if (existing?.id) {
+        void (async () => {
+            try {
+                const customer = await UserModel.findOne(
+                    { id: existing.id },
+                    { name: 1, email: 1 }
+                ).lean<{ name: string; email: string | null }>();
+
+                if (!customer?.email) return;
+
+                const start = toHHMM(dhakaParts(new Date(booking.startAt)).minutes);
+                const end = toHHMM(dhakaParts(new Date(booking.endAt)).minutes);
+
+                const tpl = bookingConfirmationTemplate({
+                    name: customer.name,
+                    code: booking.bookingCode,
+                    pitchName: v.pitch.name,
+                    sport: v.pitch.sport,
+                    date: v.date,
+                    start,
+                    end,
+                    total: q.total,
+                    advance: paid,
+                    balance: q.total - paid,
+                });
+
+                await sendEmail({
+                    to: customer.email,
+                    subject: tpl.subject,
+                    html: tpl.html,
+                    text: tpl.text,
+                });
+            } catch (e) {
+                console.error(
+                    "[email] walk-in confirmation failed:",
+                    e instanceof Error ? e.message : e
+                );
+            }
+        })();
+    }
 
     return toAdminDto(booking, user, now);
 }

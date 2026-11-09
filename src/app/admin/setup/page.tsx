@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 
 import { requireSetupPage } from "@/server/auth/pageGuards";
 import { SetupView } from "@/components/pages/admin/setup/SetupView";
@@ -12,6 +13,8 @@ type Params = Promise<Record<string, string | string[] | undefined>>;
 const VALID_TABS: SetupTab[] = ["venue", "pitches", "rates", "staff", "policies"];
 
 export default async function SetupPage({ searchParams }: { searchParams: Params }) {
+    await connection();
+
     const sp = await searchParams;
     const rawTab = Array.isArray(sp.tab) ? sp.tab[0] : sp.tab;
     const initialTab: SetupTab = VALID_TABS.includes(rawTab as SetupTab)

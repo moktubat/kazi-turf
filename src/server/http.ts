@@ -22,7 +22,6 @@ export function fail(code: string, message: string, status: number, fields?: Rec
     return NextResponse.json({ code, message, ...(fields ? { fields } : {}) }, { status, headers: NO_STORE });
 }
 
-/** Predictable error shape. Never leaks stack traces or database errors. */
 export function handleError(e: unknown) {
     if (e instanceof AppError) return fail(e.code, e.message, e.status, e.fields);
     if (e instanceof ZodError) {
@@ -33,7 +32,40 @@ export function handleError(e: unknown) {
         }
         return fail("VALIDATION", "Please check the highlighted fields.", 400, fields);
     }
-    console.error("[api]", e instanceof Error ? e.message : "unknown error");
+
+    const msg = e instanceof Error ? e.message : String(e);
+    const lower = msg.toLowerCase();
+
+    if (lower.includes("cloudinary") || lower.includes("cld_") || lower.includes("cloud_name")) {
+        console.error("[api] cloudinary error:", msg);
+        return fail(
+            "CLOUDINARY_NOT_CONFIGURED",
+            "Image upload is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in .env.local.",
+            500
+        );
+    }
+    if (lower.includes("mongodb_uri") || lower.includes("mongodb uri")) {
+        console.error("[api] db config error:", msg);
+        return fail(
+            "DB_NOT_CONFIGURED",
+            "Database is not configured. Set MONGODB_URI in .env.local.",
+            500
+        );
+    }
+    if (
+        lower.includes("replica set") ||
+        lower.includes("sessions are not supported") ||
+        lower.includes("transaction")
+    ) {
+        console.error("[api] db transaction error:", msg);
+        return fail(
+            "DB_NO_REPLICA_SET",
+            "Bookings need a MongoDB replica set. Use MongoDB Atlas (free tier has one) or start a local replica set.",
+            500
+        );
+    }
+
+    console.error("[api]", msg);
     return fail("SERVER_ERROR", "Something went wrong. Please try again.", 500);
 }
 

@@ -1,6 +1,7 @@
 import "server-only";
 import mongoose, { type ClientSession } from "mongoose";
 import { allModels } from "@/models";
+import { AppError } from "@/server/http";
 import { ensureConfig } from "../config";
 
 interface Cache {
@@ -11,11 +12,16 @@ interface Cache {
 const g = globalThis as unknown as { __ktMongo?: Cache };
 const cache = (g.__ktMongo ??= { conn: null, ready: null });
 
-/** One pooled connection per process. Indexes are created once (safe to repeat: existing ones are untouched). */
 export async function connectDb(): Promise<typeof mongoose> {
     if (!cache.conn) {
         const uri = process.env.MONGODB_URI;
-        if (!uri) throw new Error("MONGODB_URI is not set");
+        if (!uri) {
+            throw new AppError(
+                "DB_NOT_CONFIGURED",
+                "Database is not configured. Set MONGODB_URI in .env.local (a MongoDB Atlas connection string works).",
+                500
+            );
+        }
 
         cache.conn = mongoose
             .connect(uri, {
@@ -25,7 +31,12 @@ export async function connectDb(): Promise<typeof mongoose> {
             })
             .catch((e) => {
                 cache.conn = null;
-                throw e;
+                const msg = e instanceof Error ? e.message : String(e);
+                throw new AppError(
+                    "DB_UNREACHABLE",
+                    `Could not connect to the database: ${msg}. Check MONGODB_URI and your network/Atlas IP allow-list.`,
+                    500
+                );
             });
     }
 
@@ -45,16 +56,11 @@ export async function connectDb(): Promise<typeof mongoose> {
     }
 
     await cache.ready;
-    await ensureConfig(); // Live Setup values, cached for 5 s per instance
+    await ensureConfig();
 
     return m;
 }
 
-/**
- * Runs fn in one transaction (needs a replica set: Atlas has one by default).
- * Transient errors (for example a write conflict from a competing booking) are retried automatically.
- * Any other error aborts and rolls back everything fn wrote.
- */
 export async function tx<T>(
     fn: (session: ClientSession) => Promise<T>
 ): Promise<T> {
