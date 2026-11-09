@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { connection } from "next/server";    // ← ADD THIS IMPORT
+import { connection } from "next/server";
 import { Hero } from "@/components/pages/home/Hero";
 import { HeroKickOffs, KickOffsFallback } from "@/components/pages/home/HeroKickOffs";
 import { Ticker } from "@/components/pages/home/Ticker";
@@ -27,7 +27,7 @@ async function HeroSection({ venue, policies }: { venue: Branch; policies: Polic
             policies={policies}
             aside={
                 <Suspense fallback={<KickOffsFallback />}>
-                    <HeroKickOffs today={today} />
+                    <HeroKickOffs today={today} venue={venue} />
                 </Suspense>
             }
         />
@@ -35,9 +35,6 @@ async function HeroSection({ venue, policies }: { venue: Branch; policies: Polic
 }
 
 export default async function HomePage() {
-    // FIX: Opt out of static prerendering.
-    // This page reads from MongoDB (which internally calls new Date()),
-    // so it cannot be statically prerendered. connection() marks it dynamic.
     await connection();
 
     const [venue, policies] = await Promise.all([
@@ -45,8 +42,12 @@ export default async function HomePage() {
         getPublicPolicies(),
     ]);
 
-    console.log("[home-page] venue:", venue?.id, venue?.name, "| sports:", venue?.sports?.length);
-    console.log("[home-page] policies:", policies ? `slotMinutes=${policies.slotMinutes} advance=${policies.advancePercent}` : "NULL");
+    // DEBUG: verify venue + policies are coming from the DB, not the static fallback
+    console.log("[home-page] venue:", venue?.id, venue?.name);
+    console.log("[home-page] sportConfigs count:", (venue?.sportConfigs ?? []).length);
+    console.log("[home-page] sportConfigs:", venue?.sportConfigs?.map((s) => `${s.name} (active=${s.active})`));
+    console.log("[home-page] sports array:", venue?.sports);
+    console.log("[home-page] policies:", policies ? `slotMinutes=${policies.slotMinutes} advance=${policies.advancePercent} horizon=${policies.bookingHorizonDays}` : "NULL");
 
     return (
         <>

@@ -11,6 +11,18 @@ export function VenuePanel({ venue }: { venue: Branch }) {
     const pitches = getBranchPitches(venue.id);
 
     const configs = (venue.sportConfigs ?? []).filter((s) => s.active);
+
+    if (configs.length === 0) {
+        return (
+            <div className="rounded-2xl border border-dashed border-evergreen/20 bg-surface p-8 text-center">
+                <p className="font-semibold text-evergreen">No sports configured yet</p>
+                <p className="mt-1 text-sm text-evergreen/70">
+                    Add sports from the admin setup to see them here.
+                </p>
+            </div>
+        );
+    }
+
     const groups: SportGroup[] = configs.map((s) => {
         const list = pitches.filter((p) => p.sport === s.name);
         return {
@@ -20,7 +32,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
             content:
                 list.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-evergreen/20 bg-surface p-6 text-sm text-evergreen/80">
-                        No fields for {s.name} yet.
+                        No fields for {s.name} yet. Add a field in admin setup to enable bookings.
                     </p>
                 ) : (
                     <div className={grid}>
@@ -37,11 +49,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
             {groups.length > 1 ? (
                 <SportPitchTabs groups={groups} />
             ) : (
-                <div className={grid}>
-                    {pitches.map((p) => (
-                        <PitchCard key={p.id} pitch={p} />
-                    ))}
-                </div>
+                groups[0]?.content
             )}
 
             {houseRules.length > 0 && (

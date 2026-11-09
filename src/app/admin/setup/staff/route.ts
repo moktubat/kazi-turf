@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         const user = await staffGuard(req, true);
         console.log("[setup/staff] staffGuard done:", Date.now() - start, "ms");
 
-        const body = await readJson(req);
+        const body = (await readJson(req)) as Record<string, unknown>;
         console.log("[setup/staff] body:", { ...body, password: body.password ? "[REDACTED]" : undefined });
         const parsed = staffCreateSchema.parse(body);
 
@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest) {
     console.log("[setup/staff] PATCH START (update)");
     try {
         const user = await staffGuard(req, true);
-        const body = await readJson(req);
+        const body = (await readJson(req)) as Record<string, unknown>;
         console.log("[setup/staff] body:", { ...body, newPassword: body.newPassword ? "[REDACTED]" : undefined });
         const parsed = staffUpdateSchema.parse(body);
 

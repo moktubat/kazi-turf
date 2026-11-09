@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { ApiError } from "@/lib/api";
-import Image from "next/image";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
@@ -27,6 +26,7 @@ export function ImageUpload({
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [dragOver, setDragOver] = useState(false);
+    const [imgError, setImgError] = useState(false);
 
     async function uploadFile(file: File) {
         if (!ACCEPTED.includes(file.type)) {
@@ -40,6 +40,7 @@ export function ImageUpload({
 
         setUploading(true);
         setUploadError(null);
+        setImgError(false);
         try {
             const fd = new FormData();
             fd.append("file", file);
@@ -84,6 +85,7 @@ export function ImageUpload({
     function clear() {
         onChange("");
         setUploadError(null);
+        setImgError(false);
     }
 
     return (
@@ -91,45 +93,26 @@ export function ImageUpload({
             <p className="text-sm font-semibold text-evergreen">{label}</p>
 
             {value && (
-                <div className="relative">
-                    <Image
-                        src={value}
-                        alt={label}
-                        fill
-                        unoptimized
-                        className="rounded-xl border border-evergreen/10 object-cover"
-                        onError={(e) => {
-                            const img = e.currentTarget;
-                            img.style.display = "none";
-
-                            const fallback = img.parentElement?.querySelector(
-                                "[data-image-fallback]"
-                            ) as HTMLElement | null;
-
-                            if (fallback) fallback.style.display = "flex";
-                        }}
-                        onLoad={(e) => {
-                            const img = e.currentTarget;
-
-                            img.style.display = "block";
-
-                            const fallback = img.parentElement?.querySelector(
-                                "[data-image-fallback]"
-                            ) as HTMLElement | null;
-
-                            if (fallback) fallback.style.display = "none";
-                        }}
-                    />
-                    <div
-                        className="hidden h-32 w-full items-center justify-center rounded-xl border border-booked/30 bg-booked-soft text-xs font-medium text-booked"
-                    >
-                        Image could not load — check CSP allows {value?.split("/")[2] ?? "external URLs"}
-                    </div>
+                <div className="relative h-40 w-full overflow-hidden rounded-xl border border-evergreen/10">
+                    {imgError ? (
+                        <div className="flex h-full w-full items-center justify-center bg-booked-soft px-3 text-center text-xs font-medium text-booked">
+                            Image could not load — check the URL or CSP allows res.cloudinary.com
+                        </div>
+                    ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            src={value}
+                            alt={label}
+                            className="h-full w-full object-cover"
+                            onError={() => setImgError(true)}
+                            onLoad={() => setImgError(false)}
+                        />
+                    )}
                     <button
                         type="button"
                         onClick={clear}
                         aria-label={`Remove ${label}`}
-                        className="absolute right-1 top-1 inline-flex size-9 items-center justify-center rounded-lg bg-surface/90 text-booked hover:bg-surface"
+                        className="absolute right-1 top-1 inline-flex size-9 items-center justify-center rounded-lg bg-surface/90 text-booked shadow-sm hover:bg-surface"
                     >
                         <X size={18} aria-hidden />
                     </button>

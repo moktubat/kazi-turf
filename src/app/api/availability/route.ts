@@ -37,8 +37,9 @@ export async function GET(req: NextRequest) {
             throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
         }
 
+        const branchPitches = getBranchPitches(venue.id, q.sport);
         const pitches = await Promise.all(
-            getBranchPitches(venue.id, q.sport).map(async (p) => ({
+            branchPitches.map(async (p) => ({
                 id: p.id,
                 name: p.name,
                 sport: p.sport,

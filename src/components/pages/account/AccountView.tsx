@@ -94,12 +94,12 @@ export function AccountView({
             <div className="grid gap-6 md:grid-cols-[15rem_1fr] md:gap-8">
                 {/* Sidebar (vertical on md+, horizontal pills on mobile) */}
                 <nav aria-label="Account sections" className="md:pr-2">
-                    <ul className="scrollbar-thin flex gap-2 overflow-x-auto pb-2 md:flex-col md:overflow-visible md:pb-0 md:space-y-1">
+                    <ul className="grid grid-cols-3 gap-2 pb-2 md:flex md:flex-col md:gap-1 md:pb-0">
                         {navItems.map((item) => {
                             const active = tab === item.id;
                             const Icon = item.icon;
                             return (
-                                <li key={item.id} className="shrink-0 md:shrink">
+                                <li key={item.id} className="md:shrink">
                                     <button
                                         type="button"
                                         role="tab"
@@ -107,16 +107,16 @@ export function AccountView({
                                         aria-selected={active}
                                         aria-controls={`panel-${item.id}`}
                                         onClick={() => setTab(item.id)}
-                                        className={`flex min-h-11 items-center gap-2.5 rounded-xl px-4 text-sm font-semibold transition-colors md:w-full ${active
-                                                ? "bg-teal text-white shadow-sm"
-                                                : "bg-mint text-evergreen hover:bg-emerald/40"
+                                        className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold transition-colors sm:text-sm md:justify-start md:gap-2.5 md:px-4 md:text-sm ${active
+                                            ? "bg-teal text-white shadow-sm"
+                                            : "bg-mint text-evergreen hover:bg-emerald/40"
                                             }`}
                                     >
-                                        <Icon size={16} aria-hidden />
-                                        <span>{item.label}</span>
+                                        <Icon size={16} aria-hidden className="shrink-0" />
+                                        <span className="truncate">{item.label}</span>
                                         {typeof item.count === "number" && (
                                             <span
-                                                className={`ml-auto rounded-full px-1.5 text-xs font-bold ${active ? "bg-white/20 text-white" : "bg-surface text-teal"
+                                                className={`ml-auto hidden rounded-full px-1.5 text-xs font-bold md:inline ${active ? "bg-white/20 text-white" : "bg-surface text-teal"
                                                     }`}
                                             >
                                                 {item.count}

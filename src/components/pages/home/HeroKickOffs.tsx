@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { venue } from "@/data/branches";
 import { getNextOpenSlots, getPitch } from "@/server/availability";
 import { addDays } from "@/lib/time";
 import { formatBDT, formatTime12 } from "@/lib/format";
+import type { Branch } from "@/types";
 
-// Only change: semi-transparent dark green (was bg-pitch/80) + stronger blur.
 const shell =
     "rounded-2xl border border-white/10 bg-pitch/45 p-4 text-white shadow-2xl backdrop-blur-lg md:p-5";
 
@@ -22,9 +21,17 @@ export function KickOffsFallback() {
     );
 }
 
-export async function HeroKickOffs({ today }: { today: string }) {
+export async function HeroKickOffs({
+    today,
+    venue,
+}: {
+    today: string;
+    venue: Branch;
+}) {
     if (venue.status !== "ACTIVE") return null;
 
+    // getNextOpenSlots is async (reads from MongoDB). getPitch is sync (reads
+    // the in-memory array populated by ensureConfig at request start).
     const slots = await getNextOpenSlots(venue.id, today, 5);
     const tomorrow = addDays(today, 1);
 
@@ -39,18 +46,22 @@ export async function HeroKickOffs({ today }: { today: string }) {
             </div>
 
             {slots.length === 0 ? (
-                <p className="py-6 text-sm text-white/80">
-                    Fully booked today.{" "}
+                <div className="py-6 text-center">
+                    <p className="text-sm font-semibold text-white">No slots available today</p>
+                    <p className="mt-1 text-xs text-white/70">
+                        Booking opens soon — please check back later.
+                    </p>
                     <Link
                         href={`/book?${new URLSearchParams({ date: tomorrow })}`}
-                        className="font-semibold text-emerald underline underline-offset-2"
+                        className="mt-3 inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-white/15 px-3 text-xs font-semibold text-white transition-colors hover:bg-white/10"
                     >
-                        See tomorrow
+                        Check tomorrow <ArrowRight size={12} aria-hidden />
                     </Link>
-                </p>
+                </div>
             ) : (
                 <ul className="divide-y divide-white/10">
                     {slots.map((s) => {
+                        // Sync — reads from the in-memory pitches array
                         const sport = getPitch(s.pitchId)?.sport ?? "";
                         const href = `/book?${new URLSearchParams({
                             sport,

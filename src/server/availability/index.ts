@@ -1,5 +1,6 @@
 // ONE availability function: powers Home "Open Today", /book and the Staff Desk board.
-// Claims come from MongoDB. Pitches, hours and rates still come from the shared config (Batch 9 persists it).
+// Pitches are loaded into the in-memory `pitches` array by ensureConfig() at the
+// start of each request (see src/server/config). Claims come from MongoDB.
 import { pitches } from "@/data/pitches";
 import { policies } from "@/data/site";
 import { addDays, dhakaToUtc, toHHMM, toMinutes } from "@/lib/time";
@@ -24,6 +25,7 @@ export interface AvailabilityOptions {
     allowStarted?: boolean;
 }
 
+// Sync lookups — reads from the in-memory `pitches` array populated by ensureConfig().
 export function getPitch(pitchId: string): Pitch | undefined {
     return pitches.find((p) => p.id === pitchId);
 }
@@ -61,7 +63,6 @@ function buildCells(
     const open = toMinutes(pitch.openTime);
     const close = toMinutes(pitch.closeTime);
 
-    // Expired HELD claims are ignored immediately. Server time is authoritative.
     const active = new Map<string, SlotClaim>();
     for (const c of claims) {
         if (c.pitchId !== pitch.id) continue;
@@ -107,7 +108,6 @@ export async function getPitchAvailability(
     return buildCells(pitch, date, await loadClaims([pitchId], from, to), now, opts);
 }
 
-/** Next open slots for a branch (Home "Open Today"): one claims query for the whole branch. */
 export async function getNextOpenSlots(branchId: string, date: string, limit = 4, sport?: string) {
     const list = getBranchPitches(branchId, sport);
     const [from, to] = dayRange(date);
@@ -123,7 +123,6 @@ export async function getNextOpenSlots(branchId: string, date: string, limit = 4
     return out.sort((a, b) => a.cellStart.localeCompare(b.cellStart)).slice(0, limit);
 }
 
-/** First date after `afterDate` (up to `lastDate`) with at least one open slot. One claims query for the range. */
 export async function findNextAvailableDate(
     branchId: string,
     sport: string,

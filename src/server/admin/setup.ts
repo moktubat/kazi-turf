@@ -32,6 +32,9 @@ import { assertSuperAdmin } from "./access";
 import { todayDhaka } from "@/lib/time.server";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+type StaffDoc = Pick<User, "id" | "name" | "phone" | "email" | "branchIds" | "permissions" | "status"> & {
+    role: "STAFF" | "SUPER_ADMIN";
+};
 
 /** Every edit starts from the freshest saved config, so another instance's change is not overwritten. */
 async function begin() {
@@ -418,7 +421,7 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
 
     const email = input.email.trim() ? input.email.trim().toLowerCase() : null;
     const passwordHash = await hashPassword(input.password);
-    await assertUnique(input.phone, email);
+    await assertUnique(input.phone, email ?? "");
 
     const u: User = {
         id: randomUUID(),
@@ -612,7 +615,9 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
     const coverage: Record<string, string[]> = {};
     for (const p of myPitches) coverage[p.id] = gapLines(p, today);
 
-    const staffDocs = isAdmin ? await UserModel.find({ role: { $ne: "CUSTOMER" } }).sort({ name: 1 }).lean<any[]>() : [];
+    const staffDocs: StaffDoc[] = isAdmin
+        ? await UserModel.find({ role: { $ne: "CUSTOMER" } }).sort({ name: 1 }).lean<StaffDoc[]>()
+        : [];
     const staff: SetupStaff[] = staffDocs.map((u) => ({
         id: u.id,
         name: u.name,

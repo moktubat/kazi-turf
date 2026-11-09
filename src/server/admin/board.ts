@@ -36,8 +36,7 @@ export async function getBoard(
 
     const from = dhakaToUtc(date, 0).toISOString();
     const to = dhakaToUtc(addDays(date, 1), 0).toISOString();
-    const list = getBranchPitches(branch.id);
-
+    const list = await getBranchPitches(branch.id);
     const claims = await SlotClaimModel.find({
         pitchId: { $in: list.map((p) => p.id) },
         cellStart: { $gte: from, $lt: to },

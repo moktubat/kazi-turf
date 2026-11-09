@@ -1,51 +1,5 @@
 import type { Pitch } from "@/types";
-import { shared } from "@/lib/shared";
 
-// Sample inventory [CONFIRM]. Image must be a real venue photo or null.
-export const pitches: Pitch[] = shared<Pitch[]>("pitches", [
-    {
-        id: "bogura-a",
-        branchId: "bogura",
-        name: "Pitch A",
-        sport: "Football",
-        format: "7-a-side",
-        dimensions: "To be verified",
-        surface: "Artificial turf",
-        openTime: "06:00",
-        closeTime: "24:00",
-        maxConsecutiveSlots: 2,
-        facilities: ["Floodlights", "Parking", "Washroom"],
-        image: null,
-        status: "ACTIVE",
-    },
-    {
-        id: "bogura-b",
-        branchId: "bogura",
-        name: "Pitch B",
-        sport: "Football",
-        format: "5-a-side",
-        dimensions: "To be verified",
-        surface: "Artificial turf",
-        openTime: "06:00",
-        closeTime: "24:00",
-        maxConsecutiveSlots: 2,
-        facilities: ["Floodlights", "Parking", "Washroom"],
-        image: null,
-        status: "ACTIVE",
-    },
-    {
-        id: "bogura-c",
-        branchId: "bogura",
-        name: "Cricket Net",
-        sport: "Cricket",
-        format: "Net practice",
-        dimensions: "To be verified",
-        surface: "Turf wicket",
-        openTime: "06:00",
-        closeTime: "24:00",
-        maxConsecutiveSlots: 2,
-        facilities: ["Floodlights", "Parking"],
-        image: null,
-        status: "ACTIVE",
-    },
-]);
+// Static fallback is intentionally empty.
+// All pitches must be created through /admin/setup so they live in the DB.
+export const pitches: Pitch[] = [];
