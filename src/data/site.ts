@@ -7,6 +7,7 @@ export const site = {
     // [CONFIRM] sample numbers, replace with official ones
     phone: "+8801700000000",
     whatsapp: "8801700000000",
+    email: "hello@kaziturf.vercel.app",
     timezone: "Asia/Dhaka",
     currency: "BDT",
 };

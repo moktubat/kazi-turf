@@ -5,6 +5,9 @@ import { InquiryModel } from "@/models";
 import { connectDb } from "@/server/db/connect";
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { rateLimit } from "@/server/security/rateLimit";
+import { sendEmail } from "@/server/email";
+import { inquiryEmailTemplate } from "@/server/email/templates";
+import { site } from "@/data/site";
 
 export async function POST(req: NextRequest) {
     try {
@@ -13,14 +16,12 @@ export async function POST(req: NextRequest) {
         }
 
         const raw = (await readJson(req)) as { website?: unknown } | null;
-        // Honeypot: bots fill the hidden field. Pretend success, store nothing.
         if (raw && typeof raw.website === "string" && raw.website.length > 0) {
             return ok({ received: true }, 201);
         }
 
         const input = contactSchema.parse(raw);
 
-        // No mail provider yet: store the inquiry. Admin shows it in Insights.
         await connectDb();
         await InquiryModel.create({
             id: randomUUID(),
@@ -30,6 +31,19 @@ export async function POST(req: NextRequest) {
             status: "NEW",
             createdAt: new Date().toISOString(),
         });
+
+        // Email the venue owner (non-blocking — failure doesn't break the API response).
+        const adminEmail = process.env.ADMIN_EMAIL ?? site.email;
+        if (adminEmail) {
+            const tpl = inquiryEmailTemplate(input);
+            void sendEmail({
+                to: adminEmail,
+                subject: tpl.subject,
+                html: tpl.html,
+                text: tpl.text,
+                replyTo: input.contact.includes("@") ? input.contact : undefined,
+            });
+        }
 
         return ok({ received: true }, 201);
     } catch (e) {
