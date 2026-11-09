@@ -8,6 +8,10 @@ import type { SetupTab } from "@/types/setup";
 
 export const metadata: Metadata = { title: "Setup" };
 
+// FIX: Allow blocking render. connection() accesses dynamic data outside <Suspense>,
+// so without this Next.js warns about "uncached data during navigation".
+export const instant = false;
+
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
 const VALID_TABS: SetupTab[] = ["venue", "pitches", "rates", "staff", "policies"];

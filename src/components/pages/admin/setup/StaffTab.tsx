@@ -107,7 +107,7 @@ function StaffForm({ user, onDone }: { user: SetupStaff | null; onDone: () => vo
             save(
                 staffCreateSchema,
                 { name: f.name, phone: f.phone, email: f.email, password: f.password, ...access },
-                "/api/admin/setup/staff",
+                "/admin/setup/staff",
                 "POST",
                 onDone
             );
@@ -115,7 +115,7 @@ function StaffForm({ user, onDone }: { user: SetupStaff | null; onDone: () => vo
             save(
                 staffUpdateSchema,
                 { id: user.id, status: f.status, newPassword: f.newPassword, ...access },
-                "/api/admin/setup/staff",
+                "/admin/setup/staff",
                 "PATCH",
                 onDone
             );

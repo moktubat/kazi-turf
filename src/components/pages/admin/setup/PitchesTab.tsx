@@ -51,7 +51,7 @@ export function PitchesTab({
         setDeleteBusy(true);
         setDeleteError(null);
         try {
-            await api(`/api/admin/setup/pitches/${encodeURIComponent(deleting.id)}`, { method: "DELETE" });
+            await api(`/api/admin/pitches/${encodeURIComponent(deleting.id)}`, { method: "DELETE" });
             setDeleting(null);
             onChanged?.();
         } catch (e) {
@@ -229,7 +229,7 @@ function PitchForm({
         save(
             isNew ? pitchSchema : pitchUpdateSchema,
             isNew ? f : { ...f, id: pitch.id },
-            "/api/admin/setup/pitches",
+            "/admin/setup/pitches",
             isNew ? "POST" : "PATCH",
             onDone
         );

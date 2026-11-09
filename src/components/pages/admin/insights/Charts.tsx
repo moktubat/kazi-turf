@@ -144,7 +144,8 @@ export function OccupancyHeatmap({ data }: { data: InsightsData["heatmap"] }) {
                         <tbody>
                             {data.times.map((t, ri) => (
                                 <tr key={t}>
-                                    <th scope="row" className="px-2 py-1 text-left font-semibold">{formatTime12(t)}</th>                                    {data.cells[ri].map((v, ci) => (
+                                    <th scope="row" className="px-2 py-1 text-left font-semibold">{formatTime12(t)}</th>
+                                    {data.cells[ri].map((v, ci) => (
                                         <td
                                             key={ci}
                                             className="rounded-md px-2 py-2 font-semibold text-evergreen"

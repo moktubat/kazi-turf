@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
 import { StaffDesk } from "@/components/pages/admin/StaffDesk";
-import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
 import { accessibleBranches } from "@/server/admin/access";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 import { todayDhaka } from "@/lib/time.server";
+import { getPublicPolicies } from "@/server/public-data";
 
+export const instant = false;
 export const metadata: Metadata = { title: "Staff Desk" };
 
 export default async function AdminPage() {
     const user = await requireStaffPage("/admin");
     const mine = accessibleBranches(user);
     const venue = mine[0];
+
+    // Fetch policies from the backend instead of @/data/site
+    const policies = await getPublicPolicies();
+    console.log("[admin-page] policies from backend:", {
+        slotMinutes: policies.slotMinutes,
+        horizon: policies.bookingHorizonDays,
+    });
 
     if (!venue) {
         return (

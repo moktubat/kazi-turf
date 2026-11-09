@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { ApiError } from "@/lib/api";
+import Image from "next/image";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
@@ -91,15 +92,39 @@ export function ImageUpload({
 
             {value && (
                 <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                         src={value}
                         alt={label}
-                        className="h-32 w-full rounded-xl border border-evergreen/10 object-cover"
+                        fill
+                        unoptimized
+                        className="rounded-xl border border-evergreen/10 object-cover"
                         onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                            const img = e.currentTarget;
+                            img.style.display = "none";
+
+                            const fallback = img.parentElement?.querySelector(
+                                "[data-image-fallback]"
+                            ) as HTMLElement | null;
+
+                            if (fallback) fallback.style.display = "flex";
+                        }}
+                        onLoad={(e) => {
+                            const img = e.currentTarget;
+
+                            img.style.display = "block";
+
+                            const fallback = img.parentElement?.querySelector(
+                                "[data-image-fallback]"
+                            ) as HTMLElement | null;
+
+                            if (fallback) fallback.style.display = "none";
                         }}
                     />
+                    <div
+                        className="hidden h-32 w-full items-center justify-center rounded-xl border border-booked/30 bg-booked-soft text-xs font-medium text-booked"
+                    >
+                        Image could not load — check CSP allows {value?.split("/")[2] ?? "external URLs"}
+                    </div>
                     <button
                         type="button"
                         onClick={clear}

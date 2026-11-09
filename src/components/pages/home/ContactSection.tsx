@@ -1,19 +1,18 @@
-import { venue } from "@/data/branches";
 import { formatHourRange } from "@/lib/format";
 import { Section } from "./Section";
 import { ContactForm } from "./ContactForm";
+import type { Branch } from "@/types";
 
 const heading = "font-heading text-base font-bold text-white";
 const text = "mt-1 text-sm text-white/85";
 const link = "mt-1 inline-block text-sm font-semibold text-white underline-offset-4 hover:underline";
 
-export function ContactSection() {
+export function ContactSection({ venue }: { venue: Branch }) {
     if (venue.status !== "ACTIVE") return null;
 
     return (
         <Section id="contact" eyebrow="Get in touch" title="Contact us" tone="canvas">
             <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
-                {/* Left: info card */}
                 <div className="rounded-3xl bg-gradient-to-b from-evergreen via-evergreen to-teal px-7 pb-32 pt-8 shadow-lift lg:pb-8">
                     <h3 className="font-heading text-2xl font-extrabold text-white">Get in touch</h3>
 
@@ -54,7 +53,6 @@ export function ContactSection() {
                     </div>
                 </div>
 
-                {/* Right: form */}
                 <ContactForm />
             </div>
         </Section>

@@ -11,6 +11,7 @@ import { MobileActionBar } from "@/components/layout/MobileActionBar";
 import { getSessionUser } from "@/server/auth/session";
 import { connectDb } from "@/server/db/connect";
 import { HideOnRoutes } from "@/components/layout/HideOnRoutes";
+import { getPublicVenue } from "@/server/public-data";
 
 const jakarta = Plus_Jakarta_Sans({
     subsets: ["latin"],
@@ -44,20 +45,15 @@ export const viewport: Viewport = {
 
 async function HeaderWithUser() {
     await connection();
-
     await connectDb();
-
     const u = await getSessionUser();
-
-    const user = u
-        ? {
-            id: u.id,
-            name: u.name,
-            role: u.role,
-        }
-        : null;
-
+    const user = u ? { id: u.id, name: u.name, role: u.role } : null;
     return <Header user={user} />;
+}
+
+async function FooterWithVenue() {
+    const venue = await getPublicVenue();
+    return <Footer venue={venue} />;
 }
 
 export default async function RootLayout({
@@ -68,9 +64,7 @@ export default async function RootLayout({
     return (
         <html lang="en" className={`${jakarta.variable} ${vietnam.variable}`}>
             <body>
-                <a href="#main" className="skip-link">
-                    Skip to content
-                </a>
+                <a href="#main" className="skip-link">Skip to content</a>
 
                 <Suspense fallback={<Header user={null} />}>
                     <HeaderWithUser />
@@ -81,7 +75,9 @@ export default async function RootLayout({
                 </main>
 
                 <HideOnRoutes prefixes={["/login", "/admin", "/account"]}>
-                    <Footer />
+                    <Suspense fallback={null}>
+                        <FooterWithVenue />
+                    </Suspense>
                 </HideOnRoutes>
 
                 <MobileActionBar />

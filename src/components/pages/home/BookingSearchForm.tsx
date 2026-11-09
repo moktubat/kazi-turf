@@ -2,29 +2,33 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
-import { pitches } from "@/data/pitches";
-import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
 import { formatTime12 } from "@/lib/format";
+import type { Branch, Pitch, Policies } from "@/types";
 
 const label = "block text-[11px] font-bold uppercase tracking-wider text-evergreen/60";
-const control =
-    "mt-0.5 block w-full min-w-0 cursor-pointer bg-transparent text-sm font-semibold text-evergreen outline-none";
-const cell =
-    "rounded-xl px-3 py-2 transition-colors focus-within:bg-mint/70 hover:bg-mint/50";
+const control = "mt-0.5 block w-full min-w-0 cursor-pointer bg-transparent text-sm font-semibold text-evergreen outline-none";
+const cell = "rounded-xl px-3 py-2 transition-colors focus-within:bg-mint/70 hover:bg-mint/50";
 
 export function BookingSearchForm({
     sport,
     today,
+    venue,
+    policies,
+    pitches: pitchesProp,
 }: {
     sport: string;
     today: string;
+    venue: Branch;
+    policies: Policies;        // ← used for slotMinutes + bookingHorizonDays
+    pitches?: Pitch[];
 }) {
     const router = useRouter();
+    // Use policies for booking horizon (not venue — Branch type has no such field)
     const maxDate = addDays(today, policies.bookingHorizonDays);
     const uid = useId();
 
-    const sportPitches = pitches.filter(
+    const sportPitches = (pitchesProp ?? []).filter(
         (p) => p.sport === sport && p.status === "ACTIVE"
     );
 
@@ -32,9 +36,13 @@ export function BookingSearchForm({
     const [date, setDate] = useState(today);
     const [slot, setSlot] = useState("");
 
-    // Generate time slots from 06:00 to 24:00 in slotMinutes increments
+    // Generate time slots using policies.slotMinutes (not venue.slotMinutes)
+    const slotMinutes = policies.slotMinutes;
+    const openMin = 6 * 60;   // 06:00
+    const closeMin = 24 * 60; // 24:00
+
     const times: string[] = [];
-    for (let m = 6 * 60; m < 24 * 60; m += policies.slotMinutes) {
+    for (let m = openMin; m < closeMin; m += slotMinutes) {
         const h = Math.floor(m / 60);
         const min = m % 60;
         times.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);

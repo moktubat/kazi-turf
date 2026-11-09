@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { CalendarCheck, MapPin, Phone } from "lucide-react";
-import { venue } from "@/data/branches";
 import { footerLinks, legalLinks, site } from "@/data/site";
 import { formatHourRange } from "@/lib/format";
+import type { Branch } from "@/types";
 
 const head = "font-heading text-xs font-bold uppercase tracking-[0.18em] text-emerald";
 const link = "text-white/80 underline-offset-2 transition-colors hover:text-white hover:underline";
 
-export async function Footer() {
+export async function Footer({ venue }: { venue: Branch }) {
     return (
         <footer className="bg-evergreen text-white">
             <div className="mx-auto grid max-w-main gap-10 px-4 py-12 md:grid-cols-[1.2fr_1fr_1fr]">

@@ -1,10 +1,10 @@
 import { CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { venue } from "@/data/branches";
 import { Section } from "./Section";
 import { VenuePanel } from "./VenuePanel";
+import type { Branch } from "@/types";
 
-export function VenuesSection() {
+export function VenuesSection({ venue }: { venue: Branch }) {
     if (venue.status !== "ACTIVE") return null;
 
     return (

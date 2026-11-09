@@ -1,7 +1,12 @@
-import { venue } from "@/data/branches";
-import { policies } from "@/data/site";
+import type { Branch, Policies } from "@/types";
 
-export function Ticker() {
+export function Ticker({
+    venue,
+    policies,
+}: {
+    venue: Branch;       // ← now passed as prop
+    policies: Policies;  // ← now passed as prop
+}) {
     const sports = (venue.sportConfigs ?? []).filter((s) => s.active).map((s) => s.name);
     const items = [
         ...sports,

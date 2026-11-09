@@ -167,9 +167,14 @@ const changeRequest = new Schema(
 
 // Editable Setup values (branches, pitches, rates, policies). Wired up in Batch 9.
 const config = new Schema(
-    { key: { type: String, required: true, unique: true }, value: Schema.Types.Mixed, updatedAt: String },
+    {
+        key: { type: String, required: true, unique: true },
+        value: Schema.Types.Mixed,
+        updatedAt: String,
+    },
     opts
 );
+
 
 export const UserModel = reg("User", user);
 export const SessionModel = reg("Session", session);
@@ -181,5 +186,30 @@ export const AuditLogModel = reg("AuditLog", auditLog);
 export const InquiryModel = reg("Inquiry", inquiry);
 export const ChangeRequestModel = reg("ChangeRequest", changeRequest);
 export const ConfigModel = reg("Config", config);
+export const BranchModel = reg(
+    "Branch",
+    new Schema(
+        {
+            id,
+            name: { type: String, required: true },
+            status: { type: String, default: "ACTIVE" },
+        },
+        opts
+    )
+);
+
+export const PitchModel = reg(
+    "Pitch",
+    new Schema(
+        {
+            id,
+            branchId: String,
+            name: String,
+            sport: String,
+            status: { type: String, default: "ACTIVE" },
+        },
+        opts
+    )
+);
 
 export const allModels = () => Object.values(mongoose.models);

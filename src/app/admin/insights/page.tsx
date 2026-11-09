@@ -12,6 +12,7 @@ import { requireAdminPage } from "@/server/auth/pageGuards";
 import { AUDIT_ACTIONS } from "@/types/ops";
 import { todayDhaka } from "@/lib/time.server";
 
+export const instant = false;
 export const metadata: Metadata = { title: "Insights" };
 
 type Params = Promise<Record<string, string | string[] | undefined>>;

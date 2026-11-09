@@ -181,7 +181,7 @@ function RateForm({
         save(
             isNew ? rateSchema : rateUpdateSchema,
             isNew ? body : { ...body, id: rate.id },
-            "/api/admin/setup/rates",
+            "/admin/setup/rates",
             isNew ? "POST" : "PATCH",
             onDone
         );
@@ -275,7 +275,7 @@ function RateForm({
                         <Button
                             variant="danger"
                             disabled={busy}
-                            onClick={() => save(rateDeleteSchema, { id: rate.id }, "/api/admin/setup/rates", "DELETE", onDone)}
+                            onClick={() => save(rateDeleteSchema, { id: rate.id }, "/admin/setup/rates", "DELETE", onDone)}
                         >
                             Yes, delete
                         </Button>

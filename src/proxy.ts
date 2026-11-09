@@ -22,7 +22,7 @@ export function proxy(req: NextRequest) {
         "default-src 'self'",
         `script-src 'self' 'unsafe-inline'${PROD ? "" : " 'unsafe-eval'"}`,
         "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob:",
+        "img-src 'self' data: blob: https://res.cloudinary.com",
         "font-src 'self'",
         `connect-src 'self'${PROD ? "" : " ws: wss:"}`,
         "object-src 'none'",

@@ -60,7 +60,7 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
                 },
                 legalReviewed: f.reviewed,
             },
-            "/api/admin/setup/policies",
+            "/admin/setup/policies",
             "PATCH",
             () => setSaved(true)
         );
