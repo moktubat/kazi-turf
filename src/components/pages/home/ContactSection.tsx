@@ -11,7 +11,7 @@ export function ContactSection() {
     if (venue.status !== "ACTIVE") return null;
 
     return (
-        <Section id="contact" eyebrow="Get in touch" title="Contact us" tone="white">
+        <Section id="contact" eyebrow="Get in touch" title="Contact us" tone="canvas">
             <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
                 {/* Left: info card */}
                 <div className="rounded-3xl bg-gradient-to-b from-evergreen via-evergreen to-teal px-7 pb-32 pt-8 shadow-lift lg:pb-8">
