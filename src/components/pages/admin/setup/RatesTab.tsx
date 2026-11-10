@@ -16,6 +16,13 @@ import { useSave } from "./useSave";
 import { SheetSection } from "../SheetSection";
 import { applyDiscount } from "@/lib/pricing";
 
+const TIME_PHASES: { label: string; from: string; until: string }[] = [
+    { label: "Morning · 6 AM – 12 PM", from: "06:00", until: "12:00" },
+    { label: "Noon · 12 PM – 5 PM", from: "12:00", until: "17:00" },
+    { label: "Evening · 5 PM – 9 PM", from: "17:00", until: "21:00" },
+    { label: "Night · 9 PM – 12 AM", from: "21:00", until: "24:00" },
+];
+
 export function RatesTab({
     rates,
     pitches,
@@ -83,16 +90,21 @@ export function RatesTab({
             ) : (
                 <ul className="grid gap-3 md:grid-cols-2">
                     {mine.map((r) => {
-                        const priced = applyDiscount(r.pricePerSlot, r.discountType, r.discountValue);
+                        const priced = applyDiscount(
+                            r.pricePerSlot,
+                            r.discountType,
+                            r.discountValue,
+                            r.discountDirection ?? "DISCOUNT"
+                        );
                         return (
                             <li key={r.id}>
                                 <Card className="space-y-2">
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex items-baseline gap-2">
-                                            {priced.hasDiscount ? (
+                                            {priced.hasAdjustment ? (
                                                 <>
                                                     <span className="font-heading text-sm text-evergreen/50 line-through">{formatBDT(priced.original)}</span>
-                                                    <p className="font-heading text-lg font-bold text-teal">{formatBDT(priced.discounted)}</p>
+                                                    <p className={`font-heading text-lg font-bold ${priced.hasSurcharge ? "text-held" : "text-teal"}`}>{formatBDT(priced.discounted)}</p>
                                                 </>
                                             ) : (
                                                 <p className="font-heading text-lg font-bold">{formatBDT(priced.discounted)}</p>
@@ -100,9 +112,11 @@ export function RatesTab({
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
                                             <Badge tone={r.tier === "Peak" ? "held" : "info"}>{r.tier}</Badge>
-                                            {priced.hasDiscount && (
-                                                <Badge tone="success">
-                                                    {r.discountType === "PERCENT" ? `${r.discountValue}% off` : `${formatBDT(r.discountValue!)} off`}
+                                            {priced.hasAdjustment && (
+                                                <Badge tone={priced.hasSurcharge ? "held" : "success"}>
+                                                    {r.discountType === "PERCENT"
+                                                        ? `${r.discountValue}% ${priced.hasSurcharge ? "surcharge" : "off"}`
+                                                        : `${formatBDT(r.discountValue!)} ${priced.hasSurcharge ? "surcharge" : "off"}`}
                                                 </Badge>
                                             )}
                                         </div>
@@ -162,6 +176,7 @@ interface FormState {
     effectiveFrom: string;
     effectiveTo: string;
     discountType: "PERCENT" | "FIXED" | "";
+    discountDirection: "DISCOUNT" | "SURCHARGE" | "";
     discountValue: string;
 }
 
@@ -187,6 +202,7 @@ function RateForm({
         effectiveFrom: rate?.effectiveFrom ?? "",
         effectiveTo: rate?.effectiveTo ?? "",
         discountType: rate?.discountType ?? "",
+        discountDirection: rate?.discountDirection ?? "",
         discountValue: rate?.discountValue ? String(rate.discountValue) : "",
     });
 
@@ -218,6 +234,7 @@ function RateForm({
             effectiveFrom: f.effectiveFrom,
             effectiveTo: f.effectiveTo,
             discountType: f.discountType || null,
+            discountDirection: f.discountType ? (f.discountDirection || "DISCOUNT") : null,
             discountValue: f.discountType && f.discountValue ? num(f.discountValue) : null,
         };
         save(
@@ -269,6 +286,33 @@ function RateForm({
             </SheetSection>
 
             <SheetSection icon={Clock} title="Time window" description="Must align to the field's slot grid.">
+                {/* Quick-pick time phases */}
+                <div className="flex flex-wrap gap-2">
+                    <p className="w-full text-xs text-evergreen/60">Quick pick:</p>
+                    {TIME_PHASES.map((phase) => {
+                        const active = f.startTime === phase.from && f.endTime === phase.until;
+                        const available = times.includes(phase.from) && times.includes(phase.until);
+                        return (
+                            <button
+                                key={phase.label}
+                                type="button"
+                                aria-pressed={active}
+                                disabled={!available}
+                                title={available ? undefined : "Outside this field's opening hours"}
+                                onClick={() => { set("startTime", phase.from); set("endTime", phase.until); }}
+                                className={`min-h-9 rounded-lg border px-3 text-xs font-semibold transition-colors ${active
+                                    ? "border-teal bg-teal text-white"
+                                    : available
+                                        ? "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
+                                        : "border-evergreen/10 bg-surface text-evergreen/30 cursor-not-allowed"
+                                    }`}
+                            >
+                                {phase.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                     <Select label="From" value={f.startTime} error={fields.startTime} onChange={(e) => set("startTime", e.target.value)}>
                         {times.slice(0, -1).map((t) => (
@@ -318,54 +362,94 @@ function RateForm({
 
             <SheetSection
                 icon={Tag}
-                title="Discount (optional)"
-                description="Offer a percentage or fixed-amount discount on these slots. Leave as 'None' for no discount."
+                title="Price adjustment (optional)"
+                description="Adjust the slot price up (Surcharge) or down (Discount) for peak demand, holidays, weekends, etc."
             >
                 <Select
-                    label="Discount type"
+                    label="Adjustment type"
                     value={f.discountType}
                     onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}
                 >
-                    <option value="">None (no discount)</option>
+                    <option value="">None (no adjustment)</option>
                     <option value="PERCENT">Percentage (%)</option>
                     <option value="FIXED">Fixed amount (৳)</option>
                 </Select>
 
                 {f.discountType && (
-                    <Input
-                        label={f.discountType === "PERCENT" ? "Discount percentage (%)" : "Discount amount (৳)"}
-                        type="number"
-                        inputMode="numeric"
-                        value={f.discountValue}
-                        placeholder={f.discountType === "PERCENT" ? "e.g. 20" : "e.g. 200"}
-                        hint={
-                            f.discountType === "PERCENT"
-                                ? "1–100. E.g. 20 = 20% off."
-                                : "Whole taka. Must be less than the slot price."
-                        }
-                        error={fields.discountValue}
-                        onChange={(e) => set("discountValue", e.target.value)}
-                    />
+                    <>
+                        <fieldset>
+                            <legend className="mb-1.5 text-sm font-semibold">Direction</legend>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    aria-pressed={f.discountDirection === "DISCOUNT"}
+                                    onClick={() => set("discountDirection", "DISCOUNT")}
+                                    className={`min-h-11 rounded-xl border-2 px-3 text-sm font-semibold transition-colors ${f.discountDirection === "DISCOUNT"
+                                        ? "border-teal bg-teal text-white"
+                                        : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
+                                        }`}
+                                >
+                                    ↓ Discount (lower price)
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-pressed={f.discountDirection === "SURCHARGE"}
+                                    onClick={() => set("discountDirection", "SURCHARGE")}
+                                    className={`min-h-11 rounded-xl border-2 px-3 text-sm font-semibold transition-colors ${f.discountDirection === "SURCHARGE"
+                                        ? "border-held bg-held text-white"
+                                        : "border-evergreen/15 bg-surface text-evergreen hover:border-held hover:bg-held-soft/40"
+                                        }`}
+                                >
+                                    ↑ Surcharge (higher price)
+                                </button>
+                            </div>
+                            {fields.discountDirection && (
+                                <p role="alert" className="mt-1 text-sm font-medium text-booked">{fields.discountDirection}</p>
+                            )}
+                        </fieldset>
+
+                        <Input
+                            label={
+                                f.discountType === "PERCENT"
+                                    ? f.discountDirection === "SURCHARGE" ? "Surcharge percentage (%)" : "Discount percentage (%)"
+                                    : f.discountDirection === "SURCHARGE" ? "Surcharge amount (৳)" : "Discount amount (৳)"
+                            }
+                            type="number"
+                            inputMode="numeric"
+                            value={f.discountValue}
+                            placeholder={f.discountType === "PERCENT" ? "e.g. 20" : "e.g. 200"}
+                            hint={
+                                f.discountType === "PERCENT"
+                                    ? "1–100. E.g. 20 = 20%."
+                                    : f.discountDirection === "DISCOUNT"
+                                        ? "Whole taka. Must be less than the slot price."
+                                        : "Whole taka. Added on top of the slot price."
+                            }
+                            error={fields.discountValue}
+                            onChange={(e) => set("discountValue", e.target.value)}
+                        />
+                    </>
                 )}
 
-                {/* Live preview of the discounted price */}
-                {f.discountType && f.discountValue && f.price && (
+                {/* Live preview of the adjusted price */}
+                {f.discountType && f.discountDirection && f.discountValue && f.price && (
                     (() => {
                         const priced = applyDiscount(
                             Number(f.price) || 0,
                             f.discountType,
-                            Number(f.discountValue) || 0
+                            Number(f.discountValue) || 0,
+                            f.discountDirection
                         );
-                        return priced.hasDiscount ? (
-                            <div className="rounded-lg border border-teal/30 bg-mint/50 p-3 text-sm" aria-live="polite">
+                        return priced.hasAdjustment ? (
+                            <div className={`rounded-lg border p-3 text-sm ${priced.hasSurcharge ? "border-held/30 bg-held-soft/50" : "border-teal/30 bg-mint/50"}`} aria-live="polite">
                                 <p className="text-evergreen/70">
-                                    Original: <span className="line-through">{formatBDT(priced.original)}</span>
+                                    Original: <span className={priced.hasDiscount ? "line-through" : ""}>{formatBDT(priced.original)}</span>
                                 </p>
-                                <p className="font-semibold text-teal">
-                                    After discount: {formatBDT(priced.discounted)}
+                                <p className={`font-semibold ${priced.hasSurcharge ? "text-held" : "text-teal"}`}>
+                                    {priced.hasSurcharge ? "After surcharge" : "After discount"}: {formatBDT(priced.discounted)}
                                 </p>
                                 <p className="text-xs text-evergreen/60">
-                                    You save {formatBDT(priced.original - priced.discounted)}
+                                    {priced.hasSurcharge ? `Customer pays +${formatBDT(priced.discounted - priced.original)}` : `Customer saves ${formatBDT(priced.original - priced.discounted)}`}
                                 </p>
                             </div>
                         ) : null;

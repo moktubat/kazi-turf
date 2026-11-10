@@ -23,22 +23,35 @@ export function ruleFor(pitchId: string, cellStart: Date): PricingRule | null {
 export function priceForCell(pitchId: string, cellStart: Date) {
     const rule = ruleFor(pitchId, cellStart);
     if (!rule) return null;
-    const { original, discounted, hasDiscount } = applyDiscount(
-        rule.pricePerSlot, rule.discountType, rule.discountValue
+    const priced = applyDiscount(
+        rule.pricePerSlot,
+        rule.discountType,
+        rule.discountValue,
+        rule.discountDirection ?? "DISCOUNT"
     );
     return {
-        price: discounted,          // the effective price the customer pays
-        originalPrice: original,    // pre-discount price (for display)
-        hasDiscount,
+        price: priced.discounted,
+        originalPrice: priced.original,
+        hasDiscount: priced.hasDiscount,
+        hasSurcharge: priced.hasSurcharge,
+        hasAdjustment: priced.hasAdjustment,
         tier: rule.tier,
     };
 }
 
 export interface Quote {
-    lines: { cellStart: string; price: number; originalPrice: number; hasDiscount: boolean; tier: string }[];
+    lines: {
+        cellStart: string;
+        price: number;
+        originalPrice: number;
+        hasDiscount: boolean;
+        hasSurcharge: boolean;
+        hasAdjustment: boolean;
+        tier: string;
+    }[];
     subtotal: number;
     originalSubtotal: number;
-    discountAmount: number;
+    adjustmentAmount: number;
     vat: number;
     total: number;
     advance: number;
@@ -62,12 +75,15 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
             price: p.price,
             originalPrice: p.originalPrice,
             hasDiscount: p.hasDiscount,
+            hasSurcharge: p.hasSurcharge,
+            hasAdjustment: p.hasAdjustment,
             tier: p.tier,
         };
     });
     const subtotal = lines.reduce((s, l) => s + l.price, 0);
     const originalSubtotal = lines.reduce((s, l) => s + l.originalPrice, 0);
-    const discountAmount = originalSubtotal - subtotal;
+    // Positive = customer pays more (surcharge), negative = customer pays less (discount)
+    const adjustmentAmount = subtotal - originalSubtotal;
     let vat = 0;
     let total = subtotal;
     if (vatRatePercent && vatMode === "exclusive") {
@@ -85,7 +101,7 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
         lines,
         subtotal,
         originalSubtotal,
-        discountAmount,
+        adjustmentAmount,
         vat,
         total,
         advance,

@@ -1,37 +1,51 @@
-// Pure pricing helpers — safe to import from both client and server code.
-import type { DiscountType } from "@/types";
-
-export interface PricedSlot {
+export interface Priced {
     original: number;
     discounted: number;
-    hasDiscount: boolean;
+    hasDiscount: boolean;       // final < original
+    hasSurcharge: boolean;      // final > original
+    hasAdjustment: boolean;     // final !== original (either direction)
 }
 
-/**
- * Apply a discount to a price.
- * - PERCENT: discountValue is 1–100 (e.g. 20 = 20% off)
- * - FIXED: discountValue is in BDT (e.g. 200 = 200 BDT off)
- * Returns hasDiscount=false when no discount is set or the result equals the original.
- */
 export function applyDiscount(
     price: number,
-    discountType: DiscountType | null | undefined,
-    discountValue: number | null | undefined
-): PricedSlot {
-    if (!discountType || !discountValue || discountValue <= 0) {
-        return { original: price, discounted: price, hasDiscount: false };
+    discountType: "PERCENT" | "FIXED" | null,
+    discountValue: number | null,
+    discountDirection: "DISCOUNT" | "SURCHARGE" | null = "DISCOUNT"
+): Priced {
+    // No adjustment — return as-is.
+    if (!discountType || !discountValue || discountValue <= 0 || !discountDirection) {
+        return {
+            original: price,
+            discounted: price,
+            hasDiscount: false,
+            hasSurcharge: false,
+            hasAdjustment: false,
+        };
     }
-    let discounted = price;
+
+    let delta = 0;
     if (discountType === "PERCENT") {
-        discounted = Math.round((price * (100 - discountValue)) / 100);
-    } else if (discountType === "FIXED") {
-        discounted = price - discountValue;
+        delta = Math.round((price * discountValue) / 100);
+    } else {
+        // FIXED
+        delta = discountValue;
     }
-    // Never go below zero.
-    discounted = Math.max(0, discounted);
+
+    let final = price;
+    if (discountDirection === "DISCOUNT") {
+        final = price - delta;
+    } else {
+        // SURCHARGE
+        final = price + delta;
+    }
+
+    if (final < 0) final = 0;
+
     return {
         original: price,
-        discounted,
-        hasDiscount: discounted < price,
+        discounted: final,
+        hasDiscount: final < price,
+        hasSurcharge: final > price,
+        hasAdjustment: final !== price,
     };
 }

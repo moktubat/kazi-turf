@@ -9,10 +9,54 @@ function rates(
     p: { offWd: number; peakWd: number; offWe: number; peakWe: number }
 ): PricingRule[] {
     return [
-        { id: `${pitchId}-wd-off`, pitchId, days: WEEKDAY, startTime: "06:00", endTime: "16:30", pricePerSlot: p.offWd, tier: "Off-peak" },
-        { id: `${pitchId}-wd-peak`, pitchId, days: WEEKDAY, startTime: "16:30", endTime: "24:00", pricePerSlot: p.peakWd, tier: "Peak" },
-        { id: `${pitchId}-we-off`, pitchId, days: WEEKEND, startTime: "06:00", endTime: "16:30", pricePerSlot: p.offWe, tier: "Off-peak" },
-        { id: `${pitchId}-we-peak`, pitchId, days: WEEKEND, startTime: "16:30", endTime: "24:00", pricePerSlot: p.peakWe, tier: "Peak" },
+        {
+            id: `${pitchId}-wd-off`,
+            pitchId,
+            days: WEEKDAY,
+            startTime: "06:00",
+            endTime: "16:30",
+            pricePerSlot: p.offWd,
+            tier: "Off-peak",
+            discountType: null,
+            discountDirection: null,
+            discountValue: null,
+        },
+        {
+            id: `${pitchId}-wd-peak`,
+            pitchId,
+            days: WEEKDAY,
+            startTime: "16:30",
+            endTime: "24:00",
+            pricePerSlot: p.peakWd,
+            tier: "Peak",
+            discountType: null,
+            discountDirection: null,
+            discountValue: null,
+        },
+        {
+            id: `${pitchId}-we-off`,
+            pitchId,
+            days: WEEKEND,
+            startTime: "06:00",
+            endTime: "16:30",
+            pricePerSlot: p.offWe,
+            tier: "Off-peak",
+            discountType: null,
+            discountDirection: null,
+            discountValue: null,
+        },
+        {
+            id: `${pitchId}-we-peak`,
+            pitchId,
+            days: WEEKEND,
+            startTime: "16:30",
+            endTime: "24:00",
+            pricePerSlot: p.peakWe,
+            tier: "Peak",
+            discountType: null,
+            discountDirection: null,
+            discountValue: null,
+        },
     ];
 }
 

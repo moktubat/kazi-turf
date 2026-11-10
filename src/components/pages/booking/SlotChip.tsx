@@ -26,12 +26,19 @@ export function SlotChip({
     const look = slotLook[cell.status];
     const Icon = selected ? Check : look.icon;
 
+    const isSurcharge = cell.hasDiscount && cell.price > cell.originalPrice;
+    const adjustedColor = isSurcharge ? "text-held" : "text-teal";
+
+    const priceLabel = cell.hasDiscount
+        ? `${formatBDT(cell.originalPrice)} ${isSurcharge ? "marked up to" : "discounted to"} ${formatBDT(cell.price)}`
+        : formatBDT(cell.price);
+
     return (
         <button
             type="button"
             disabled={!available}
             aria-pressed={available ? selected : undefined}
-            aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${cell.hasDiscount ? `${formatBDT(cell.originalPrice)} discounted to ${formatBDT(cell.price)}` : formatBDT(cell.price)}, ${selected ? "Selected" : look.label}`}
+            aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${priceLabel}, ${selected ? "Selected" : look.label}`}
             onClick={onSelect}
             className={cn(
                 "flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center rounded-xl border-2 px-2 py-2 text-center transition-colors",
@@ -46,7 +53,7 @@ export function SlotChip({
                 {cell.hasDiscount ? (
                     <>
                         <span className="text-evergreen/50 line-through">{formatBDT(cell.originalPrice)}</span>{" "}
-                        <span className="text-teal">{formatBDT(cell.price)}</span>
+                        <span className={adjustedColor}>{formatBDT(cell.price)}</span>
                     </>
                 ) : (
                     formatBDT(cell.price)

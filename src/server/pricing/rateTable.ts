@@ -13,9 +13,11 @@ function dayLabel(days: number[]): string {
 }
 
 export interface RateCell {
-    price: number;           // discounted (effective) price
-    originalPrice: number;   // pre-discount price
+    price: number;              // effective (adjusted) price
+    originalPrice: number;      // base price before adjustment
     hasDiscount: boolean;
+    hasSurcharge: boolean;
+    hasAdjustment: boolean;
     window: string;
 }
 
@@ -36,11 +38,18 @@ export async function getRateTable(pitchId: string): Promise<RateRow[]> {
     )) {
         const key = [...r.days].sort((a, b) => a - b).join(",");
         const row = rows.get(key) ?? { days: dayLabel(r.days), offPeak: null, peak: null };
-        const priced = applyDiscount(r.pricePerSlot, r.discountType, r.discountValue);
+        const priced = applyDiscount(
+            r.pricePerSlot,
+            r.discountType,
+            r.discountValue,
+            r.discountDirection ?? "DISCOUNT"
+        );
         const cell: RateCell = {
             price: priced.discounted,
             originalPrice: priced.original,
             hasDiscount: priced.hasDiscount,
+            hasSurcharge: priced.hasSurcharge,
+            hasAdjustment: priced.hasAdjustment,
             window: `${formatTime12(r.startTime)}–${formatTime12(r.endTime)}`,
         };
         if (r.tier === "Peak") row.peak = cell;

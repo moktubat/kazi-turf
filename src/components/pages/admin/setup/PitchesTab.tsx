@@ -29,6 +29,22 @@ const FORMAT_PRESETS = [
     "Doubles",
 ] as const;
 
+const SURFACE_PRESETS = [
+    "Artificial turf",
+    "Turf wicket",
+    "Wooden floor",
+    "Concrete",
+    "Clay",
+] as const;
+
+const FACILITY_PRESETS = [
+    "Floodlights",
+    "Parking",
+    "Washroom",
+    "Drinking water",
+    "Changing room",
+] as const;
+
 interface FormState {
     branchId: string;
     name: string;
@@ -306,21 +322,69 @@ function PitchForm({
                     error={fields.dimensions}
                     onChange={(e) => set("dimensions", e.target.value)}
                 />
-                <Input
-                    label="Surface"
-                    value={f.surface}
-                    placeholder="e.g. Artificial turf, Turf wicket"
-                    error={fields.surface}
-                    onChange={(e) => set("surface", e.target.value)}
-                />
-                <ListInput
-                    label="Facilities (comma-separated)"
-                    value={f.facilities}
-                    placeholder="e.g. Floodlights, Parking, Washroom"
-                    hint="List what the field actually has."
-                    error={fields.facilities}
-                    onChange={(v) => set("facilities", v)}
-                />
+                <div className="space-y-2">
+                    <Input
+                        label="Surface"
+                        value={f.surface}
+                        placeholder="e.g. Artificial turf, Turf wicket"
+                        error={fields.surface}
+                        onChange={(e) => set("surface", e.target.value)}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        <p className="w-full text-xs text-evergreen/60">Quick pick:</p>
+                        {SURFACE_PRESETS.map((preset) => (
+                            <button
+                                key={preset}
+                                type="button"
+                                aria-pressed={f.surface === preset}
+                                onClick={() => set("surface", preset)}
+                                className={`min-h-9 rounded-lg border px-3 text-xs font-semibold transition-colors ${f.surface === preset
+                                    ? "border-teal bg-teal text-white"
+                                    : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
+                                    }`}
+                            >
+                                {preset}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <ListInput
+                        label="Facilities (comma-separated)"
+                        value={f.facilities}
+                        placeholder="e.g. Floodlights, Parking, Washroom"
+                        hint="List what the field actually has."
+                        error={fields.facilities}
+                        onChange={(v) => set("facilities", v)}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        <p className="w-full text-xs text-evergreen/60">Quick pick (tap to toggle):</p>
+                        {FACILITY_PRESETS.map((preset) => {
+                            const active = f.facilities.includes(preset);
+                            return (
+                                <button
+                                    key={preset}
+                                    type="button"
+                                    aria-pressed={active}
+                                    onClick={() =>
+                                        set(
+                                            "facilities",
+                                            active
+                                                ? f.facilities.filter((x) => x !== preset)
+                                                : [...f.facilities, preset]
+                                        )
+                                    }
+                                    className={`min-h-9 rounded-lg border px-3 text-xs font-semibold transition-colors ${active
+                                            ? "border-teal bg-teal text-white"
+                                            : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
+                                        }`}
+                                >
+                                    {preset}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
                 <ImageUpload
                     label="Field photo (optional)"
                     value={f.image}

@@ -164,7 +164,8 @@ function VenueForm({ venue }: { venue: Branch }) {
                 />
                 <Input
                     label="Opening hours"
-                    placeholder="06:00 – 24:00"
+                    placeholder="06:00 AM to 12:00 AM"
+                    hint="Use 12-hour format like 06:00 AM to 12:00 AM. Shown in the footer."
                     value={f.hours}
                     error={fields.hours}
                     onChange={(e) => set("hours", e.target.value)}

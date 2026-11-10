@@ -16,14 +16,17 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
     const rows = await getRateTable(pitch.id);
     const sizeKnown = pitch.dimensions && !/verified/i.test(pitch.dimensions);
 
-    // Build a list of all priced cells with their discounted + original prices.
+    // Build a list of all priced cells with their adjusted + original prices.
     const allCells = rows.flatMap((r) => [r.offPeak, r.peak]).filter((c): c is NonNullable<typeof c> => !!c && c.price > 0);
-    // "From" = lowest discounted price. Also track the matching original price.
+
+    // "From" = lowest effective (adjusted) price across all cells.
     const cheapest = allCells.length
         ? allCells.reduce((min, c) => (c.price < min.price ? c : min))
         : null;
     const from = cheapest?.price ?? null;
-    const fromOriginal = cheapest?.hasDiscount ? cheapest.originalPrice : null;
+    // Show the original strikethrough only if the cheapest cell is adjusted.
+    const fromOriginal = cheapest?.hasAdjustment ? cheapest.originalPrice : null;
+    const fromIsSurcharge = cheapest?.hasSurcharge ?? false;
 
     const meta = [pitch.sport, pitch.format, pitch.surface, sizeKnown ? pitch.dimensions : null]
         .filter(Boolean)
@@ -114,7 +117,9 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
                             {fromOriginal !== null ? (
                                 <>
                                     <span className="font-heading text-base text-evergreen/50 line-through">{formatBDT(fromOriginal)}</span>
-                                    <span className="font-heading text-2xl font-extrabold text-teal">{formatBDT(from)}</span>
+                                    <span className={`font-heading text-2xl font-extrabold ${fromIsSurcharge ? "text-held" : "text-teal"}`}>
+                                        {formatBDT(from)}
+                                    </span>
                                 </>
                             ) : (
                                 <span className="font-heading text-2xl font-extrabold text-teal">{formatBDT(from)}</span>

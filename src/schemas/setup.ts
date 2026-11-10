@@ -122,6 +122,7 @@ const rateBase = z.object({
     effectiveFrom: optDate,
     effectiveTo: optDate,
     discountType: z.enum(["PERCENT", "FIXED"]).nullable().default(null),
+    discountDirection: z.enum(["DISCOUNT", "SURCHARGE"]).nullable().default(null),
     discountValue: z.number().int().min(1, "Must be at least 1").max(100000, "Too high").nullable().default(null),
 });
 
@@ -132,15 +133,19 @@ const rateRules = (v: z.infer<typeof rateBase>, ctx: z.RefinementCtx) => {
     if (v.effectiveFrom && v.effectiveTo && v.effectiveTo < v.effectiveFrom) {
         ctx.addIssue({ code: "custom", path: ["effectiveTo"], message: "Must be on or after the start date" });
     }
-    // Discount: if type is set, value must be set; PERCENT max 100.
+    // Price adjustment: if type is set, direction and value must be set.
+    if (v.discountType && !v.discountDirection) {
+        ctx.addIssue({ code: "custom", path: ["discountDirection"], message: "Pick Discount or Surcharge" });
+    }
     if (v.discountType && !v.discountValue) {
-        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Enter a discount value" });
+        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Enter an adjustment value" });
     }
     if (v.discountType === "PERCENT" && v.discountValue && v.discountValue > 100) {
         ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Percentage cannot exceed 100" });
     }
-    if (v.discountType === "FIXED" && v.discountValue && v.discountValue >= v.pricePerSlot) {
-        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Fixed discount must be less than the slot price" });
+    // Fixed discount must be less than the slot price. Surcharge has no upper cap (but capped at 100,000 globally).
+    if (v.discountType === "FIXED" && v.discountDirection === "DISCOUNT" && v.discountValue && v.discountValue >= v.pricePerSlot) {
+        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Discount must be less than the slot price" });
     }
 };
 

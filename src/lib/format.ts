@@ -33,14 +33,37 @@ export function formatTime12(time: string): string {
 }
 
 /** "06:00 – 24:00" → "6:00 AM – 12:00 AM". Accepts –, — or -. */
-export function formatHourRange(range: string): string {
-    if (!range) return range;
-    return range
-        .split(/[–—-]/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map(formatTime12)
-        .join(" – ");
+export function formatHourRange(input: string): string {
+    if (!input) return "";
+
+    // Already has AM/PM? Leave it alone — user typed 12-hour format directly.
+    if (/\b(AM|PM)\b/i.test(input)) return input;
+
+    // Find two HH:MM times separated by –, -, —, or "to".
+    const match = input.match(/(\d{1,2}):(\d{2})\s*(?:–|-|—|to)\s*(\d{1,2}):(\d{2})/i);
+    if (!match) return input; // can't parse → show raw text
+
+    const [, sh, sm, eh, em] = match;
+    return `${to12Hour(Number(sh), Number(sm))} to ${to12Hour(Number(eh), Number(em))}`;
+}
+
+function to12Hour(h: number, m: number): string {
+    let hour12: number;
+    let period: "AM" | "PM";
+
+    if (h === 0) {
+        hour12 = 12; period = "AM";        // 00:00 → 12:00 AM (midnight start of day)
+    } else if (h === 12) {
+        hour12 = 12; period = "PM";        // 12:00 → 12:00 PM (noon)
+    } else if (h === 24) {
+        hour12 = 12; period = "AM";        // 24:00 → 12:00 AM (midnight end of day)
+    } else if (h < 12) {
+        hour12 = h; period = "AM";
+    } else {
+        hour12 = h - 12; period = "PM";
+    }
+
+    return `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
 }
 
 export function formatDateLong(date: string): string {

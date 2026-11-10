@@ -13,11 +13,12 @@ export interface SetupRate {
     startTime: string;
     endTime: string;
     pricePerSlot: number;
-    tier: PricingRule["tier"];
+    tier: "Off-peak" | "Peak";
     effectiveFrom: string;
     effectiveTo: string;
     aligned: boolean;
-    discountType: DiscountType | null;
+    discountType: "PERCENT" | "FIXED" | null;
+    discountDirection: "DISCOUNT" | "SURCHARGE" | null;
     discountValue: number | null;
 }
 
