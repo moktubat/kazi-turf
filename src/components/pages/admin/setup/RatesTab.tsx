@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, Banknote, Calendar, CalendarRange, Clock, Pencil, Plus } from "lucide-react";
+import { AlertTriangle, Banknote, Calendar, CalendarRange, Clock, Pencil, Plus, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -353,7 +353,7 @@ function RateForm({
                     (() => {
                         const priced = applyDiscount(
                             Number(f.price) || 0,
-                            f.discountType === "" ? null : f.discountType,
+                            f.discountType,
                             Number(f.discountValue) || 0
                         );
                         return priced.hasDiscount ? (
