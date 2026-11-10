@@ -31,7 +31,7 @@ export function SlotChip({
             type="button"
             disabled={!available}
             aria-pressed={available ? selected : undefined}
-            aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${formatBDT(cell.price)}, ${selected ? "Selected" : look.label}`}
+            aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${cell.hasDiscount ? `${formatBDT(cell.originalPrice)} discounted to ${formatBDT(cell.price)}` : formatBDT(cell.price)}, ${selected ? "Selected" : look.label}`}
             onClick={onSelect}
             className={cn(
                 "flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center rounded-xl border-2 px-2 py-2 text-center transition-colors",
@@ -42,7 +42,16 @@ export function SlotChip({
             <span className="font-heading text-sm font-bold leading-tight whitespace-nowrap tabular-nums sm:text-base">
                 {formatTime12(cell.start)}
             </span>
-            <span className="text-sm font-semibold whitespace-nowrap tabular-nums">{formatBDT(cell.price)}</span>
+            <span className="text-sm font-semibold whitespace-nowrap tabular-nums">
+                {cell.hasDiscount ? (
+                    <>
+                        <span className="text-evergreen/50 line-through">{formatBDT(cell.originalPrice)}</span>{" "}
+                        <span className="text-teal">{formatBDT(cell.price)}</span>
+                    </>
+                ) : (
+                    formatBDT(cell.price)
+                )}
+            </span>
             <span className="mt-0.5 flex items-center gap-1 text-xs font-medium whitespace-nowrap">
                 <Icon size={12} aria-hidden /> {selected ? "Selected" : look.label}
             </span>

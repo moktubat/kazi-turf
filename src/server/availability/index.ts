@@ -12,11 +12,13 @@ import type { Pitch, SlotClaim, SlotStatus } from "@/types";
 
 export interface Cell {
     pitchId: string;
-    cellStart: string; // ISO UTC, claim key
-    start: string; // "19:30" (Dhaka)
-    end: string; // "21:00"
+    cellStart: string;
+    start: string;
+    end: string;
     status: SlotStatus;
-    price: number;
+    price: number;           // discounted (effective) price
+    originalPrice: number;   // pre-dispatch price (same as price when no discount)
+    hasDiscount: boolean;
     tier: string;
 }
 
@@ -77,12 +79,10 @@ function buildCells(
         const iso = startDate.toISOString();
         const rate = priceForCell(pitch.id, startDate);
         if (!rate) continue;
-
         let status: SlotStatus = "AVAILABLE";
         const claim = active.get(iso);
         if (claim) status = claim.state;
         else if ((opts.allowStarted ? endDate : startDate) <= now) status = "PAST";
-
         cells.push({
             pitchId: pitch.id,
             cellStart: iso,
@@ -90,6 +90,8 @@ function buildCells(
             end: toHHMM(m + step),
             status,
             price: rate.price,
+            originalPrice: rate.originalPrice,
+            hasDiscount: rate.hasDiscount,
             tier: rate.tier,
         });
     }

@@ -14,6 +14,7 @@ import type { SetupPitch, SetupRate } from "@/types/setup";
 import { Check, FormActions, num } from "./ui";
 import { useSave } from "./useSave";
 import { SheetSection } from "../SheetSection";
+import { applyDiscount } from "@/lib/pricing";
 
 export function RatesTab({
     rates,
@@ -81,34 +82,53 @@ export function RatesTab({
                 </Card>
             ) : (
                 <ul className="grid gap-3 md:grid-cols-2">
-                    {mine.map((r) => (
-                        <li key={r.id}>
-                            <Card className="space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                    <p className="font-heading text-lg font-bold">{formatBDT(r.pricePerSlot)}</p>
-                                    <Badge tone={r.tier === "Peak" ? "held" : "info"}>{r.tier}</Badge>
-                                </div>
-                                <p className="text-sm">
-                                    {daysLabel(r.days)} · {formatTime12(r.startTime)}–{formatTime12(r.endTime)}
-                                </p>F
-                                {(r.effectiveFrom || r.effectiveTo) && (
-                                    <p className="text-xs text-evergreen/70">
-                                        Effective {r.effectiveFrom || "always"} to {r.effectiveTo || "ongoing"}
+                    {mine.map((r) => {
+                        const priced = applyDiscount(r.pricePerSlot, r.discountType, r.discountValue);
+                        return (
+                            <li key={r.id}>
+                                <Card className="space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            {priced.hasDiscount ? (
+                                                <>
+                                                    <span className="font-heading text-sm text-evergreen/50 line-through">{formatBDT(priced.original)}</span>
+                                                    <p className="font-heading text-lg font-bold text-teal">{formatBDT(priced.discounted)}</p>
+                                                </>
+                                            ) : (
+                                                <p className="font-heading text-lg font-bold">{formatBDT(priced.discounted)}</p>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <Badge tone={r.tier === "Peak" ? "held" : "info"}>{r.tier}</Badge>
+                                            {priced.hasDiscount && (
+                                                <Badge tone="success">
+                                                    {r.discountType === "PERCENT" ? `${r.discountValue}% off` : `${formatBDT(r.discountValue!)} off`}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="text-sm">
+                                        {daysLabel(r.days)} · {formatTime12(r.startTime)}–{formatTime12(r.endTime)}
                                     </p>
-                                )}
-                                {!r.aligned && (
-                                    <p className="flex items-start gap-1.5 text-xs font-semibold text-held">
-                                        <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field&apos;s current schedule. Edit this window.
-                                    </p>
-                                )}
-                                <div className="border-t border-evergreen/10 pt-2">
-                                    <Button variant="outline" onClick={() => setEditing(r)}>
-                                        <Pencil size={16} aria-hidden /> Edit
-                                    </Button>
-                                </div>
-                            </Card>
-                        </li>
-                    ))}
+                                    {(r.effectiveFrom || r.effectiveTo) && (
+                                        <p className="text-xs text-evergreen/70">
+                                            Effective {r.effectiveFrom || "always"} to {r.effectiveTo || "ongoing"}
+                                        </p>
+                                    )}
+                                    {!r.aligned && (
+                                        <p className="flex items-start gap-1.5 text-xs font-semibold text-held">
+                                            <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field&apos;s current schedule. Edit this window.
+                                        </p>
+                                    )}
+                                    <div className="border-t border-evergreen/10 pt-2">
+                                        <Button variant="outline" onClick={() => setEditing(r)}>
+                                            <Pencil size={16} aria-hidden /> Edit
+                                        </Button>
+                                    </div>
+                                </Card>
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
 
@@ -141,6 +161,8 @@ interface FormState {
     price: string;
     effectiveFrom: string;
     effectiveTo: string;
+    discountType: "PERCENT" | "FIXED" | "";
+    discountValue: string;
 }
 
 function RateForm({
@@ -164,6 +186,8 @@ function RateForm({
         price: rate ? String(rate.pricePerSlot) : "",
         effectiveFrom: rate?.effectiveFrom ?? "",
         effectiveTo: rate?.effectiveTo ?? "",
+        discountType: rate?.discountType ?? "",
+        discountValue: rate?.discountValue ? String(rate.discountValue) : "",
     });
 
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -193,6 +217,8 @@ function RateForm({
             tier: f.tier,
             effectiveFrom: f.effectiveFrom,
             effectiveTo: f.effectiveTo,
+            discountType: f.discountType || null,
+            discountValue: f.discountType && f.discountValue ? num(f.discountValue) : null,
         };
         save(
             isNew ? rateSchema : rateUpdateSchema,
@@ -290,6 +316,63 @@ function RateForm({
                 />
             </SheetSection>
 
+            <SheetSection
+                icon={Tag}
+                title="Discount (optional)"
+                description="Offer a percentage or fixed-amount discount on these slots. Leave as 'None' for no discount."
+            >
+                <Select
+                    label="Discount type"
+                    value={f.discountType}
+                    onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}
+                >
+                    <option value="">None (no discount)</option>
+                    <option value="PERCENT">Percentage (%)</option>
+                    <option value="FIXED">Fixed amount (৳)</option>
+                </Select>
+
+                {f.discountType && (
+                    <Input
+                        label={f.discountType === "PERCENT" ? "Discount percentage (%)" : "Discount amount (৳)"}
+                        type="number"
+                        inputMode="numeric"
+                        value={f.discountValue}
+                        placeholder={f.discountType === "PERCENT" ? "e.g. 20" : "e.g. 200"}
+                        hint={
+                            f.discountType === "PERCENT"
+                                ? "1–100. E.g. 20 = 20% off."
+                                : "Whole taka. Must be less than the slot price."
+                        }
+                        error={fields.discountValue}
+                        onChange={(e) => set("discountValue", e.target.value)}
+                    />
+                )}
+
+                {/* Live preview of the discounted price */}
+                {f.discountType && f.discountValue && f.price && (
+                    (() => {
+                        const priced = applyDiscount(
+                            Number(f.price) || 0,
+                            f.discountType === "" ? null : f.discountType,
+                            Number(f.discountValue) || 0
+                        );
+                        return priced.hasDiscount ? (
+                            <div className="rounded-lg border border-teal/30 bg-mint/50 p-3 text-sm" aria-live="polite">
+                                <p className="text-evergreen/70">
+                                    Original: <span className="line-through">{formatBDT(priced.original)}</span>
+                                </p>
+                                <p className="font-semibold text-teal">
+                                    After discount: {formatBDT(priced.discounted)}
+                                </p>
+                                <p className="text-xs text-evergreen/60">
+                                    You save {formatBDT(priced.original - priced.discounted)}
+                                </p>
+                            </div>
+                        ) : null;
+                    })()
+                )}
+            </SheetSection>
+
             <SheetSection icon={CalendarRange} title="Effective dates" description="Leave both empty for “always”. Use these for seasonal pricing (e.g. winter rates).">
                 <div className="grid grid-cols-2 gap-4">
                     <Input
@@ -311,7 +394,8 @@ function RateForm({
 
             <FormActions busy={busy} error={error} label={isNew ? "Add slot price" : "Save changes"} onCancel={onDone} />
 
-            {!isNew &&
+            {
+                !isNew &&
                 (confirmDelete ? (
                     <div className="space-y-2 rounded-xl bg-booked-soft p-3 text-sm">
                         <p className="font-medium text-booked">Delete this slot price? Existing bookings keep their saved prices, but unpriced slots cannot be booked.</p>
@@ -327,7 +411,8 @@ function RateForm({
                     <Button variant="ghost" className="text-booked" onClick={() => setConfirmDelete(true)}>
                         Delete this slot price
                     </Button>
-                ))}
-        </form>
+                ))
+            }
+        </form >
     );
 }

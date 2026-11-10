@@ -1,4 +1,4 @@
-import type { Branch, Pitch, PricingRule } from "@/types";
+import type { Branch, DiscountType, Pitch, PricingRule } from "@/types";
 
 export type SetupTab = "venue" | "pitches" | "rates" | "staff" | "policies";
 
@@ -16,7 +16,9 @@ export interface SetupRate {
     tier: PricingRule["tier"];
     effectiveFrom: string;
     effectiveTo: string;
-    aligned: boolean; // window sits on the pitch's current slot grid
+    aligned: boolean;
+    discountType: DiscountType | null;
+    discountValue: number | null;
 }
 
 export interface SetupStaff {

@@ -349,6 +349,8 @@ function ruleFields(input: RateInput) {
         tier: input.tier,
         effectiveFrom: input.effectiveFrom || undefined,
         effectiveTo: input.effectiveTo || undefined,
+        discountType: input.discountType ?? null,
+        discountValue: input.discountValue ?? null,
     };
 }
 
@@ -610,6 +612,8 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
                 effectiveFrom: r.effectiveFrom ?? "",
                 effectiveTo: r.effectiveTo ?? "",
                 aligned: s >= open && e <= toMinutes(p.closeTime) && (s - open) % step === 0 && (e - open) % step === 0,
+                discountType: r.discountType ?? null,
+                discountValue: r.discountValue ?? null,
             };
         });
 

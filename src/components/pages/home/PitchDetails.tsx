@@ -6,8 +6,8 @@ import { formatBDT } from "@/lib/format";
 
 export interface RateRowView {
     days: string;
-    offPeak?: { price: number; window: string } | null;
-    peak?: { price: number; window: string } | null;
+    offPeak?: { price: number; originalPrice: number; hasDiscount: boolean; window: string } | null;
+    peak?: { price: number; originalPrice: number; hasDiscount: boolean; window: string } | null;
 }
 
 export function PitchDetails({
@@ -22,10 +22,17 @@ export function PitchDetails({
     rows: RateRowView[];
 }) {
     const [open, setOpen] = useState(false);
-    const cell = (r?: { price: number; window: string } | null) =>
+    const cell = (r?: { price: number; originalPrice: number; hasDiscount: boolean; window: string } | null) =>
         r ? (
             <>
-                <span className="font-semibold">{formatBDT(r.price)}</span>
+                {r.hasDiscount ? (
+                    <span className="font-semibold">
+                        <span className="text-evergreen/50 line-through">{formatBDT(r.originalPrice)}</span>{" "}
+                        <span className="text-teal">{formatBDT(r.price)}</span>
+                    </span>
+                ) : (
+                    <span className="font-semibold">{formatBDT(r.price)}</span>
+                )}
                 <span className="block text-xs text-evergreen/70">{r.window}</span>
             </>
         ) : (

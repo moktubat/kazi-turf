@@ -1,5 +1,6 @@
 import { pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
+import { applyDiscount } from "@/lib/pricing";
 import { dhakaParts, toMinutes } from "@/lib/time";
 import { AppError } from "@/server/http";
 import type { PricingRule } from "@/types";
@@ -21,12 +22,23 @@ export function ruleFor(pitchId: string, cellStart: Date): PricingRule | null {
 
 export function priceForCell(pitchId: string, cellStart: Date) {
     const rule = ruleFor(pitchId, cellStart);
-    return rule ? { price: rule.pricePerSlot, tier: rule.tier } : null;
+    if (!rule) return null;
+    const { original, discounted, hasDiscount } = applyDiscount(
+        rule.pricePerSlot, rule.discountType, rule.discountValue
+    );
+    return {
+        price: discounted,          // the effective price the customer pays
+        originalPrice: original,    // pre-discount price (for display)
+        hasDiscount,
+        tier: rule.tier,
+    };
 }
 
 export interface Quote {
-    lines: { cellStart: string; price: number; tier: string }[];
+    lines: { cellStart: string; price: number; originalPrice: number; hasDiscount: boolean; tier: string }[];
     subtotal: number;
+    originalSubtotal: number;
+    discountAmount: number;
     vat: number;
     total: number;
     advance: number;
@@ -37,29 +49,25 @@ export interface Quote {
 
 export function quote(pitchId: string, cellStarts: Date[]): Quote {
     const { advancePercent, vatRatePercent, vatMode } = policies;
-
     if (typeof advancePercent !== "number" || !Number.isFinite(advancePercent)) {
-        throw new AppError(
-            "NO_RATE_FOR_SLOT",
-            "Booking is not configured yet. Please contact the venue.",
-            500
-        );
+        throw new AppError("NO_RATE_FOR_SLOT", "Booking is not configured yet. Please contact the venue.", 500);
     }
-
     const lines = cellStarts.map((c) => {
         const p = priceForCell(pitchId, c);
         if (!p || !Number.isFinite(p.price) || p.price <= 0) {
-            throw new AppError(
-                "NO_RATE_FOR_SLOT",
-                "We could not price this slot. Pick another time.",
-                400
-            );
+            throw new AppError("NO_RATE_FOR_SLOT", "We could not price this slot. Pick another time.", 400);
         }
-        return { cellStart: c.toISOString(), price: p.price, tier: p.tier };
+        return {
+            cellStart: c.toISOString(),
+            price: p.price,
+            originalPrice: p.originalPrice,
+            hasDiscount: p.hasDiscount,
+            tier: p.tier,
+        };
     });
-
     const subtotal = lines.reduce((s, l) => s + l.price, 0);
-
+    const originalSubtotal = lines.reduce((s, l) => s + l.originalPrice, 0);
+    const discountAmount = originalSubtotal - subtotal;
     let vat = 0;
     let total = subtotal;
     if (vatRatePercent && vatMode === "exclusive") {
@@ -68,21 +76,16 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
     } else if (vatRatePercent) {
         vat = Math.round(subtotal - subtotal / (1 + vatRatePercent / 100));
     }
-
     const advance = Math.round((total * advancePercent) / 100);
     const balance = total - advance;
-
     if (![subtotal, vat, total, advance, balance].every(Number.isFinite)) {
-        throw new AppError(
-            "NO_RATE_FOR_SLOT",
-            "We could not price this slot. Pick another time.",
-            400
-        );
+        throw new AppError("NO_RATE_FOR_SLOT", "We could not price this slot. Pick another time.", 400);
     }
-
     return {
         lines,
         subtotal,
+        originalSubtotal,
+        discountAmount,
         vat,
         total,
         advance,

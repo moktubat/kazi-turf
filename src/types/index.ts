@@ -46,17 +46,20 @@ export interface Pitch {
 }
 
 export type RateTier = "Off-peak" | "Peak";
+export type DiscountType = "PERCENT" | "FIXED";
 
 export interface PricingRule {
-  id: string;
-  pitchId: string;
-  days: number[];
-  startTime: string;
-  endTime: string;
-  pricePerSlot: number;
-  tier: RateTier;
-  effectiveFrom?: string;
-  effectiveTo?: string;
+    id: string;
+    pitchId: string;
+    days: number[];
+    startTime: string;
+    endTime: string;
+    pricePerSlot: number;
+    tier: RateTier;
+    effectiveFrom?: string;
+    effectiveTo?: string;
+    discountType?: DiscountType | null;
+    discountValue?: number | null;
 }
 
 export type ClaimState = "HELD" | "BOOKED" | "MAINTENANCE";

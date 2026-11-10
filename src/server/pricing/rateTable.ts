@@ -1,5 +1,6 @@
 import { pricingRules } from "@/data/pricing";
 import { formatTime12 } from "@/lib/format";
+import { applyDiscount } from "@/lib/pricing";
 import { todayDhaka } from "@/lib/time.server";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -12,7 +13,9 @@ function dayLabel(days: number[]): string {
 }
 
 export interface RateCell {
-    price: number;
+    price: number;           // discounted (effective) price
+    originalPrice: number;   // pre-discount price
+    hasDiscount: boolean;
     window: string;
 }
 
@@ -24,9 +27,7 @@ export interface RateRow {
 
 export async function getRateTable(pitchId: string): Promise<RateRow[]> {
     const today = await todayDhaka();
-
     const rows = new Map<string, RateRow>();
-
     for (const r of pricingRules.filter(
         (x) =>
             x.pitchId === pitchId &&
@@ -34,22 +35,17 @@ export async function getRateTable(pitchId: string): Promise<RateRow[]> {
             (!x.effectiveTo || today <= x.effectiveTo)
     )) {
         const key = [...r.days].sort((a, b) => a - b).join(",");
-        const row = rows.get(key) ?? {
-            days: dayLabel(r.days),
-            offPeak: null,
-            peak: null,
-        };
-
-        const cell = {
-            price: r.pricePerSlot,
+        const row = rows.get(key) ?? { days: dayLabel(r.days), offPeak: null, peak: null };
+        const priced = applyDiscount(r.pricePerSlot, r.discountType, r.discountValue);
+        const cell: RateCell = {
+            price: priced.discounted,
+            originalPrice: priced.original,
+            hasDiscount: priced.hasDiscount,
             window: `${formatTime12(r.startTime)}–${formatTime12(r.endTime)}`,
         };
-
         if (r.tier === "Peak") row.peak = cell;
         else row.offPeak = cell;
-
         rows.set(key, row);
     }
-
     return [...rows.values()];
 }
