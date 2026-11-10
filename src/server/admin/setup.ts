@@ -30,6 +30,7 @@ import type { PolicyForm, SetupData, SetupRate, SetupStaff, SetupTab } from "@/t
 import type { User } from "@/types/user";
 import { assertSuperAdmin } from "./access";
 import { todayDhaka } from "@/lib/time.server";
+import { revalidatePath } from "next/cache";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 type StaffDoc = Pick<User, "id" | "name" | "phone" | "email" | "branchIds" | "permissions" | "status"> & {
@@ -110,6 +111,12 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     const changes = diff(b as unknown as Record<string, unknown>, next);
     Object.assign(b, next);
     await persistConfig("branches");
+
+    // Bust cached public pages so the new sport order / venue details show up immediately.
+    // The admin dashboard already refreshes itself via router.refresh() — this is for the homepage
+    // and /book, which are served by a different serverless instance and would otherwise show stale data.
+    revalidatePath("/");
+    revalidatePath("/book");
 
     // [CLOUDINARY] Delete any sport background that was replaced or removed.
     const newImageById = new Map<string, string | null>();
