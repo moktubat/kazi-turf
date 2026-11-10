@@ -12,13 +12,10 @@ import type { Booking } from "@/types/booking";
 import type { Payment } from "@/types/ops";
 import { findBookingByCode, settle, toDto } from "./index";
 
-export async function listAccountBookings(
-    user: ServerUser,
-    now: Date
-) {
+export async function listAccountBookings(user: ServerUser, now: Date) {
     await connectDb();
     const raw = plainAll<Booking>(await BookingModel.find({ customerId: user.id }).lean());
-    const mine = await Promise.all(raw.map((b) => settle(b, now))); // expired holds become EXPIRED
+    const mine = await Promise.all(raw.map((b) => settle(b, now)));
 
     const codes = mine.map((b) => b.bookingCode);
     const ids = mine.map((b) => b.id);
@@ -31,6 +28,7 @@ export async function listAccountBookings(
 
     const upcoming: AccountBookingDto[] = [];
     const history: AccountBookingDto[] = [];
+    const refunds: AccountBookingDto[] = [];
 
     for (const b of mine) {
         const open = reqBy.get(b.bookingCode);
@@ -45,12 +43,23 @@ export async function listAccountBookings(
 
         if (live || holding) upcoming.push(dto);
         else if (["CONFIRMED", "CHECKED_IN", "COMPLETED", "CANCELLED"].includes(b.bookingStatus)) history.push(dto);
-        // Abandoned or expired unpaid holds are not shown.
+
+        // Refunds tab: any booking where the customer paid some advance and is
+        // waiting for, or has received, a refund.
+        if (
+            dto.advancePaid > 0 &&
+            (b.paymentStatus === "REFUND_PENDING" || b.paymentStatus === "REFUNDED" ||
+                (b.bookingStatus === "CANCELLED" && dto.advancePaid > 0))
+        ) {
+            refunds.push(dto);
+        }
+        // Abandoned or expired unpaid holds are not shown anywhere.
     }
 
     upcoming.sort((a, b) => a.startAt.localeCompare(b.startAt));
     history.sort((a, b) => b.startAt.localeCompare(a.startAt));
-    return { upcoming, history };
+    refunds.sort((a, b) => b.startAt.localeCompare(a.startAt));
+    return { upcoming, history, refunds };
 }
 
 export async function requestChange(

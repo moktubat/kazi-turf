@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { Hero } from "@/components/pages/home/Hero";
-import { HeroKickOffs, KickOffsFallback } from "@/components/pages/home/HeroKickOffs";
 import { Ticker } from "@/components/pages/home/Ticker";
 import { VenuesSection } from "@/components/pages/home/VenuesSection";
 import { HowItWorks } from "@/components/pages/home/HowItWorks";
@@ -19,18 +18,8 @@ function HeroFallback() {
 
 async function HeroSection({ venue, policies }: { venue: Branch; policies: Policies }) {
     const today = await todayDhaka();
-
     return (
-        <Hero
-            today={today}
-            venue={venue}
-            policies={policies}
-            aside={
-                <Suspense fallback={<KickOffsFallback />}>
-                    <HeroKickOffs today={today} venue={venue} />
-                </Suspense>
-            }
-        />
+        <Hero today={today} venue={venue} policies={policies} />
     );
 }
 

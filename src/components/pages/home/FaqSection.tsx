@@ -32,13 +32,6 @@ export function FaqSection({ policies }: { policies: Policies }) {
             answer: `Show your booking code to staff. Check-in opens ${policies.checkInOpensMinutesBefore} minutes before your slot starts and closes when it ends.`,
         },
         {
-            id: "what-rain",
-            question: "What happens if it rains?",
-            answer:
-                "Weather alone does not automatically mean a refund. Rain-check eligibility and expiry are set out in our policy.",
-            link: { label: "Read the rain-check policy", href: "/legal#refund" },
-        },
-        {
             id: "how-cancel",
             question: "Can I cancel my booking?",
             answer:

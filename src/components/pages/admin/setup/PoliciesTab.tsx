@@ -21,8 +21,6 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
         tiers: policies.refund.tiers,
         method: policies.refund.method,
         timing: policies.refund.timing,
-        rainEligibility: policies.refund.rainCheckEligibility,
-        rainDays: policies.refund.rainCheckExpiryDays === null ? "" : String(policies.refund.rainCheckExpiryDays),
         exceptions: policies.refund.exceptions.join("\n"),
         reviewed: policies.legalReviewed,
     });
@@ -54,8 +52,6 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
                     tiers: f.tiers,
                     method: f.method,
                     timing: f.timing,
-                    rainCheckEligibility: f.rainEligibility,
-                    rainCheckExpiryDays: f.rainDays.trim() === "" ? null : Number(f.rainDays),
                     exceptions: f.exceptions.split("\n").map((s) => s.trim()).filter(Boolean),
                 },
                 legalReviewed: f.reviewed,
@@ -97,9 +93,9 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
             </Card>
 
             <Card className="space-y-4">
-                <h2 className="text-lg font-bold">Cancellation, refund and rain-check</h2>
+                <h2 className="text-lg font-bold">Cancellation &amp; refund</h2>
                 <p className="text-sm text-evergreen/80">
-                    This text is shown on the Legal page. Leave a field empty and the page says it is being finalised. It never shows invented terms.
+                    This text is shown on the Legal page. All turfs are indoor, so there is no rain-check. Leave a field empty and the page says it is being finalised. It never shows invented terms.
                 </p>
 
                 <div className="space-y-3">
@@ -123,8 +119,6 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
 
                 <Input label="Refund method" value={f.method} error={fields["refund.method"]} onChange={(e) => set("method", e.target.value)} />
                 <Input label="Refund timing" value={f.timing} error={fields["refund.timing"]} onChange={(e) => set("timing", e.target.value)} />
-                <Textarea label="Rain-check eligibility" rows={2} value={f.rainEligibility} error={fields["refund.rainCheckEligibility"]} onChange={(e) => set("rainEligibility", e.target.value)} />
-                <Input label="Rain-check expiry (days)" type="number" inputMode="numeric" value={f.rainDays} error={fields["refund.rainCheckExpiryDays"]} onChange={(e) => set("rainDays", e.target.value)} />
                 <Textarea label="Exceptions (one per line)" rows={3} value={f.exceptions} error={fields["refund.exceptions"]} onChange={(e) => set("exceptions", e.target.value)} />
             </Card>
 

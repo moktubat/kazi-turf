@@ -10,13 +10,14 @@ export const branches: Branch[] = shared<Branch[]>("branches", [
         phone: "+8801700000001",
         whatsapp: "8801700000001",
         mapUrl: "https://maps.google.com/?q=Bogura",
-        hours: "06:00 – 24:00",
+        hours: "24 hours",
         status: "ACTIVE",
-        sports: ["Football", "Cricket", "Badminton"],
+        sports: ["Football", "Cricket", "Badminton", "Volly"],
         sportConfigs: [
             { id: "football", name: "Football", image: "/sports/football.jpg", active: true },
             { id: "cricket", name: "Cricket", image: "/sports/cricket.jpg", active: true },
             { id: "badminton", name: "Badminton", image: "/sports/badminton.jpg", active: true },
+            { id: "volly", name: "Volly", image: "/sports/volly.jpg", active: true },
         ],
     },
 ]);

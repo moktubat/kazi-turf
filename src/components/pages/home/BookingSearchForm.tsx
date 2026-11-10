@@ -6,25 +6,24 @@ import { addDays } from "@/lib/time";
 import { formatTime12 } from "@/lib/format";
 import type { Branch, Pitch, Policies } from "@/types";
 
-const label = "block text-[11px] font-bold uppercase tracking-wider text-evergreen/60";
-const control = "mt-0.5 block w-full min-w-0 cursor-pointer bg-transparent text-sm font-semibold text-evergreen outline-none";
-const cell = "rounded-xl px-3 py-2 transition-colors focus-within:bg-mint/70 hover:bg-mint/50";
+const label = "block text-xs font-bold uppercase tracking-wider text-evergreen/60";
+const control = "mt-1 block w-full min-w-0 cursor-pointer bg-transparent text-base font-semibold text-evergreen outline-none";
+const cell = "rounded-2xl px-4 py-3 transition-colors focus-within:bg-mint/70 hover:bg-mint/50";
 
 export function BookingSearchForm({
     sport,
     today,
-    venue,
     policies,
     pitches: pitchesProp,
+    venue: _venue,
 }: {
     sport: string;
     today: string;
     venue: Branch;
-    policies: Policies;        // ← used for slotMinutes + bookingHorizonDays
+    policies: Policies;
     pitches?: Pitch[];
 }) {
     const router = useRouter();
-    // Use policies for booking horizon (not venue — Branch type has no such field)
     const maxDate = addDays(today, policies.bookingHorizonDays);
     const uid = useId();
 
@@ -36,9 +35,10 @@ export function BookingSearchForm({
     const [date, setDate] = useState(today);
     const [slot, setSlot] = useState("");
 
-    // Generate time slots using policies.slotMinutes (not venue.slotMinutes)
+    // 24-hour turf: build slot times for the full day using the global slot length.
+    // (Per-pitch length is respected on the /book page after the user picks a pitch.)
     const slotMinutes = policies.slotMinutes;
-    const openMin = 6 * 60;   // 06:00
+    const openMin = 0;     // 00:00 — open 24 hours
     const closeMin = 24 * 60; // 24:00
 
     const times: string[] = [];
@@ -59,7 +59,8 @@ export function BookingSearchForm({
     return (
         <form
             onSubmit={onSubmit}
-            className="grid gap-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-center lg:gap-0"
+            // Bigger search box: stack on small screens, 3 inputs + button on lg.
+            className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-center lg:gap-2"
             aria-label="Find available slots"
         >
             <div className={`${cell} lg:rounded-r-none`}>
@@ -101,9 +102,10 @@ export function BookingSearchForm({
 
             <button
                 type="submit"
-                className="mt-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-teal px-6 font-heading text-sm font-bold text-white transition-colors hover:bg-evergreen sm:col-span-2 lg:col-span-1 lg:mt-0 lg:ml-2"
+                // Bigger, taller, full-width on mobile, side-by-side on lg.
+                className="mt-1 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-teal px-8 font-heading text-base font-bold text-white transition-colors hover:bg-evergreen sm:col-span-2 lg:col-span-1 lg:mt-0 lg:ml-2"
             >
-                <Search size={18} aria-hidden /> Search
+                <Search size={20} aria-hidden /> Search
             </button>
         </form>
     );

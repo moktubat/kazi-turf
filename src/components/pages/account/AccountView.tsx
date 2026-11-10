@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { CalendarCheck, CalendarX2, History as HistoryIcon, UserRound } from "lucide-react";
+import { CalendarCheck, CalendarX2, History as HistoryIcon, RotateCcw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SideSheet } from "@/components/ui/SideSheet";
@@ -36,23 +36,25 @@ function groupUpcoming(upcoming: AccountBookingDto[], today: string): BookingGro
     return groups.filter((g) => g.items.length > 0);
 }
 
-type AccountTab = "upcoming" | "history" | "profile";
+type AccountTab = "upcoming" | "history" | "refund" | "profile";
 
 export function AccountView({
     profile,
     upcoming,
     history,
+    refunds,
     initialCode,
     showBookings,
 }: {
     profile: { name: string; phone: string; email: string };
     upcoming: AccountBookingDto[];
     history: AccountBookingDto[];
+    refunds: AccountBookingDto[];
     initialCode: string | null;
     showBookings: boolean;
 }) {
-    const all = useMemo(() => [...upcoming, ...history], [upcoming, history]);
-    const inHistory = !!initialCode && history.some((b) => b.code === initialCode);
+    const all = useMemo(() => [...upcoming, ...history, ...refunds], [upcoming, history, refunds]);
+    const inHistory = !!initialCode && (history.some((b) => b.code === initialCode) || refunds.some((b) => b.code === initialCode));
 
     const [tab, setTab] = useState<AccountTab>(
         showBookings ? (inHistory ? "history" : "upcoming") : "profile"
@@ -80,6 +82,7 @@ export function AccountView({
         ? [
             { id: "upcoming", label: "Upcoming", icon: CalendarCheck, count: upcoming.length },
             { id: "history", label: "History", icon: HistoryIcon, count: history.length },
+            { id: "refund", label: "Refund", icon: RotateCcw, count: refunds.length },
             { id: "profile", label: "Profile", icon: UserRound },
         ]
         : [{ id: "profile", label: "Profile", icon: UserRound }];
@@ -94,7 +97,7 @@ export function AccountView({
             <div className="grid gap-6 md:grid-cols-[15rem_1fr] md:gap-8">
                 {/* Sidebar (vertical on md+, horizontal pills on mobile) */}
                 <nav aria-label="Account sections" className="md:pr-2">
-                    <ul className="grid grid-cols-3 gap-2 pb-2 md:flex md:flex-col md:gap-1 md:pb-0">
+                    <ul className="grid grid-cols-4 gap-2 pb-2 md:flex md:flex-col md:gap-1 md:pb-0">
                         {navItems.map((item) => {
                             const active = tab === item.id;
                             const Icon = item.icon;
@@ -207,6 +210,36 @@ export function AccountView({
                                 </div>
                                 <ul className="space-y-2.5">
                                     {history.map((b) => (
+                                        <li key={b.code}>
+                                            <BookingRow b={merge(b)} onOpen={() => open(b.code)} />
+                                        </li>
+                                    ))}
+                                </ul>
+                            </section>
+                        ))}
+
+                    {tab === "refund" &&
+                        (refunds.length === 0 ? (
+                            <EmptyState
+                                icon={RotateCcw}
+                                title="No refund requests"
+                                description="Bookings you cancel after paying the advance will appear here with their refund status."
+                            />
+                        ) : (
+                            <section aria-labelledby="group-refund" className="space-y-2.5">
+                                <div className="flex items-baseline justify-between gap-3 px-1">
+                                    <h2
+                                        id="group-refund"
+                                        className="font-heading text-xs font-bold uppercase tracking-[0.14em] text-evergreen/60"
+                                    >
+                                        Refunds
+                                    </h2>
+                                    <span className="text-xs font-semibold text-evergreen/50">
+                                        {refunds.length} {refunds.length === 1 ? "booking" : "bookings"}
+                                    </span>
+                                </div>
+                                <ul className="space-y-2.5">
+                                    {refunds.map((b) => (
                                         <li key={b.code}>
                                             <BookingRow b={merge(b)} onOpen={() => open(b.code)} />
                                         </li>

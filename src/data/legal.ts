@@ -26,8 +26,6 @@ export interface RefundConfig {
     tiers: { when: string; outcome: string }[];
     method: string | null;
     timing: string | null;
-    rainCheckEligibility: string | null;
-    rainCheckExpiryDays: number | null;
     exceptions: string[];
 }
 
@@ -36,8 +34,6 @@ export const refundConfig = shared<RefundConfig>("refundConfig", {
     tiers: [],
     method: null,
     timing: null,
-    rainCheckEligibility: null,
-    rainCheckExpiryDays: null,
     exceptions: [],
 });
 
@@ -87,7 +83,7 @@ const terms = (): LegalDoc => ({
         {
             heading: "Venue closures",
             paragraphs: [
-                "A pitch may be closed for maintenance or safety. If we need to cancel a booking, we will contact you and handle your advance under the Refund & Rain-check policy.",
+                "A pitch may be closed for maintenance or safety. If we need to cancel a booking, we will contact you and handle your advance under the Refund policy.",
             ],
         },
         {
@@ -150,8 +146,8 @@ function refundDoc(): LegalDoc {
     const c = refundConfig;
     return {
         id: "refund",
-        label: "Refund & Rain-check",
-        intro: "What happens to your advance if you cancel, and how rain-checks work.",
+        label: "Refund",
+        intro: "What happens to your advance if you cancel.",
         sections: [
             {
                 heading: "Your advance",
@@ -175,17 +171,6 @@ function refundDoc(): LegalDoc {
                     c.method || c.timing
                         ? [c.method, c.timing].filter(Boolean).join(" ")
                         : "If a refund is approved, we will tell you how and when it will be paid.",
-                ],
-            },
-            {
-                heading: "Rain-check",
-                paragraphs: [
-                    "Weather alone does not automatically mean a refund. Where a rain-check is offered, it is recorded as credit on your account, not as a verbal promise.",
-                    ...(c.rainCheckEligibility ? [c.rainCheckEligibility] : []),
-                    ...(c.rainCheckExpiryDays ? [`Rain-check credit expires after ${c.rainCheckExpiryDays} days.`] : []),
-                    ...(!c.rainCheckEligibility && !c.rainCheckExpiryDays
-                        ? ["Eligibility and expiry rules are being finalised. Contact the venue if weather affects your booking."]
-                        : []),
                 ],
             },
             ...(c.exceptions.length > 0 ? [{ heading: "Exceptions", bullets: c.exceptions }] : []),

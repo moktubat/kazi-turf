@@ -18,7 +18,6 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
                     rates={data.rates}
                     pitches={data.pitches}
                     coverage={data.coverage}
-                    slotMinutes={data.slotMinutes}
                 />
             )}
             {tab === "staff" && <StaffTab staff={data.staff} />}

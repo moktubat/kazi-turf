@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CalendarCheck, MapPin, Phone } from "lucide-react";
 import { footerLinks, legalLinks, site } from "@/data/site";
-import { formatHourRange } from "@/lib/format";
 import type { Branch } from "@/types";
 
 const head = "font-heading text-xs font-bold uppercase tracking-[0.18em] text-emerald";
@@ -30,7 +29,6 @@ export async function Footer({ venue }: { venue: Branch }) {
                         <li className="flex items-start gap-2 text-white/80">
                             <MapPin size={16} aria-hidden className="mt-0.5 shrink-0 text-emerald" /> {venue.address}
                         </li>
-                        <li className="pl-6 text-white/80">{formatHourRange(venue.hours)}</li>
                         <li className="flex items-center gap-2">
                             <Phone size={16} aria-hidden className="shrink-0 text-emerald" />
                             <a href={`tel:${venue.phone}`} className={link}>{venue.phone}</a>

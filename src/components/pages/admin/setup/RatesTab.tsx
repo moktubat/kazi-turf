@@ -27,12 +27,10 @@ export function RatesTab({
     rates,
     pitches,
     coverage,
-    slotMinutes,
 }: {
     rates: SetupRate[];
     pitches: SetupPitch[];
     coverage: Record<string, string[]>;
-    slotMinutes: number;
 }) {
     const [pitchId, setPitchId] = useState(pitches[0]?.id ?? "");
     const [editing, setEditing] = useState<SetupRate | "new" | null>(null);
@@ -63,7 +61,7 @@ export function RatesTab({
             </div>
 
             <p className="text-sm text-evergreen/80">
-                Price per {slotMinutes}-minute slot. Changes apply to new bookings only; existing bookings keep their saved price.
+                Price per {pitch.slotMinutes ?? 90}-minute slot. Changes apply to new bookings only; existing bookings keep their saved price.
             </p>
 
             {gaps.length > 0 && (
@@ -111,12 +109,11 @@ export function RatesTab({
                                             )}
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
-                                            <Badge tone={r.tier === "Peak" ? "held" : "info"}>{r.tier}</Badge>
                                             {priced.hasAdjustment && (
-                                                <Badge tone={priced.hasSurcharge ? "held" : "success"}>
+                                                <Badge tone="success">
                                                     {r.discountType === "PERCENT"
-                                                        ? `${r.discountValue}% ${priced.hasSurcharge ? "surcharge" : "off"}`
-                                                        : `${formatBDT(r.discountValue!)} ${priced.hasSurcharge ? "surcharge" : "off"}`}
+                                                        ? `${r.discountValue}% off`
+                                                        : `${formatBDT(r.discountValue!)} off`}
                                                 </Badge>
                                             )}
                                         </div>
@@ -158,7 +155,6 @@ export function RatesTab({
                         key={editing === "new" ? "new" : editing.id}
                         pitch={pitch}
                         rate={editing === "new" ? null : editing}
-                        slotMinutes={slotMinutes}
                         onDone={() => setEditing(null)}
                     />
                 )}
@@ -169,40 +165,32 @@ export function RatesTab({
 
 interface FormState {
     days: number[];
-    tier: "Off-peak" | "Peak";
     startTime: string;
     endTime: string;
     price: string;
     effectiveFrom: string;
     effectiveTo: string;
     discountType: "PERCENT" | "FIXED" | "";
-    discountDirection: "DISCOUNT" | "SURCHARGE" | "";
     discountValue: string;
 }
 
-function RateForm({
-    pitch,
-    rate,
-    slotMinutes,
-    onDone,
-}: {
+function RateForm({ pitch, rate, onDone }: {
     pitch: SetupPitch;
     rate: SetupRate | null;
-    slotMinutes: number;
     onDone: () => void;
 }) {
     const isNew = !rate;
+    // Use this pitch's own slot length (fall back to the global default for legacy pitches).
+    const slotMinutes = pitch.slotMinutes ?? 90;
     const times = gridBoundaries(pitch.openTime, pitch.closeTime, slotMinutes);
     const [f, setF] = useState<FormState>({
         days: rate?.days ?? [],
-        tier: rate?.tier ?? "Off-peak",
         startTime: rate?.startTime ?? times[0] ?? "",
         endTime: rate?.endTime ?? times[1] ?? "",
         price: rate ? String(rate.pricePerSlot) : "",
         effectiveFrom: rate?.effectiveFrom ?? "",
         effectiveTo: rate?.effectiveTo ?? "",
         discountType: rate?.discountType ?? "",
-        discountDirection: rate?.discountDirection ?? "",
         discountValue: rate?.discountValue ? String(rate.discountValue) : "",
     });
 
@@ -230,20 +218,14 @@ function RateForm({
             startTime: f.startTime,
             endTime: f.endTime,
             pricePerSlot: num(f.price),
-            tier: f.tier,
+            tier: "Off-peak", // field kept for data compat; UI hides it
             effectiveFrom: f.effectiveFrom,
             effectiveTo: f.effectiveTo,
             discountType: f.discountType || null,
-            discountDirection: f.discountType ? (f.discountDirection || "DISCOUNT") : null,
+            discountDirection: f.discountType ? "DISCOUNT" : null, // always DISCOUNT
             discountValue: f.discountType && f.discountValue ? num(f.discountValue) : null,
         };
-        save(
-            isNew ? rateSchema : rateUpdateSchema,
-            isNew ? body : { ...body, id: rate.id },
-            "/admin/setup/rates",
-            isNew ? "POST" : "PATCH",
-            onDone
-        );
+        save(isNew ? rateSchema : rateUpdateSchema, isNew ? body : { ...body, id: rate.id }, "/admin/setup/rates", isNew ? "POST" : "PATCH", onDone);
     }
 
     return (
@@ -264,7 +246,7 @@ function RateForm({
                 </p>
             </div>
 
-            <SheetSection icon={Calendar} title="Days & tier" description="Which weekdays this price applies to. Peak = evenings & weekends (higher price), Off-peak = daytime weekdays (lower price).">
+            <SheetSection icon={Calendar} title="Days" description="Which weekdays this price applies to.">
                 <fieldset>
                     <legend className="mb-1.5 text-sm font-semibold">Days</legend>
                     <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
@@ -274,15 +256,6 @@ function RateForm({
                     </div>
                     {fields.days && <p role="alert" className="text-sm font-medium text-booked">{fields.days}</p>}
                 </fieldset>
-                <Select
-                    label="Pricing tier"
-                    value={f.tier}
-                    hint="Peak = evenings & weekends. Off-peak = daytime weekdays."
-                    onChange={(e) => set("tier", e.target.value as FormState["tier"])}
-                >
-                    <option value="Off-peak">Off-peak</option>
-                    <option value="Peak">Peak</option>
-                </Select>
             </SheetSection>
 
             <SheetSection icon={Clock} title="Time window" description="Must align to the field's slot grid.">
@@ -362,94 +335,49 @@ function RateForm({
 
             <SheetSection
                 icon={Tag}
-                title="Price adjustment (optional)"
-                description="Adjust the slot price up (Surcharge) or down (Discount) for peak demand, holidays, weekends, etc."
+                title="Discount (optional)"
+                description="Lower the slot price for promotions, off-season, etc. Surcharge is not used — everyone knows evenings cost more."
             >
                 <Select
-                    label="Adjustment type"
+                    label="Discount type"
                     value={f.discountType}
                     onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}
                 >
-                    <option value="">None (no adjustment)</option>
+                    <option value="">None (no discount)</option>
                     <option value="PERCENT">Percentage (%)</option>
                     <option value="FIXED">Fixed amount (৳)</option>
                 </Select>
 
                 {f.discountType && (
-                    <>
-                        <fieldset>
-                            <legend className="mb-1.5 text-sm font-semibold">Direction</legend>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    aria-pressed={f.discountDirection === "DISCOUNT"}
-                                    onClick={() => set("discountDirection", "DISCOUNT")}
-                                    className={`min-h-11 rounded-xl border-2 px-3 text-sm font-semibold transition-colors ${f.discountDirection === "DISCOUNT"
-                                        ? "border-teal bg-teal text-white"
-                                        : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
-                                        }`}
-                                >
-                                    ↓ Discount (lower price)
-                                </button>
-                                <button
-                                    type="button"
-                                    aria-pressed={f.discountDirection === "SURCHARGE"}
-                                    onClick={() => set("discountDirection", "SURCHARGE")}
-                                    className={`min-h-11 rounded-xl border-2 px-3 text-sm font-semibold transition-colors ${f.discountDirection === "SURCHARGE"
-                                        ? "border-held bg-held text-white"
-                                        : "border-evergreen/15 bg-surface text-evergreen hover:border-held hover:bg-held-soft/40"
-                                        }`}
-                                >
-                                    ↑ Surcharge (higher price)
-                                </button>
-                            </div>
-                            {fields.discountDirection && (
-                                <p role="alert" className="mt-1 text-sm font-medium text-booked">{fields.discountDirection}</p>
-                            )}
-                        </fieldset>
-
-                        <Input
-                            label={
-                                f.discountType === "PERCENT"
-                                    ? f.discountDirection === "SURCHARGE" ? "Surcharge percentage (%)" : "Discount percentage (%)"
-                                    : f.discountDirection === "SURCHARGE" ? "Surcharge amount (৳)" : "Discount amount (৳)"
-                            }
-                            type="number"
-                            inputMode="numeric"
-                            value={f.discountValue}
-                            placeholder={f.discountType === "PERCENT" ? "e.g. 20" : "e.g. 200"}
-                            hint={
-                                f.discountType === "PERCENT"
-                                    ? "1–100. E.g. 20 = 20%."
-                                    : f.discountDirection === "DISCOUNT"
-                                        ? "Whole taka. Must be less than the slot price."
-                                        : "Whole taka. Added on top of the slot price."
-                            }
-                            error={fields.discountValue}
-                            onChange={(e) => set("discountValue", e.target.value)}
-                        />
-                    </>
+                    <Input
+                        label={f.discountType === "PERCENT" ? "Discount percentage (%)" : "Discount amount (৳)"}
+                        type="number"
+                        inputMode="numeric"
+                        value={f.discountValue}
+                        placeholder={f.discountType === "PERCENT" ? "e.g. 20" : "e.g. 200"}
+                        hint={
+                            f.discountType === "PERCENT"
+                                ? "1–100. E.g. 20 = 20% off."
+                                : "Whole taka. Must be less than the slot price."
+                        }
+                        error={fields.discountValue}
+                        onChange={(e) => set("discountValue", e.target.value)}
+                    />
                 )}
 
-                {/* Live preview of the adjusted price */}
-                {f.discountType && f.discountDirection && f.discountValue && f.price && (
+                {f.discountType && f.discountValue && f.price && (
                     (() => {
-                        const priced = applyDiscount(
-                            Number(f.price) || 0,
-                            f.discountType,
-                            Number(f.discountValue) || 0,
-                            f.discountDirection
-                        );
+                        const priced = applyDiscount(Number(f.price) || 0, f.discountType, Number(f.discountValue) || 0, "DISCOUNT");
                         return priced.hasAdjustment ? (
-                            <div className={`rounded-lg border p-3 text-sm ${priced.hasSurcharge ? "border-held/30 bg-held-soft/50" : "border-teal/30 bg-mint/50"}`} aria-live="polite">
+                            <div className="rounded-lg border border-teal/30 bg-mint/50 p-3 text-sm" aria-live="polite">
                                 <p className="text-evergreen/70">
-                                    Original: <span className={priced.hasDiscount ? "line-through" : ""}>{formatBDT(priced.original)}</span>
+                                    Original: <span className="line-through">{formatBDT(priced.original)}</span>
                                 </p>
-                                <p className={`font-semibold ${priced.hasSurcharge ? "text-held" : "text-teal"}`}>
-                                    {priced.hasSurcharge ? "After surcharge" : "After discount"}: {formatBDT(priced.discounted)}
+                                <p className="font-semibold text-teal">
+                                    After discount: {formatBDT(priced.discounted)}
                                 </p>
                                 <p className="text-xs text-evergreen/60">
-                                    {priced.hasSurcharge ? `Customer pays +${formatBDT(priced.discounted - priced.original)}` : `Customer saves ${formatBDT(priced.original - priced.discounted)}`}
+                                    Customer saves {formatBDT(priced.original - priced.discounted)}
                                 </p>
                             </div>
                         ) : null;

@@ -29,13 +29,13 @@ export const footerLinks = [
 export const legalLinks = [
     { label: "Terms", href: "/legal#terms" },
     { label: "Privacy", href: "/legal#privacy" },
-    { label: "Refund & Rain-check", href: "/legal#refund" },
+    { label: "Refund", href: "/legal#refund" },
 ];
 
 // Never hard-code these elsewhere. [CONFIRM] all values with the owner.
 export const policies: Policies = shared<Policies>("policies", {
     slotMinutes: 90,
-    advancePercent: 40,
+    advancePercent: 30,   // 06:00 AM – 12:00 AM = 30% advance (indoor turf, 24h)
     holdMinutes: 10,
     checkInOpensMinutesBefore: 30,
     bookingHorizonDays: 14,

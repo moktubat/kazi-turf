@@ -7,7 +7,7 @@ import type { Branch } from "@/types";
 import { FormActions } from "./ui";
 import { useSave } from "./useSave";
 import { Button } from "@/components/ui/Button";
-import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 
 interface SportConfig {
@@ -54,7 +54,7 @@ function VenueForm({ venue }: { venue: Branch }) {
         phone: venue.phone,
         whatsapp: venue.whatsapp,
         mapUrl: venue.mapUrl,
-        hours: venue.hours,
+        hours: "24 hours",
         status: venue.status,
         sports: venue.sports,
         // Ensure sportConfigs is initialized from venue data
@@ -161,14 +161,6 @@ function VenueForm({ venue }: { venue: Branch }) {
                     value={f.mapUrl}
                     error={fields.mapUrl}
                     onChange={(e) => set("mapUrl", e.target.value)}
-                />
-                <Input
-                    label="Opening hours"
-                    placeholder="06:00 AM to 12:00 AM"
-                    hint="Use 12-hour format like 06:00 AM to 12:00 AM. Shown in the footer."
-                    value={f.hours}
-                    error={fields.hours}
-                    onChange={(e) => set("hours", e.target.value)}
                 />
                 <Select
                     label="Operating status"

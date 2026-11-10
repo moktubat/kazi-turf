@@ -1,4 +1,4 @@
-import type { Branch, DiscountType, Pitch, PricingRule } from "@/types";
+import type { Branch, Pitch, } from "@/types";
 
 export type SetupTab = "venue" | "pitches" | "rates" | "staff" | "policies";
 
@@ -46,8 +46,6 @@ export interface PolicyForm {
         tiers: { when: string; outcome: string }[];
         method: string;
         timing: string;
-        rainCheckEligibility: string;
-        rainCheckExpiryDays: number | null;
         exceptions: string[];
     };
     legalReviewed: boolean;

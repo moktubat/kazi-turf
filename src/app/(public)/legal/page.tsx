@@ -15,7 +15,7 @@ export default async function LegalPage() {
                     </p>
                     <h1 className="text-3xl font-extrabold text-white md:text-5xl">Legal</h1>
                     <p className="mt-2 max-w-xl text-white/75">
-                        Terms, privacy and our refund and rain-check policy.
+                        Terms, privacy and our refund policy.
                     </p>
 
                     {!legalStatus.reviewed && (

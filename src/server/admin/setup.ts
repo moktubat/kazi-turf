@@ -151,7 +151,8 @@ function assertPitchRules(branch: Branch, input: { name: string; sport: string }
 
 /** New hours must still fit every upcoming booking, hold and block. */
 async function assertScheduleSafe(pitchId: string, openTime: string, closeTime: string, now: Date) {
-    const step = policies.slotMinutes;
+    const pitch = pitches.find((p) => p.id === pitchId);
+    const step = pitch?.slotMinutes ?? policies.slotMinutes;
     const open = toMinutes(openTime);
     const close = toMinutes(closeTime);
     const since = new Date(now.getTime() - step * 60_000).toISOString();
@@ -195,8 +196,9 @@ export async function createPitch(user: ServerUser, input: PitchInput) {
         format: input.format,
         dimensions: input.dimensions,
         surface: input.surface,
-        openTime: input.openTime,
-        closeTime: input.closeTime,
+        openTime: "00:00",     // 24-hour turf
+        closeTime: "24:00",
+        slotMinutes: input.slotMinutes,
         maxConsecutiveSlots: input.maxConsecutiveSlots,
         facilities: uniq(input.facilities),
         image: input.image || null,
@@ -209,7 +211,7 @@ export async function createPitch(user: ServerUser, input: PitchInput) {
         entityType: "PITCH",
         entityId: p.id,
         branchId: p.branchId,
-        meta: { change: "created", name: p.name, sport: p.sport, hours: `${p.openTime}–${p.closeTime}` },
+        meta: { change: "created", name: p.name, sport: p.sport, slotMinutes: p.slotMinutes },
     });
 }
 
@@ -223,8 +225,11 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
     if (!branch) throw new AppError("NOT_FOUND", "Venue not found.", 404);
     assertPitchRules(branch, input, p.id);
 
-    if (p.openTime !== input.openTime || p.closeTime !== input.closeTime) {
-        await assertScheduleSafe(p.id, input.openTime, input.closeTime, now);
+    // 24-hour turf — openTime / closeTime are constants, no schedule conflict possible.
+    // But changing slotMinutes can shift the grid, so still check that no upcoming
+    // booking falls off the new grid.
+    if (p.slotMinutes !== input.slotMinutes) {
+        await assertScheduleSafe(p.id, "00:00", "24:00", now);
     }
 
     // [CLOUDINARY] Capture the old image URL BEFORE we overwrite the pitch.
@@ -236,8 +241,9 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
         format: input.format,
         dimensions: input.dimensions,
         surface: input.surface,
-        openTime: input.openTime,
-        closeTime: input.closeTime,
+        openTime: "00:00",
+        closeTime: "24:00",
+        slotMinutes: input.slotMinutes,
         maxConsecutiveSlots: input.maxConsecutiveSlots,
         facilities: uniq(input.facilities),
         image: input.image || null,
@@ -319,7 +325,7 @@ const describeRule = (r: Pick<PricingRule, "days" | "startTime" | "endTime" | "t
     `${daysLabel(r.days)} ${r.startTime}–${r.endTime} ${r.tier}`;
 
 function assertRule(pitch: Pitch, input: RateInput, selfId?: string) {
-    const step = policies.slotMinutes;
+    const step = pitch.slotMinutes ?? policies.slotMinutes;
     const open = toMinutes(pitch.openTime);
     const close = toMinutes(pitch.closeTime);
     const s = toMinutes(input.startTime);
@@ -519,8 +525,6 @@ export function getPolicyForm(): PolicyForm {
             tiers: refundConfig.tiers.map((t) => ({ ...t })),
             method: refundConfig.method ?? "",
             timing: refundConfig.timing ?? "",
-            rainCheckEligibility: refundConfig.rainCheckEligibility ?? "",
-            rainCheckExpiryDays: refundConfig.rainCheckExpiryDays,
             exceptions: [...refundConfig.exceptions],
         },
         legalReviewed: legalStatus.reviewed,
@@ -549,8 +553,6 @@ export async function updatePolicies(user: ServerUser, input: PolicyInput) {
         tiers: input.refund.tiers,
         method: input.refund.method || null,
         timing: input.refund.timing || null,
-        rainCheckEligibility: input.refund.rainCheckEligibility || null,
-        rainCheckExpiryDays: input.refund.rainCheckExpiryDays,
         exceptions: input.refund.exceptions,
     });
     legalStatus.reviewed = input.legalReviewed;
@@ -563,7 +565,7 @@ export async function updatePolicies(user: ServerUser, input: PolicyInput) {
 
 /* ---------- page data ---------- */
 function gapLines(p: Pitch, today: string): string[] {
-    const step = policies.slotMinutes;
+    const step = p.slotMinutes ?? policies.slotMinutes;
     const open = toMinutes(p.openTime);
     const close = toMinutes(p.closeTime);
     const lines: string[] = [];
@@ -606,7 +608,9 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
         .filter((r) => pitchById.has(r.pitchId))
         .map((r) => {
             const p = pitchById.get(r.pitchId)!;
+            const pStep = p.slotMinutes ?? policies.slotMinutes;
             const open = toMinutes(p.openTime);
+            const close = toMinutes(p.closeTime);
             const s = toMinutes(r.startTime);
             const e = toMinutes(r.endTime);
             return {
@@ -619,7 +623,7 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
                 tier: r.tier,
                 effectiveFrom: r.effectiveFrom ?? "",
                 effectiveTo: r.effectiveTo ?? "",
-                aligned: s >= open && e <= toMinutes(p.closeTime) && (s - open) % step === 0 && (e - open) % step === 0,
+                aligned: s >= open && e <= close && (s - open) % pStep === 0 && (e - open) % pStep === 0,
                 discountType: r.discountType ?? null,
                 discountDirection: r.discountDirection ?? null,
                 discountValue: r.discountValue ?? null,

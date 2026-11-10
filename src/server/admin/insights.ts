@@ -28,7 +28,7 @@ const spanDays = (from: string, to: string) =>
 
 export async function getInsights(
     user: ServerUser,
-    f: { from: string; to: string },
+    f: { from: string; to: string; sport?: string | null },
     now: Date = new Date()
 ): Promise<InsightsData> {
     assertSuperAdmin(user);
@@ -42,12 +42,26 @@ export async function getInsights(
 
     const scope = branches;
     const scopeIds = scope.map((b) => b.id);
+    const sport = f.sport?.trim() || null;
+
+    // If a sport is selected, narrow to the pitches of that sport (so we can
+    // filter bookings by pitchId and skip other-sport slots in the heatmap).
+    const scopePitches = sport
+        ? pitches.filter((p) => scopeIds.includes(p.branchId) && p.sport === sport)
+        : pitches.filter((p) => scopeIds.includes(p.branchId));
+    const scopePitchIds = new Set(scopePitches.map((p) => p.id));
+
     const fromIso = dhakaToUtc(f.from, 0).toISOString();
     const toIso = dhakaToUtc(addDays(f.to, 1), 0).toISOString();
 
     const [inRange, payDocs, pendingDocs, maintDocs] = await Promise.all([
         BookingModel.find(
-            { branchId: { $in: scopeIds }, bookingStatus: { $in: COUNTED }, date: { $gte: f.from, $lte: f.to } },
+            {
+                branchId: { $in: scopeIds },
+                bookingStatus: { $in: COUNTED },
+                date: { $gte: f.from, $lte: f.to },
+                ...(sport ? { pitchId: { $in: [...scopePitchIds] } } : {}),
+            },
             { id: 1, branchId: 1, pitchId: 1, source: 1, paymentStatus: 1, balanceAmount: 1, cellStarts: 1 }
         ).lean<any[]>(),
         PaymentModel.find({ status: "SUCCESS", verifiedAt: { $gte: fromIso, $lt: toIso } }).lean<any[]>(),
@@ -98,7 +112,6 @@ export async function getInsights(
     }
 
     /* occupancy: booked slots / available slots (maintenance excluded) */
-    const step = policies.slotMinutes;
     const bookedSet = new Set<string>();
     for (const b of inRange) for (const cs of b.cellStarts) bookedSet.add(`${b.pitchId}|${cs}`);
     const maint = new Set(maintDocs.map((c) => `${c.pitchId}|${c.cellStart}`));
@@ -109,8 +122,10 @@ export async function getInsights(
     let totalCells = 0;
     let bookedCells = 0;
 
-    for (const p of pitches) {
-        if (p.status !== "ACTIVE" || !scopeIds.includes(p.branchId)) continue;
+    // Only the in-scope pitches (filtered by sport if a sport was picked).
+    for (const p of scopePitches) {
+        if (p.status !== "ACTIVE") continue;
+        const step = p.slotMinutes ?? policies.slotMinutes;
         const open = toMinutes(p.openTime);
         const close = toMinutes(p.closeTime);
         for (let d = f.from; d <= f.to; d = addDays(d, 1)) {
@@ -147,6 +162,7 @@ export async function getInsights(
         from: f.from,
         to: f.to,
         branch: null,
+        sport,
         kpis: {
             bookings: inRange.length,
             collected,

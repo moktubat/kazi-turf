@@ -54,15 +54,9 @@ async function loadClaims(pitchIds: string[], fromIso: string, toIso: string): P
 }
 
 /** Pure: fixed 90-minute grid from opening time (spec 8.3) minus the given claims. */
-function buildCells(
-    pitch: Pitch,
-    date: string,
-    claims: SlotClaim[],
-    now: Date,
-    opts: AvailabilityOptions
-): Cell[] {
-    const step = policies.slotMinutes;
-    const open = toMinutes(pitch.openTime);
+function buildCells(pitch: Pitch, date: string, claims: SlotClaim[], now: Date, opts: AvailabilityOptions): Cell[] {
+    const step = pitch.slotMinutes ?? policies.slotMinutes; // per-pitch slot length
+    const open = toMinutes(pitch.openTime);   // "00:00" — 24-hour turf
     const close = toMinutes(pitch.closeTime);
 
     const active = new Map<string, SlotClaim>();

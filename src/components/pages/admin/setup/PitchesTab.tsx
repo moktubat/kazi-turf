@@ -7,8 +7,6 @@ import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
 import { ApiError, api } from "@/lib/api";
-import { closeOptions } from "@/lib/grid";
-import { toMinutes } from "@/lib/time";
 import { pitchSchema, pitchUpdateSchema } from "@/schemas/setup";
 import type { SetupPitch } from "@/types/setup";
 import { venue } from "@/data/branches";
@@ -16,7 +14,6 @@ import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
 import { ImageUpload } from "./ImageUpload";
 import { SheetSection } from "../SheetSection";
-import { formatTime12 } from "@/lib/format";
 
 const FORMAT_PRESETS = [
     "5 vs 5",
@@ -52,8 +49,7 @@ interface FormState {
     format: string;
     dimensions: string;
     surface: string;
-    openTime: string;
-    closeTime: string;
+    slotMinutes: number;
     maxConsecutiveSlots: number;
     facilities: string[];
     image: string;
@@ -121,7 +117,7 @@ export function PitchesTab({
                                     <div className="min-w-0">
                                         <h4 className="text-lg font-bold">{p.name}</h4>
                                         <p className="mt-0.5 text-sm text-evergreen/80">
-                                            {p.sport} · {p.format} · {formatTime12(p.openTime)}–{formatTime12(p.closeTime)}
+                                            {p.sport} · {p.format} · {p.slotMinutes ?? 90}-min slots · open 24h
                                         </p>
                                     </div>
                                     <Badge tone={p.status === "ACTIVE" ? "success" : "maint"}>
@@ -212,7 +208,6 @@ export function PitchesTab({
 
 function PitchForm({
     pitch,
-    slotMinutes,
     onDone,
 }: {
     pitch: SetupPitch | null;
@@ -229,8 +224,7 @@ function PitchForm({
         format: pitch?.format ?? "",
         dimensions: pitch?.dimensions ?? "",
         surface: pitch?.surface ?? "",
-        openTime: pitch?.openTime ?? "06:00",
-        closeTime: pitch?.closeTime ?? "24:00",
+        slotMinutes: pitch?.slotMinutes ?? 90,
         maxConsecutiveSlots: pitch?.maxConsecutiveSlots ?? 2,
         facilities: pitch?.facilities ?? [],
         image: pitch?.image ?? "",
@@ -240,23 +234,18 @@ function PitchForm({
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
 
     const sports = [...new Set([...VENUE_SPORTS, ...(pitch ? [pitch.sport] : [])])];
-    const closes = closeOptions(f.openTime, slotMinutes);
-    const slotCount = Math.max(0, (toMinutes(f.closeTime) - toMinutes(f.openTime)) / slotMinutes);
-
-    function setOpen(v: string) {
-        const opts = closeOptions(v, slotMinutes);
-        setF((s) => ({
-            ...s,
-            openTime: v,
-            closeTime: opts.includes(s.closeTime) ? s.closeTime : (opts[opts.length - 1] ?? s.closeTime),
-        }));
-    }
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
+        const body = {
+            ...f,
+            openTime: "00:00",
+            closeTime: "24:00",
+            ...(isNew ? {} : { id: pitch.id }),
+        };
         save(
             isNew ? pitchSchema : pitchUpdateSchema,
-            isNew ? f : { ...f, id: pitch.id },
+            body,
             "/admin/setup/pitches",
             isNew ? "POST" : "PATCH",
             onDone
@@ -375,8 +364,8 @@ function PitchForm({
                                         )
                                     }
                                     className={`min-h-9 rounded-lg border px-3 text-xs font-semibold transition-colors ${active
-                                            ? "border-teal bg-teal text-white"
-                                            : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
+                                        ? "border-teal bg-teal text-white"
+                                        : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
                                         }`}
                                 >
                                     {preset}
@@ -396,28 +385,23 @@ function PitchForm({
                 />
             </SheetSection>
 
-            <SheetSection icon={Clock} title="Schedule" description="Operating hours and how many slots a customer can book at once.">
-                <div className="grid grid-cols-2 gap-4">
-                    <Input
-                        label="Opens"
-                        type="time"
-                        value={f.openTime}
-                        error={fields.openTime}
-                        onChange={(e) => e.target.value && setOpen(e.target.value)}
-                    />
-                    <Select
-                        label="Closes"
-                        value={f.closeTime}
-                        error={fields.closeTime}
-                        onChange={(e) => set("closeTime", e.target.value)}
-                    >
-                        {closes.map((c) => (
-                            <option key={c} value={c}>{formatTime12(c)}</option>
-                        ))}
-                    </Select>
-                </div>
+            <SheetSection icon={Clock} title="Slot duration" description="The turf is open 24 hours. Pick how long each bookable slot is.">
+                <Select
+                    label="Slot length"
+                    value={String(f.slotMinutes)}
+                    error={fields.slotMinutes}
+                    onChange={(e) => set("slotMinutes", Number(e.target.value))}
+                    hint="Customers can only book whole slots of this length."
+                >
+                    <option value="45">45 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="75">1 hour 15 minutes</option>
+                    <option value="90">1.5 hours (1 hour 30 minutes)</option>
+                    <option value="105">1 hour 45 minutes</option>
+                    <option value="120">2 hours</option>
+                </Select>
                 <p className="-mt-2 text-xs text-evergreen/70">
-                    {slotCount} slots of {slotMinutes} minutes. Closing times are limited to whole slots.
+                    The turf is open 24 hours, so this pitch has {Math.round((24 * 60) / f.slotMinutes)} bookable slots per day.
                 </p>
                 <Select
                     label="Max slots per booking (how many a customer can book together)"

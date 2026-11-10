@@ -5,12 +5,13 @@ import { KpiCards, OccupancyHeatmap, RevenueChart, SourceSplit } from "@/compone
 import { InquiryInbox } from "@/components/pages/admin/insights/InquiryInbox";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Field";
+import { Input, Select } from "@/components/ui/Field";
 import { addDays } from "@/lib/time";
 import { getAttention, getAuditEntries, getInsights, listInquiries, MAX_RANGE_DAYS } from "@/server/admin/insights";
 import { requireAdminPage } from "@/server/auth/pageGuards";
 import { AUDIT_ACTIONS } from "@/types/ops";
 import { todayDhaka } from "@/lib/time.server";
+import { venue } from "@/data/branches";
 
 export const instant = false;
 export const metadata: Metadata = { title: "Insights" };
@@ -39,11 +40,17 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
         from = addDays(to, -(MAX_RANGE_DAYS - 1));
     }
 
+    // Audit search query + action filter (preserved across the AuditPanel form).
     const aq = (one("aq") ?? "").trim().slice(0, 60);
     const aa = (AUDIT_ACTIONS as readonly string[]).includes(one("aa") ?? "") ? one("aa")! : "";
 
+    // Sport filter — null means "all sports". Pulled from the live venue sports.
+    const venueSports = venue.sports;
+    const rawSport = one("sport") ?? "";
+    const sport = venueSports.includes(rawSport) ? rawSport : "";
+
     const [insights, attention, inquiries, audit] = await Promise.all([
-        getInsights(user, { from, to }),
+        getInsights(user, { from, to, sport: sport || null }),
         getAttention(user),
         listInquiries(user),
         getAuditEntries(user, { q: aq, action: aa }),
@@ -56,17 +63,23 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
             <Card>
                 <form
                     method="get"
-                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end"
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
                     aria-label="Filters"
                 >
                     <input type="hidden" name="aq" value={aq} />
                     <input type="hidden" name="aa" value={aa} />
                     <Input label="From" type="date" name="from" defaultValue={from} max={today} />
                     <Input label="To" type="date" name="to" defaultValue={to} max={today} />
+                    <Select label="Sport" name="sport" defaultValue={sport}>
+                        <option value="">All sports</option>
+                        {venueSports.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </Select>
                     <Button type="submit">Apply</Button>
                 </form>
                 <p className="mt-3 text-xs text-evergreen/70">
-                    Up to {MAX_RANGE_DAYS} days. Dates are Asia/Dhaka.
+                    Up to {MAX_RANGE_DAYS} days. Pick a date range first, then narrow by sport. Dates are Asia/Dhaka.
                 </p>
             </Card>
 
@@ -81,7 +94,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
 
             <AttentionPanel groups={attention} role={user.role} />
             <InquiryInbox items={inquiries} />
-            <AuditPanel rows={audit} q={aq} action={aa} keep={{ from, to }} />
+            <AuditPanel rows={audit} q={aq} action={aa} keep={{ from, to, sport }} />
         </div>
     );
 }

@@ -37,8 +37,9 @@ export interface Pitch {
   format: string;
   dimensions: string;
   surface: string;
-  openTime: string; // "06:00"
-  closeTime: string; // "24:00"
+  openTime: string;     // always "00:00" — turf is open 24 hours
+  closeTime: string;    // always "24:00"
+  slotMinutes: number;  // per-pitch slot length (45 / 60 / 75 / 90 / 105 / 120)
   maxConsecutiveSlots: number;
   facilities: string[];
   image: string | null;

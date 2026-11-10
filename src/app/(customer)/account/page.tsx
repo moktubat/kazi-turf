@@ -67,9 +67,9 @@ async function AccountContent({ searchParams }: { searchParams: Params }) {
   if (!user) redirect(`/login?next=${encodeURIComponent(code ? `/account?b=${code}` : "/account")}`);
 
   const showBookings = user.role !== "STAFF";
-  const { upcoming, history } = showBookings
+  const { upcoming, history, refunds } = showBookings
     ? await listAccountBookings(user, new Date())
-    : { upcoming: [], history: [] };
+    : { upcoming: [], history: [], refunds: [] };
   const isStaff = user.role === "STAFF" || user.role === "SUPER_ADMIN";
 
   return (
@@ -80,6 +80,7 @@ async function AccountContent({ searchParams }: { searchParams: Params }) {
           profile={{ name: user.name, phone: user.phone, email: user.email ?? "" }}
           upcoming={upcoming}
           history={history}
+          refunds={refunds}
           initialCode={code}
           showBookings={showBookings}
         />

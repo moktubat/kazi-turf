@@ -1,6 +1,5 @@
 // Shared by the Setup forms (client pre-check) and the Setup API routes (server re-validates).
 import { z } from "zod";
-import { policies } from "@/data/site";
 import { normalizePhone } from "@/lib/phone";
 import { toMinutes } from "@/lib/time";
 import { phoneInput } from "./common";
@@ -76,6 +75,8 @@ export const branchUpdateSchema = branchBase
 export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>;
 
 /* ---------- Pitches ---------- */
+const ALLOWED_SLOT_MINUTES = [45, 60, 75, 90, 105, 120] as const;
+
 const pitchBase = z.object({
     branchId: z.string().min(1).max(60),
     name: z.string().trim().min(2, "Enter a name").max(40, "Too long"),
@@ -83,28 +84,25 @@ const pitchBase = z.object({
     format: z.string().trim().min(1, "Enter a format").max(40, "Too long"),
     dimensions: z.string().trim().max(60, "Too long"),
     surface: z.string().trim().max(60, "Too long"),
-    openTime: hhmm,
-    closeTime: hhmm,
+    // Turf is open 24 hours — these are constants, not user inputs.
+    openTime: z.literal("00:00"),
+    closeTime: z.literal("24:00"),
+    slotMinutes: z
+        .number()
+        .int("Whole minutes only")
+        .refine((v) => (ALLOWED_SLOT_MINUTES as readonly number[]).includes(v), {
+            message: `Slot length must be one of ${ALLOWED_SLOT_MINUTES.join(", ")} minutes`,
+        }),
     maxConsecutiveSlots: z.number().int().min(1, "At least 1").max(4, "At most 4"),
     facilities: list(12),
     image: imageField,
     status: z.enum(["ACTIVE", "DISABLED"]),
 });
 
-const pitchGridRule = (v: z.infer<typeof pitchBase>, ctx: z.RefinementCtx) => {
-    const step = policies.slotMinutes;
-    const open = toMinutes(v.openTime);
-    const close = toMinutes(v.closeTime);
-    if (v.openTime === "24:00") ctx.addIssue({ code: "custom", path: ["openTime"], message: "Open before midnight" });
-    else if (close <= open) ctx.addIssue({ code: "custom", path: ["closeTime"], message: "Must be after opening" });
-    else if ((close - open) % step !== 0) {
-        ctx.addIssue({
-            code: "custom",
-            path: ["closeTime"],
-            message: `Opening to closing must be a whole number of ${step}-minute slots`,
-        });
-    }
-};
+// 24-hour turf: openTime is "00:00", closeTime is "24:00" (1440 min), and slotMinutes
+// is one of 45/60/75/90/105/120 — every value divides 1440 evenly, so no extra
+// validation is needed. Kept as a no-op superRefine so the schema shape stays stable.
+const pitchGridRule = (_v: z.infer<typeof pitchBase>, _ctx: z.RefinementCtx) => { };
 
 export const pitchSchema = pitchBase.superRefine(pitchGridRule);
 export const pitchUpdateSchema = pitchBase.extend({ id: z.string().min(1).max(80) }).superRefine(pitchGridRule);
@@ -118,13 +116,15 @@ const rateBase = z.object({
     startTime: hhmm,
     endTime: hhmm,
     pricePerSlot: z.number().int("Whole taka only").min(100, "Too low").max(100000, "Too high"),
-    tier: z.enum(["Off-peak", "Peak"]),
+    tier: z.enum(["Off-peak", "Peak"]).default("Off-peak"), // kept for data compat, UI hides it
     effectiveFrom: optDate,
     effectiveTo: optDate,
     discountType: z.enum(["PERCENT", "FIXED"]).nullable().default(null),
-    discountDirection: z.enum(["DISCOUNT", "SURCHARGE"]).nullable().default(null),
+    // Always DISCOUNT — surcharge option removed from the UI.
+    discountDirection: z.literal("DISCOUNT").nullable().default(null),
     discountValue: z.number().int().min(1, "Must be at least 1").max(100000, "Too high").nullable().default(null),
 });
+
 
 const rateRules = (v: z.infer<typeof rateBase>, ctx: z.RefinementCtx) => {
     if (toMinutes(v.startTime) >= toMinutes(v.endTime)) {
@@ -133,18 +133,13 @@ const rateRules = (v: z.infer<typeof rateBase>, ctx: z.RefinementCtx) => {
     if (v.effectiveFrom && v.effectiveTo && v.effectiveTo < v.effectiveFrom) {
         ctx.addIssue({ code: "custom", path: ["effectiveTo"], message: "Must be on or after the start date" });
     }
-    // Price adjustment: if type is set, direction and value must be set.
-    if (v.discountType && !v.discountDirection) {
-        ctx.addIssue({ code: "custom", path: ["discountDirection"], message: "Pick Discount or Surcharge" });
-    }
     if (v.discountType && !v.discountValue) {
-        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Enter an adjustment value" });
+        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Enter a discount value" });
     }
     if (v.discountType === "PERCENT" && v.discountValue && v.discountValue > 100) {
         ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Percentage cannot exceed 100" });
     }
-    // Fixed discount must be less than the slot price. Surcharge has no upper cap (but capped at 100,000 globally).
-    if (v.discountType === "FIXED" && v.discountDirection === "DISCOUNT" && v.discountValue && v.discountValue >= v.pricePerSlot) {
+    if (v.discountType === "FIXED" && v.discountValue && v.discountValue >= v.pricePerSlot) {
         ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Discount must be less than the slot price" });
     }
 };
@@ -205,18 +200,14 @@ export const policySchema = z.object({
     vatMode: z.enum(["inclusive", "exclusive"]),
     vatRegistrationNo: text(40),
     refund: z.object({
-        tiers: z
-            .array(
-                z.object({
-                    when: z.string().trim().min(3, "Describe the window").max(80, "Too long"),
-                    outcome: z.string().trim().min(3, "Describe the outcome").max(160, "Too long"),
-                })
-            )
-            .max(6, "At most 6 rules"),
+        tiers: z.array(
+            z.object({
+                when: z.string().trim().min(3, "Describe the window").max(80, "Too long"),
+                outcome: z.string().trim().min(3, "Describe the outcome").max(160, "Too long"),
+            })
+        ).max(6, "At most 6 rules"),
         method: text(200),
         timing: text(200),
-        rainCheckEligibility: text(300),
-        rainCheckExpiryDays: z.number().int().min(1, "At least 1 day").max(365, "At most 365 days").nullable(),
         exceptions: z.array(z.string().trim().min(3, "Too short").max(160, "Too long")).max(6, "At most 6"),
     }),
     legalReviewed: z.boolean(),

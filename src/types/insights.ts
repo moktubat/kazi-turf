@@ -22,6 +22,7 @@ export interface InsightsData {
     from: string;
     to: string;
     branch: string | null;
+    sport: string | null;   // null = "all sports"
     kpis: InsightsKpis;
     revenue: {
         bucket: "day" | "week";
