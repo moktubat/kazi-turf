@@ -4,7 +4,7 @@ import { Wrench } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
 import { ApiError, api } from "@/lib/api";
-import { formatDateLong } from "@/lib/format";
+import { formatDateLong, formatTime12 } from "@/lib/format";
 import type { BoardCell } from "@/types/admin";
 
 export function MaintenancePanel({
@@ -49,7 +49,7 @@ export function MaintenancePanel({
             <dl className="space-y-1.5 text-sm">
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Pitch</dt><dd className="font-semibold">{pitchName}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Date</dt><dd className="font-semibold">{formatDateLong(date)}</dd></div>
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="font-semibold">{cell.start}–{cell.end}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="font-semibold">{formatTime12(cell.start)}–{formatTime12(cell.end)}</dd></div>
             </dl>
 
             {blocked ? (

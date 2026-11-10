@@ -7,7 +7,7 @@ import type { Branch } from "@/types";
 import { FormActions } from "./ui";
 import { useSave } from "./useSave";
 import { Button } from "@/components/ui/Button";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 
 interface SportConfig {
@@ -97,6 +97,17 @@ function VenueForm({ venue }: { venue: Branch }) {
             ...s,
             sportConfigs: s.sportConfigs.filter((_, idx) => idx !== i),
         }));
+    }
+
+    /** Reorder a sport up or down. Array order = display order on the homepage. */
+    function moveSport(i: number, dir: -1 | 1) {
+        setF((s) => {
+            const next = [...s.sportConfigs];
+            const j = i + dir;
+            if (j < 0 || j >= next.length) return s; // can't move past the edges
+            [next[i], next[j]] = [next[j], next[i]];
+            return { ...s, sportConfigs: next };
+        });
     }
 
     function submit(e: React.FormEvent) {
@@ -200,8 +211,8 @@ function VenueForm({ venue }: { venue: Branch }) {
                             <div
                                 key={i}
                                 className={`relative space-y-3 rounded-2xl border-2 p-4 transition-colors ${s.active
-                                        ? "border-evergreen/10 bg-surface"
-                                        : "border-evergreen/5 bg-evergreen/5 opacity-75"
+                                    ? "border-evergreen/10 bg-surface"
+                                    : "border-evergreen/5 bg-evergreen/5 opacity-75"
                                     }`}
                             >
                                 {/* Card header: name + active toggle + delete */}
@@ -214,12 +225,35 @@ function VenueForm({ venue }: { venue: Branch }) {
                                         onChange={(e) => updateSport(i, { name: e.target.value })}
                                         className="flex-1"
                                     />
+                                    {/* Reorder controls — top sport shows on homepage first */}
+                                    <div className="mt-6 flex shrink-0 flex-col gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => moveSport(i, -1)}
+                                            disabled={i === 0}
+                                            aria-label={`Move ${s.name || "sport"} up (show earlier)`}
+                                            title="Move up (appears earlier on homepage)"
+                                            className="inline-flex h-5 w-11 items-center justify-center rounded-md border border-evergreen/15 bg-surface text-evergreen transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-30"
+                                        >
+                                            <ChevronUp size={14} aria-hidden />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveSport(i, 1)}
+                                            disabled={i === f.sportConfigs.length - 1}
+                                            aria-label={`Move ${s.name || "sport"} down (show later)`}
+                                            title="Move down (appears later on homepage)"
+                                            className="inline-flex h-5 w-11 items-center justify-center rounded-md border border-evergreen/15 bg-surface text-evergreen transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-30"
+                                        >
+                                            <ChevronDown size={14} aria-hidden />
+                                        </button>
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={() => updateSport(i, { active: !s.active })}
                                         className={`mt-6 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${s.active
-                                                ? "bg-mint text-teal"
-                                                : "bg-evergreen/10 text-evergreen/50"
+                                            ? "bg-mint text-teal"
+                                            : "bg-evergreen/10 text-evergreen/50"
                                             }`}
                                         aria-label={s.active ? "Deactivate sport" : "Activate sport"}
                                         title={s.active ? "Active (click to disable)" : "Disabled (click to activate)"}
@@ -229,11 +263,16 @@ function VenueForm({ venue }: { venue: Branch }) {
                                 </div>
 
                                 {/* Slug (read-only, auto-derived) */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold text-evergreen/60">ID:</span>
-                                    <code className="rounded bg-mint/60 px-2 py-0.5 text-xs font-mono text-teal">
-                                        {s.id || slugify(s.name) || "(enter name)"}
-                                    </code>
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-evergreen/60">ID:</span>
+                                        <code className="rounded bg-mint/60 px-2 py-0.5 text-xs font-mono text-teal">
+                                            {s.id || slugify(s.name) || "(enter name)"}
+                                        </code>
+                                    </div>
+                                    <span className="text-xs font-bold text-evergreen/50" title="Display order on homepage">
+                                        #{i + 1}
+                                    </span>
                                 </div>
 
                                 {/* Image upload */}

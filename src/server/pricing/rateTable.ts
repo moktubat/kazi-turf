@@ -1,4 +1,5 @@
 import { pricingRules } from "@/data/pricing";
+import { formatTime12 } from "@/lib/format";
 import { todayDhaka } from "@/lib/time.server";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -41,7 +42,7 @@ export async function getRateTable(pitchId: string): Promise<RateRow[]> {
 
         const cell = {
             price: r.pricePerSlot,
-            window: `${r.startTime}–${r.endTime}`,
+            window: `${formatTime12(r.startTime)}–${formatTime12(r.endTime)}`,
         };
 
         if (r.tier === "Peak") row.peak = cell;

@@ -16,6 +16,18 @@ import { FormActions, ListInput } from "./ui";
 import { useSave } from "./useSave";
 import { ImageUpload } from "./ImageUpload";
 import { SheetSection } from "../SheetSection";
+import { formatTime12 } from "@/lib/format";
+
+const FORMAT_PRESETS = [
+    "5 vs 5",
+    "6 vs 6",
+    "7 vs 7",
+    "8 vs 8",
+    "11 vs 11",
+    "Net practice",
+    "Single net",
+    "Doubles",
+] as const;
 
 interface FormState {
     branchId: string;
@@ -93,7 +105,7 @@ export function PitchesTab({
                                     <div className="min-w-0">
                                         <h4 className="text-lg font-bold">{p.name}</h4>
                                         <p className="mt-0.5 text-sm text-evergreen/80">
-                                            {p.sport} · {p.format} · {p.openTime}–{p.closeTime}
+                                            {p.sport} · {p.format} · {formatTime12(p.openTime)}–{formatTime12(p.closeTime)}
                                         </p>
                                     </div>
                                     <Badge tone={p.status === "ACTIVE" ? "success" : "maint"}>
@@ -257,13 +269,33 @@ function PitchForm({
                         <option key={s} value={s}>{s}</option>
                     ))}
                 </Select>
-                <Input
-                    label="Format (playing style)"
-                    value={f.format}
-                    placeholder="e.g. 7-a-side, 5-a-side, Net practice"
-                    error={fields.format}
-                    onChange={(e) => set("format", e.target.value)}
-                />
+                {/* Format — quick-select chips + free text. Shows "5 vs 5" style so clients understand. */}
+                <div className="space-y-2">
+                    <Input
+                        label="Format (team size / playing style)"
+                        value={f.format}
+                        placeholder="e.g. 5 vs 5, 6 vs 6, 7 vs 7"
+                        error={fields.format}
+                        onChange={(e) => set("format", e.target.value)}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        <p className="w-full text-xs text-evergreen/60">Quick pick:</p>
+                        {FORMAT_PRESETS.map((preset) => (
+                            <button
+                                key={preset}
+                                type="button"
+                                aria-pressed={f.format === preset}
+                                onClick={() => set("format", preset)}
+                                className={`min-h-9 rounded-lg border px-3 text-xs font-semibold transition-colors ${f.format === preset
+                                    ? "border-teal bg-teal text-white"
+                                    : "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
+                                    }`}
+                            >
+                                {preset}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </SheetSection>
 
             <SheetSection icon={Ruler} title="Field details" description="Physical attributes and amenities. Only enter a size the owner has measured.">
@@ -316,7 +348,7 @@ function PitchForm({
                         onChange={(e) => set("closeTime", e.target.value)}
                     >
                         {closes.map((c) => (
-                            <option key={c} value={c}>{c}</option>
+                            <option key={c} value={c}>{formatTime12(c)}</option>
                         ))}
                     </Select>
                 </div>

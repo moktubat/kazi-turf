@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
-import { formatBDT } from "@/lib/format";
+import { formatBDT, formatTime12 } from "@/lib/format";
 import { DAY_NAMES, daysLabel, gridBoundaries } from "@/lib/grid";
 import { toMinutes } from "@/lib/time";
 import { rateDeleteSchema, rateSchema, rateUpdateSchema } from "@/schemas/setup";
@@ -50,7 +50,7 @@ export function RatesTab({
                     </Select>
                 </div>
                 <Button onClick={() => setEditing("new")}>
-                    <Plus size={18} aria-hidden /> Add slot
+                    <Plus size={18} aria-hidden /> Add slot price
                 </Button>
             </div>
 
@@ -72,7 +72,13 @@ export function RatesTab({
             )}
 
             {mine.length === 0 ? (
-                <Card><p className="font-semibold">No slot prices yet for this field.</p></Card>
+                <Card className="space-y-2">
+                    <p className="font-semibold">No slot prices yet for this field.</p>
+                    <p className="text-sm text-evergreen/70">
+                        Customers cannot book this field until you add at least one price.
+                        Click <strong>“Add slot price”</strong> to set the price for a day range and time window.
+                    </p>
+                </Card>
             ) : (
                 <ul className="grid gap-3 md:grid-cols-2">
                     {mine.map((r) => (
@@ -83,8 +89,8 @@ export function RatesTab({
                                     <Badge tone={r.tier === "Peak" ? "held" : "info"}>{r.tier}</Badge>
                                 </div>
                                 <p className="text-sm">
-                                    {daysLabel(r.days)} · {r.startTime}–{r.endTime}
-                                </p>
+                                    {daysLabel(r.days)} · {formatTime12(r.startTime)}–{formatTime12(r.endTime)}
+                                </p>F
                                 {(r.effectiveFrom || r.effectiveTo) && (
                                     <p className="text-xs text-evergreen/70">
                                         Effective {r.effectiveFrom || "always"} to {r.effectiveTo || "ongoing"}
@@ -92,7 +98,7 @@ export function RatesTab({
                                 )}
                                 {!r.aligned && (
                                     <p className="flex items-start gap-1.5 text-xs font-semibold text-held">
-                                        <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field's current schedule. Edit this window.
+                                        <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field&apos;s current schedule. Edit this window.
                                     </p>
                                 )}
                                 <div className="border-t border-evergreen/10 pt-2">
@@ -159,9 +165,19 @@ function RateForm({
         effectiveFrom: rate?.effectiveFrom ?? "",
         effectiveTo: rate?.effectiveTo ?? "",
     });
+
     const [confirmDelete, setConfirmDelete] = useState(false);
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
+
+    // How many individual time slots this price window covers. Shown as a live preview
+    // so the admin understands "1 price rule = N bookable slots".
+    const slotsCovered = (() => {
+        if (!f.startTime || !f.endTime) return 0;
+        const spanMin = toMinutes(f.endTime) - toMinutes(f.startTime);
+        if (spanMin <= 0) return 0;
+        return Math.round(spanMin / slotMinutes) * f.days.length;
+    })();
 
     const toggleDay = (d: number) =>
         set("days", f.days.includes(d) ? f.days.filter((x) => x !== d) : [...f.days, d].sort((a, b) => a - b));
@@ -189,13 +205,23 @@ function RateForm({
 
     return (
         <form onSubmit={submit} noValidate className="space-y-6" aria-label={isNew ? "Add slot price" : "Edit slot price"}>
-            <div className="rounded-xl bg-mint/40 p-3 text-sm">
-                <span className="text-evergreen/70">Field:</span>{" "}
-                <strong>{pitch.name}</strong>{" "}
-                <span className="text-evergreen/70">· open {pitch.openTime}–{pitch.closeTime}</span>
+            {/* Plain-English intro — explains what "adding a slot price" means */}
+            <div className="rounded-xl bg-mint/40 p-4 text-sm">
+                <p className="font-semibold text-evergreen">
+                    {isNew ? "Set a price for one or more time slots" : "Update this price window"}
+                </p>
+                <p className="mt-1 text-evergreen/70">
+                    You are setting the price customers pay <strong>per {slotMinutes}-minute slot</strong>.
+                    Pick the days, a time range, and the price. One rule can cover many slots at once.
+                </p>
+                <p className="mt-2 text-evergreen/70">
+                    <span className="text-evergreen/70">Field:</span>{" "}
+                    <strong>{pitch.name}</strong>{" "}
+                    <span className="text-evergreen/70">· open {formatTime12(pitch.openTime)}–{formatTime12(pitch.closeTime)}</span>
+                </p>
             </div>
 
-            <SheetSection icon={Calendar} title="Days & tier" description="Which weekdays this price applies to, and whether it is peak or off-peak.">
+            <SheetSection icon={Calendar} title="Days & tier" description="Which weekdays this price applies to. Peak = evenings & weekends (higher price), Off-peak = daytime weekdays (lower price).">
                 <fieldset>
                     <legend className="mb-1.5 text-sm font-semibold">Days</legend>
                     <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
@@ -220,18 +246,35 @@ function RateForm({
                 <div className="grid grid-cols-2 gap-4">
                     <Select label="From" value={f.startTime} error={fields.startTime} onChange={(e) => set("startTime", e.target.value)}>
                         {times.slice(0, -1).map((t) => (
-                            <option key={t} value={t}>{t}</option>
+                            <option key={t} value={t}>{formatTime12(t)}</option>
                         ))}
                     </Select>
                     <Select label="Until" value={f.endTime} error={fields.endTime} onChange={(e) => set("endTime", e.target.value)}>
                         {times.slice(1).map((t) => (
-                            <option key={t} value={t}>{t}</option>
+                            <option key={t} value={t}>{formatTime12(t)}</option>
                         ))}
                     </Select>
                 </div>
                 <p className="-mt-2 text-xs text-evergreen/70">
-                    Times must align to the field's {slotMinutes}-minute slot grid.
+                    Times must align to the field&apos;s {slotMinutes}-minute slot grid.
                 </p>
+                {/* Live preview — shows how many bookable slots this rule prices */}
+                {f.startTime && f.endTime && f.days.length > 0 && (
+                    <div className="rounded-lg border border-teal/30 bg-mint/50 p-3 text-sm" aria-live="polite">
+                        <p className="font-semibold text-teal">
+                            {slotsCovered > 0
+                                ? `This will price ${slotsCovered} slot${slotsCovered === 1 ? "" : "s"}`
+                                : "Pick a valid time range"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-evergreen/70">
+                            {f.days.length} day{f.days.length === 1 ? "" : "s"} ×{" "}
+                            {f.startTime && f.endTime
+                                ? Math.max(0, Math.round((toMinutes(f.endTime) - toMinutes(f.startTime)) / slotMinutes))
+                                : 0}{" "}
+                            time slot{f.startTime && f.endTime && Math.round((toMinutes(f.endTime) - toMinutes(f.startTime)) / slotMinutes) === 1 ? "" : "s"} per day
+                        </p>
+                    </div>
+                )}
             </SheetSection>
 
             <SheetSection icon={Banknote} title="Price" description="Whole taka only. 100–100,000.">

@@ -282,7 +282,8 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
     await SlotClaimModel.deleteMany({ pitchId: id });
 
     // Capture the Cloudinary public_id BEFORE we splice the pitch out.
-    const cloudinaryPublicId = publicIdFromImage(p.image);
+    // p.image is `string | null` — guard against null so publicIdFromImage gets a string.
+    const cloudinaryPublicId = p.image ? publicIdFromImage(p.image) : null;
 
     pitches.splice(idx, 1);
     await persistConfig("pitches");

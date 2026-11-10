@@ -123,7 +123,7 @@ export function SideSheet({
             >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 bg-evergreen px-5 py-4 text-surface">
-                    <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                         {Icon && (
                             <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface/15 text-emerald">
                                 <Icon size={18} aria-hidden />
