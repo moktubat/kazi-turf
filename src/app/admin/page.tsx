@@ -14,12 +14,7 @@ export default async function AdminPage() {
     const mine = accessibleBranches(user);
     const venue = mine[0];
 
-    // Fetch policies from the backend instead of @/data/site
     const policies = await getPublicPolicies();
-    console.log("[admin-page] policies from backend:", {
-        slotMinutes: policies.slotMinutes,
-        horizon: policies.bookingHorizonDays,
-    });
 
     if (!venue) {
         return (

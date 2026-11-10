@@ -34,6 +34,8 @@ async function HeroSection({ venue, policies }: { venue: Branch; policies: Polic
     );
 }
 
+export const instant = false;
+
 export default async function HomePage() {
     await connection();
 
@@ -41,13 +43,6 @@ export default async function HomePage() {
         getPublicVenue(),
         getPublicPolicies(),
     ]);
-
-    // DEBUG: verify venue + policies are coming from the DB, not the static fallback
-    console.log("[home-page] venue:", venue?.id, venue?.name);
-    console.log("[home-page] sportConfigs count:", (venue?.sportConfigs ?? []).length);
-    console.log("[home-page] sportConfigs:", venue?.sportConfigs?.map((s) => `${s.name} (active=${s.active})`));
-    console.log("[home-page] sports array:", venue?.sports);
-    console.log("[home-page] policies:", policies ? `slotMinutes=${policies.slotMinutes} advance=${policies.advancePercent} horizon=${policies.bookingHorizonDays}` : "NULL");
 
     return (
         <>
