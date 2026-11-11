@@ -56,6 +56,13 @@ export interface InquiryDto {
     name: string;
     contact: string;
     message: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    sport?: string | null;
+    subject?: string | null;
+    body?: string | null;
     status: "NEW" | "HANDLED";
     createdAt: string;
 }

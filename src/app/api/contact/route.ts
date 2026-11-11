@@ -22,12 +22,26 @@ export async function POST(req: NextRequest) {
 
         const input = contactSchema.parse(raw);
 
+        // Map to legacy fields so existing admin views, audit log, and DB queries keep working.
+        const name = `${input.firstName} ${input.lastName}`.trim();
+        const contact = input.phone;
+        const messageSummary = `[${input.sport}] ${input.subject}\n\n${input.message}`;
+
         await connectDb();
         await InquiryModel.create({
             id: randomUUID(),
-            name: input.name,
-            contact: input.contact,
-            message: input.message,
+            // Legacy fields
+            name,
+            contact,
+            message: messageSummary,
+            // New extended fields
+            firstName: input.firstName,
+            lastName: input.lastName,
+            email: input.email,
+            phone: input.phone,
+            sport: input.sport,
+            subject: input.subject,
+            body: input.message,
             status: "NEW",
             createdAt: new Date().toISOString(),
         });
@@ -35,13 +49,21 @@ export async function POST(req: NextRequest) {
         // Email the venue owner (non-blocking — failure doesn't break the API response).
         const adminEmail = process.env.ADMIN_EMAIL ?? site.email;
         if (adminEmail) {
-            const tpl = inquiryEmailTemplate(input);
+            const tpl = inquiryEmailTemplate({
+                firstName: input.firstName,
+                lastName: input.lastName,
+                email: input.email,
+                phone: input.phone,
+                sport: input.sport,
+                subject: input.subject,
+                message: input.message,
+            });
             void sendEmail({
                 to: adminEmail,
                 subject: tpl.subject,
                 html: tpl.html,
                 text: tpl.text,
-                replyTo: input.contact.includes("@") ? input.contact : undefined,
+                replyTo: input.email,
             });
         }
 

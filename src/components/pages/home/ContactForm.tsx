@@ -5,12 +5,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/Field";
+import { Input, Select, Textarea } from "@/components/ui/Field";
 import { contactSchema, type ContactInput } from "@/schemas/contact";
 
 type Status = "idle" | "success" | "error";
 
-export function ContactForm() {
+export function ContactForm({ sports }: { sports: string[] }) {
     const [status, setStatus] = useState<Status>("idle");
     const [serverMsg, setServerMsg] = useState("");
 
@@ -22,7 +22,16 @@ export function ContactForm() {
         formState: { errors, isSubmitting },
     } = useForm<ContactInput>({
         resolver: zodResolver(contactSchema),
-        defaultValues: { name: "", contact: "", message: "", website: "" },
+        defaultValues: {
+            firstName: "",
+            lastName: "",
+            email: "",
+            phone: "",
+            sport: sports[0] ?? "",
+            subject: "",
+            message: "",
+            website: "",
+        },
     });
 
     async function onSubmit(values: ContactInput) {
@@ -35,7 +44,7 @@ export function ContactForm() {
             });
 
             if (res.ok) {
-                reset();
+                reset({ ...values, subject: "", message: "" });
                 setStatus("success");
                 return;
             }
@@ -65,19 +74,75 @@ export function ContactForm() {
             className="relative space-y-5"
             aria-label="Send us a message"
         >
-            <div className="grid gap-5 sm:grid-cols-2">
-                <Input label="Name" autoComplete="name" error={errors.name?.message} {...register("name")} />
+            <div className="space-y-1">
+                <h3 className="font-heading text-2xl font-extrabold text-evergreen sm:text-3xl">
+                    Send Us a Message
+                </h3>
+                <p className="text-sm text-evergreen/70">
+                    Fill out the form below and our team will get back to you within 24 hours.
+                </p>
+            </div>
+
+            {/* First name + Last name */}
+            <div className="grid gap-4 sm:grid-cols-2">
                 <Input
-                    label="Phone or email"
-                    autoComplete="email"
-                    error={errors.contact?.message}
-                    {...register("contact")}
+                    label="First name"
+                    autoComplete="given-name"
+                    error={errors.firstName?.message}
+                    {...register("firstName")}
+                />
+                <Input
+                    label="Last name"
+                    autoComplete="family-name"
+                    error={errors.lastName?.message}
+                    {...register("lastName")}
                 />
             </div>
 
+            {/* Email + Phone */}
+            <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                    label="Email"
+                    type="email"
+                    autoComplete="email"
+                    error={errors.email?.message}
+                    {...register("email")}
+                />
+                <Input
+                    label="Phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="01XXXXXXXXX"
+                    error={errors.phone?.message}
+                    {...register("phone")}
+                />
+            </div>
+
+            {/* Sport + Subject */}
+            <div className="grid gap-4 sm:grid-cols-2">
+                <Select
+                    label="Sport"
+                    error={errors.sport?.message}
+                    {...register("sport")}
+                >
+                    {sports.length === 0 && <option value="">No sports yet</option>}
+                    {sports.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                    ))}
+                </Select>
+                <Input
+                    label="Subject"
+                    placeholder="What is this about?"
+                    error={errors.subject?.message}
+                    {...register("subject")}
+                />
+            </div>
+
+            {/* Message */}
             <Textarea
                 label="Message"
-                rows={7}
+                rows={5}
                 placeholder="Tell us what we can help you with"
                 error={errors.message?.message}
                 {...register("message")}
@@ -100,13 +165,13 @@ export function ContactForm() {
             </p>
 
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Sending…" : "Send message"}
+                {isSubmitting ? "Sending…" : "Send Message"}
             </Button>
 
             {status === "success" && (
                 <p role="status" className="flex items-start gap-2 rounded-xl bg-emerald/20 p-3 text-sm font-medium">
                     <CheckCircle2 size={18} aria-hidden className="mt-0.5 shrink-0 text-teal" />
-                    Thanks. We received your message and will get back to you.
+                    Thanks. We received your message and will get back to you within 24 hours.
                 </p>
             )}
             {status === "error" && (

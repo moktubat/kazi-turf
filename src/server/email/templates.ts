@@ -31,38 +31,46 @@ const shell = (title: string, body: string) => `<!DOCTYPE html>
 </html>`;
 
 export function inquiryEmailTemplate(input: {
-    name: string;
-    contact: string;
-    message: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  sport: string;
+  subject: string;
+  message: string;
 }): { subject: string; html: string; text: string } {
-    const subject = `New inquiry from ${input.name}`;
-    const body = `
-      <h2 style="margin:0 0 16px;font-size:18px;font-weight:700;">New website inquiry</h2>
+  const fullName = `${input.firstName} ${input.lastName}`.trim();
+  const subject = `New inquiry: ${input.subject}`;
+  const body = `
+      <h2 style="margin:0 0 4px;font-size:18px;font-weight:700;">New website inquiry</h2>
+      <p style="margin:0 0 20px;color:#6b7280;font-size:14px;">Subject: ${escapeHtml(input.subject)}</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:6px 0;color:#6b7280;font-size:13px;width:80px;vertical-align:top;">Name</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${escapeHtml(input.name)}</td></tr>
-        <tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Contact</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${escapeHtml(input.contact)}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b7280;font-size:13px;width:80px;vertical-align:top;">Name</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${escapeHtml(fullName)}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Email</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${escapeHtml(input.email)}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Phone</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${escapeHtml(input.phone)}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top;">Sport</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${escapeHtml(input.sport)}</td></tr>
       </table>
       <p style="margin:16px 0 6px;color:#6b7280;font-size:13px;">Message</p>
       <p style="margin:0;padding:12px 14px;background:#f3f9f6;border-radius:10px;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(input.message)}</p>`;
-    const text = `New inquiry\n\nName: ${input.name}\nContact: ${input.contact}\n\nMessage:\n${input.message}`;
-    return { subject, html: shell(subject, body), text };
+  const text = `New inquiry\n\nName: ${fullName}\nEmail: ${input.email}\nPhone: ${input.phone}\nSport: ${input.sport}\nSubject: ${input.subject}\n\nMessage:\n${input.message}`;
+  return { subject, html: shell(subject, body), text };
 }
 
 export function bookingConfirmationTemplate(input: {
-    name: string;
-    code: string;
-    pitchName: string;
-    sport: string;
-    date: string;
-    start: string;
-    end: string;
-    total: number;
-    advance: number;
-    balance: number;
+  name: string;
+  code: string;
+  pitchName: string;
+  sport: string;
+  date: string;
+  start: string;
+  end: string;
+  total: number;
+  advance: number;
+  balance: number;
 }): { subject: string; html: string; text: string } {
-    const when = `${formatDateLong(input.date)}, ${formatTime12(input.start)}–${formatTime12(input.end)}`;
-    const subject = `Booking confirmed — ${input.code}`;
-    const body = `
+  const when = `${formatDateLong(input.date)}, ${formatTime12(input.start)}–${formatTime12(input.end)}`;
+  const subject = `Booking confirmed — ${input.code}`;
+  const body = `
       <h2 style="margin:0 0 4px;font-size:18px;font-weight:700;">Your booking is confirmed</h2>
       <p style="margin:0 0 20px;color:#6b7280;font-size:14px;">Show this code at the venue to check in.</p>
       <p style="margin:0 0 20px;font-size:28px;font-weight:800;letter-spacing:2px;color:#0b6e4f;font-family:ui-monospace,monospace;">${input.code}</p>
@@ -76,15 +84,15 @@ export function bookingConfirmationTemplate(input: {
       <p style="margin:24px 0 0;padding:12px 14px;background:#fef3c7;border-radius:10px;font-size:13px;color:#92400e;">
         Arrive early. Check-in opens 30 minutes before your slot starts.
       </p>`;
-    const text = `Booking confirmed: ${input.code}\n\nField: ${input.pitchName} (${input.sport})\nWhen: ${when}\nTotal: ${formatBDT(input.total)}\nAdvance paid: ${formatBDT(input.advance)}\nBalance at venue: ${formatBDT(input.balance)}\n\nShow this code at the venue.`;
-    return { subject, html: shell(subject, body), text };
+  const text = `Booking confirmed: ${input.code}\n\nField: ${input.pitchName} (${input.sport})\nWhen: ${when}\nTotal: ${formatBDT(input.total)}\nAdvance paid: ${formatBDT(input.advance)}\nBalance at venue: ${formatBDT(input.balance)}\n\nShow this code at the venue.`;
+  return { subject, html: shell(subject, body), text };
 }
 
 function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

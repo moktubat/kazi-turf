@@ -147,7 +147,21 @@ auditLog.index({ entityType: 1, entityId: 1, at: -1 });
 auditLog.index({ branchId: 1, at: -1 });
 
 const inquiry = new Schema(
-    { id, name: String, contact: String, message: String, status: { type: String, default: "NEW" }, createdAt: String },
+    {
+        id,
+        name: String,
+        contact: String,
+        message: String,
+        firstName: { type: String, default: null },
+        lastName: { type: String, default: null },
+        email: { type: String, default: null },
+        phone: { type: String, default: null },
+        sport: { type: String, default: null },
+        subject: { type: String, default: null },
+        body: { type: String, default: null },
+        status: { type: String, default: "NEW" },
+        createdAt: String,
+    },
     opts
 );
 inquiry.index({ status: 1, createdAt: -1 });

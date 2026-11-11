@@ -272,7 +272,21 @@ export async function listInquiries(user: ServerUser): Promise<InquiryDto[]> {
     await connectDb();
     const rows = await InquiryModel.find().sort({ createdAt: -1 }).limit(100).lean<any[]>();
     const sorted = [...rows.filter((r) => r.status === "NEW"), ...rows.filter((r) => r.status !== "NEW")];
-    return sorted.slice(0, 50).map(({ id, name, contact, message, status, createdAt }) => ({ id, name, contact, message, status, createdAt }));
+    return sorted.slice(0, 50).map((r) => ({
+        id: r.id,
+        name: r.name,
+        contact: r.contact,
+        message: r.message,
+        firstName: r.firstName ?? null,
+        lastName: r.lastName ?? null,
+        email: r.email ?? null,
+        phone: r.phone ?? null,
+        sport: r.sport ?? null,
+        subject: r.subject ?? null,
+        body: r.body ?? null,
+        status: r.status,
+        createdAt: r.createdAt,
+    }));
 }
 
 export async function markInquiryHandled(user: ServerUser, id: string) {

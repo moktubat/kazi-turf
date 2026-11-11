@@ -48,8 +48,15 @@ export function InquiryInbox({ items }: { items: InquiryDto[] }) {
                                     <p className="font-bold">{q.name}</p>
                                     <p className="text-xs text-evergreen/70">{formatDateTime(q.createdAt)}</p>
                                 </div>
-                                <p className="text-sm font-semibold text-teal">{q.contact}</p>
-                                <p className="whitespace-pre-wrap text-sm">{q.message}</p>
+                                {q.subject && (
+                                    <p className="text-sm font-bold text-evergreen">{q.subject}</p>
+                                )}
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-evergreen/70">
+                                    {q.email && <span><strong className="text-evergreen/60">Email:</strong> {q.email}</span>}
+                                    {q.phone && <span><strong className="text-evergreen/60">Phone:</strong> {q.phone}</span>}
+                                    {q.sport && <span><strong className="text-evergreen/60">Sport:</strong> {q.sport}</span>}
+                                </div>
+                                <p className="whitespace-pre-wrap text-sm text-evergreen/90">{q.body ?? q.message}</p>
                                 <Button variant="outline" disabled={busyId === q.id} onClick={() => handle(q.id)}>
                                     <Check size={16} aria-hidden /> {busyId === q.id ? "Saving…" : "Mark handled"}
                                 </Button>
