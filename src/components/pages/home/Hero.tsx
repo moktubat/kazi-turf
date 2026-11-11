@@ -84,6 +84,7 @@ export function Hero({
                         today={today}
                         venue={venue}
                         policies={policies}
+                        onInteract={() => setAutoRotate(false)}
                     />
                 </div>
             </div>

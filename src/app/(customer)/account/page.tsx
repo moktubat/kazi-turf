@@ -7,6 +7,7 @@ import { CalendarCheck } from "lucide-react";
 import { AccountView } from "@/components/pages/account/AccountView";
 import { getSessionUser } from "@/server/auth/session";
 import { listAccountBookings } from "@/server/bookings/account";
+import { getPublicRefundPolicy } from "@/server/public-data";
 
 export const metadata: Metadata = { title: "My account" };
 
@@ -67,9 +68,13 @@ async function AccountContent({ searchParams }: { searchParams: Params }) {
   if (!user) redirect(`/login?next=${encodeURIComponent(code ? `/account?b=${code}` : "/account")}`);
 
   const showBookings = user.role !== "STAFF";
-  const { upcoming, history, refunds } = showBookings
-    ? await listAccountBookings(user, new Date())
-    : { upcoming: [], history: [], refunds: [] };
+  const [bookingData, refundPolicy] = await Promise.all([
+    showBookings
+      ? listAccountBookings(user, new Date())
+      : Promise.resolve({ upcoming: [], history: [], refunds: [] }),
+    getPublicRefundPolicy(),
+  ]);
+  const { upcoming, history, refunds } = bookingData;
   const isStaff = user.role === "STAFF" || user.role === "SUPER_ADMIN";
 
   return (
@@ -81,6 +86,7 @@ async function AccountContent({ searchParams }: { searchParams: Params }) {
           upcoming={upcoming}
           history={history}
           refunds={refunds}
+          refundPolicy={refundPolicy}
           initialCode={code}
           showBookings={showBookings}
         />

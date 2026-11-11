@@ -61,7 +61,7 @@ export interface Quote {
 }
 
 export function quote(pitchId: string, cellStarts: Date[]): Quote {
-    const { advancePercent, vatRatePercent, vatMode } = policies;
+    const { advancePercent, nightAdvancePercent, vatRatePercent, vatMode } = policies;
     if (typeof advancePercent !== "number" || !Number.isFinite(advancePercent)) {
         throw new AppError("NO_RATE_FOR_SLOT", "Booking is not configured yet. Please contact the venue.", 500);
     }
@@ -82,7 +82,6 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
     });
     const subtotal = lines.reduce((s, l) => s + l.price, 0);
     const originalSubtotal = lines.reduce((s, l) => s + l.originalPrice, 0);
-    // Positive = customer pays more (surcharge), negative = customer pays less (discount)
     const adjustmentAmount = subtotal - originalSubtotal;
     let vat = 0;
     let total = subtotal;
@@ -92,7 +91,16 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
     } else if (vatRatePercent) {
         vat = Math.round(subtotal - subtotal / (1 + vatRatePercent / 100));
     }
-    const advance = Math.round((total * advancePercent) / 100);
+
+    // --- Time-based advance: night slots (00:00–06:00 Dhaka) use nightAdvancePercent ---
+    const firstStart = cellStarts[0];
+    const { minutes: startMinutes } = dhakaParts(firstStart);
+    const NIGHT_START = 0;       // 00:00
+    const NIGHT_END = 6 * 60;    // 06:00
+    const isNight = startMinutes >= NIGHT_START && startMinutes < NIGHT_END;
+    const effectiveAdvancePercent = isNight ? (nightAdvancePercent ?? 100) : advancePercent;
+
+    const advance = Math.round((total * effectiveAdvancePercent) / 100);
     const balance = total - advance;
     if (![subtotal, vat, total, advance, balance].every(Number.isFinite)) {
         throw new AppError("NO_RATE_FOR_SLOT", "We could not price this slot. Pick another time.", 400);
@@ -106,7 +114,7 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
         total,
         advance,
         balance,
-        advancePercent,
+        advancePercent: effectiveAdvancePercent,
         vatRatePercent: vatRatePercent ?? null,
     };
 }

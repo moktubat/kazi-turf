@@ -43,6 +43,7 @@ export function AccountView({
     upcoming,
     history,
     refunds,
+    refundPolicy,
     initialCode,
     showBookings,
 }: {
@@ -50,9 +51,11 @@ export function AccountView({
     upcoming: AccountBookingDto[];
     history: AccountBookingDto[];
     refunds: AccountBookingDto[];
+    refundPolicy: { tiers: { when: string; outcome: string }[]; method: string; timing: string; exceptions: string[] };
     initialCode: string | null;
     showBookings: boolean;
 }) {
+
     const all = useMemo(() => [...upcoming, ...history, ...refunds], [upcoming, history, refunds]);
     const inHistory = !!initialCode && (history.some((b) => b.code === initialCode) || refunds.some((b) => b.code === initialCode));
 
@@ -82,7 +85,7 @@ export function AccountView({
         ? [
             { id: "upcoming", label: "Upcoming", icon: CalendarCheck, count: upcoming.length },
             { id: "history", label: "History", icon: HistoryIcon, count: history.length },
-            { id: "refund", label: "Refund", icon: RotateCcw, count: refunds.length },
+            { id: "refund", label: "Refund Policy", icon: RotateCcw },
             { id: "profile", label: "Profile", icon: UserRound },
         ]
         : [{ id: "profile", label: "Profile", icon: UserRound }];
@@ -218,35 +221,9 @@ export function AccountView({
                             </section>
                         ))}
 
-                    {tab === "refund" &&
-                        (refunds.length === 0 ? (
-                            <EmptyState
-                                icon={RotateCcw}
-                                title="No refund requests"
-                                description="Bookings you cancel after paying the advance will appear here with their refund status."
-                            />
-                        ) : (
-                            <section aria-labelledby="group-refund" className="space-y-2.5">
-                                <div className="flex items-baseline justify-between gap-3 px-1">
-                                    <h2
-                                        id="group-refund"
-                                        className="font-heading text-xs font-bold uppercase tracking-[0.14em] text-evergreen/60"
-                                    >
-                                        Refunds
-                                    </h2>
-                                    <span className="text-xs font-semibold text-evergreen/50">
-                                        {refunds.length} {refunds.length === 1 ? "booking" : "bookings"}
-                                    </span>
-                                </div>
-                                <ul className="space-y-2.5">
-                                    {refunds.map((b) => (
-                                        <li key={b.code}>
-                                            <BookingRow b={merge(b)} onOpen={() => open(b.code)} />
-                                        </li>
-                                    ))}
-                                </ul>
-                            </section>
-                        ))}
+                    {tab === "refund" && (
+                        <RefundPolicyView policy={refundPolicy} />
+                    )}
 
                     {tab === "profile" && <ProfileForms profile={profile} />}
                 </div>
@@ -261,6 +238,99 @@ export function AccountView({
                 )}
             </SideSheet>
         </>
+    );
+}
+
+function RefundPolicyView({
+    policy,
+}: {
+    policy: {
+        tiers: { when: string; outcome: string }[];
+        method: string;
+        timing: string;
+        exceptions: string[];
+    };
+}) {
+    const hasContent =
+        policy.tiers.length > 0 || policy.method || policy.timing || policy.exceptions.length > 0;
+
+    if (!hasContent) {
+        return (
+            <EmptyState
+                icon={RotateCcw}
+                title="Refund policy"
+                description="Our refund policy is being finalised. Please contact the venue for cancellation and refund details."
+            />
+        );
+    }
+
+    return (
+        <div className="space-y-5">
+            <Card className="space-y-4">
+                <div className="flex items-start gap-3 border-b border-evergreen/10 pb-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-mint text-teal">
+                        <RotateCcw size={18} aria-hidden />
+                    </span>
+                    <div>
+                        <h2 className="font-heading text-base font-bold leading-tight">Cancellation &amp; Refund Policy</h2>
+                        <p className="mt-0.5 text-xs text-evergreen/70">
+                            What happens to your advance if you cancel. All turfs are indoor — weather is never a reason for a refund.
+                        </p>
+                    </div>
+                </div>
+
+                {policy.tiers.length > 0 && (
+                    <div className="space-y-3">
+                        <p className="text-sm font-semibold">Cancellation windows</p>
+                        <ul className="space-y-2">
+                            {policy.tiers.map((t, i) => (
+                                <li key={i} className="rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
+                                    <p className="font-semibold text-evergreen">{t.when}</p>
+                                    <p className="mt-0.5 text-evergreen/80">{t.outcome}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {policy.method && (
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Refund method</p>
+                        <p className="text-sm text-evergreen/85">{policy.method}</p>
+                    </div>
+                )}
+
+                {policy.timing && (
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Refund timing</p>
+                        <p className="text-sm text-evergreen/85">{policy.timing}</p>
+                    </div>
+                )}
+
+                {policy.exceptions.length > 0 && (
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Exceptions</p>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-evergreen/85">
+                            {policy.exceptions.map((e, i) => (
+                                <li key={i}>{e}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                <div className="rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
+                    If you have a dispute about a refund, please contact the venue directly. Last-minute cancellations
+                    where the slot cannot be rebooked may not receive a full refund of the advance.
+                </div>
+
+                <a
+                    href="/legal#refund"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal hover:bg-mint"
+                >
+                    Read the full policy
+                </a>
+            </Card>
+        </div>
     );
 }
 

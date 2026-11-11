@@ -75,8 +75,9 @@ export const branchUpdateSchema = branchBase
 export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>;
 
 /* ---------- Pitches ---------- */
-const ALLOWED_SLOT_MINUTES = [45, 60, 75, 90, 105, 120] as const;
-
+// Slot length is now a free integer input (15–240 min). The grid handles any
+// value that divides 1440 evenly; non-dividing values simply produce a shorter
+// final slot, which is acceptable for a 24-hour turf.
 const pitchBase = z.object({
     branchId: z.string().min(1).max(60),
     name: z.string().trim().min(2, "Enter a name").max(40, "Too long"),
@@ -90,22 +91,16 @@ const pitchBase = z.object({
     slotMinutes: z
         .number()
         .int("Whole minutes only")
-        .refine((v) => (ALLOWED_SLOT_MINUTES as readonly number[]).includes(v), {
-            message: `Slot length must be one of ${ALLOWED_SLOT_MINUTES.join(", ")} minutes`,
-        }),
+        .min(15, "Minimum 15 minutes")
+        .max(240, "Maximum 4 hours (240 minutes)"),
     maxConsecutiveSlots: z.number().int().min(1, "At least 1").max(4, "At most 4"),
     facilities: list(12),
     image: imageField,
     status: z.enum(["ACTIVE", "DISABLED"]),
 });
 
-// 24-hour turf: openTime is "00:00", closeTime is "24:00" (1440 min), and slotMinutes
-// is one of 45/60/75/90/105/120 — every value divides 1440 evenly, so no extra
-// validation is needed. Kept as a no-op superRefine so the schema shape stays stable.
-const pitchGridRule = (_v: z.infer<typeof pitchBase>, _ctx: z.RefinementCtx) => { };
-
-export const pitchSchema = pitchBase.superRefine(pitchGridRule);
-export const pitchUpdateSchema = pitchBase.extend({ id: z.string().min(1).max(80) }).superRefine(pitchGridRule);
+export const pitchSchema = pitchBase;
+export const pitchUpdateSchema = pitchBase.extend({ id: z.string().min(1).max(80) });
 export type PitchInput = z.infer<typeof pitchSchema>;
 export type PitchUpdateInput = z.infer<typeof pitchUpdateSchema>;
 
@@ -194,6 +189,7 @@ const text = (max: number) => z.string().trim().max(max, "Too long");
 export const policySchema = z.object({
     holdMinutes: z.number().int().min(5, "At least 5 minutes").max(30, "At most 30 minutes"),
     advancePercent: z.number().int().min(30, "Allowed range is 30–50").max(50, "Allowed range is 30–50"),
+    nightAdvancePercent: z.number().int().min(50, "Allowed range is 50–100").max(100, "Allowed range is 50–100"),
     checkInOpensMinutesBefore: z.number().int().min(0, "0 or more").max(120, "At most 120"),
     bookingHorizonDays: z.number().int().min(1, "At least 1 day").max(60, "At most 60 days"),
     vatRatePercent: z.number().min(0.01, "Must be above 0").max(30, "Too high").nullable(),

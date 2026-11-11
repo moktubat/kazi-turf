@@ -114,6 +114,7 @@ async function BookContent({ searchParams }: { searchParams: Params }) {
             user={user ? { name: user.name, phone: user.phone } : null}
             policy={{
                 advancePercent: policies.advancePercent,
+                nightAdvancePercent: policies.nightAdvancePercent ?? 100,
                 holdMinutes: policies.holdMinutes,
                 slotMinutes: policies.slotMinutes,
             }}

@@ -17,6 +17,7 @@ import { SheetSection } from "../SheetSection";
 import { applyDiscount } from "@/lib/pricing";
 
 const TIME_PHASES: { label: string; from: string; until: string }[] = [
+    { label: "Late Night · 12 AM – 6 AM", from: "00:00", until: "06:00" },
     { label: "Morning · 6 AM – 12 PM", from: "06:00", until: "12:00" },
     { label: "Noon · 12 PM – 5 PM", from: "12:00", until: "17:00" },
     { label: "Evening · 5 PM – 9 PM", from: "17:00", until: "21:00" },

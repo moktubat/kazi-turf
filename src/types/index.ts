@@ -97,13 +97,14 @@ export type PaymentStatus =
 
 export interface Policies {
   slotMinutes: number;
-  advancePercent: number; // allowed 30-50
+  advancePercent: number;           // 06:00–24:00 (day), allowed 30–50
+  nightAdvancePercent: number;      // 00:00–06:00 (night), allowed 50–100, default 100
   holdMinutes: number;
   checkInOpensMinutesBefore: number;
-  bookingHorizonDays: number; // [CONFIRM]
-  vatRatePercent: number | null; // null = no VAT anywhere
+  bookingHorizonDays: number;
+  vatRatePercent: number | null;
   vatMode: "inclusive" | "exclusive";
-  vatRegistrationNo: string; // empty = hidden
+  vatRegistrationNo: string;
 }
 
 export type Venue = Branch;

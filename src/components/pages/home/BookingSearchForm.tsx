@@ -16,12 +16,14 @@ export function BookingSearchForm({
     policies,
     pitches: pitchesProp,
     venue: _venue,
+    onInteract,
 }: {
     sport: string;
     today: string;
     venue: Branch;
     policies: Policies;
     pitches?: Pitch[];
+    onInteract?: () => void;
 }) {
     const router = useRouter();
     const maxDate = addDays(today, policies.bookingHorizonDays);
@@ -65,7 +67,7 @@ export function BookingSearchForm({
         >
             <div className={`${cell} lg:rounded-r-none`}>
                 <label htmlFor={`${uid}-pitch`} className={label}>Pitch</label>
-                <select id={`${uid}-pitch`} value={pitchId} onChange={(e) => setPitchId(e.target.value)} className={control}>
+                <select id={`${uid}-pitch`} value={pitchId} onChange={(e) => { setPitchId(e.target.value); onInteract?.(); }} className={control}>
                     <option value="">Any pitch</option>
                     {sportPitches.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -83,14 +85,14 @@ export function BookingSearchForm({
                     value={date}
                     min={today}
                     max={maxDate}
-                    onChange={(e) => setDate(e.target.value || today)}
+                    onChange={(e) => { setDate(e.target.value || today); onInteract?.(); }}
                     className={control}
                 />
             </div>
 
             <div className={`${cell} lg:rounded-none lg:border-l lg:border-evergreen/10`}>
                 <label htmlFor={`${uid}-slot`} className={label}>Time slot</label>
-                <select id={`${uid}-slot`} value={slot} onChange={(e) => setSlot(e.target.value)} className={control}>
+                <select id={`${uid}-slot`} value={slot} onChange={(e) => { setSlot(e.target.value); onInteract?.(); }} className={control}>
                     <option value="">Any time</option>
                     {times.map((t) => (
                         <option key={t} value={t}>

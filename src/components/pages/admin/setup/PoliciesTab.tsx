@@ -13,6 +13,7 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
     const [f, setF] = useState({
         holdMinutes: String(policies.holdMinutes),
         advancePercent: String(policies.advancePercent),
+        nightAdvancePercent: String(policies.nightAdvancePercent ?? 100),
         checkIn: String(policies.checkInOpensMinutesBefore),
         horizon: String(policies.bookingHorizonDays),
         vatRate: policies.vatRatePercent === null ? "" : String(policies.vatRatePercent),
@@ -43,6 +44,7 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
             {
                 holdMinutes: num(f.holdMinutes),
                 advancePercent: num(f.advancePercent),
+                nightAdvancePercent: num(f.nightAdvancePercent),
                 checkInOpensMinutesBefore: num(f.checkIn),
                 bookingHorizonDays: num(f.horizon),
                 vatRatePercent: f.vatRate.trim() === "" ? null : Number(f.vatRate),
@@ -73,7 +75,8 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
                 <h2 className="text-lg font-bold">Booking rules</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Input label="Slot hold (minutes)" type="number" inputMode="numeric" value={f.holdMinutes} error={fields.holdMinutes} hint="5–30" onChange={(e) => set("holdMinutes", e.target.value)} />
-                    <Input label="Advance payment (%)" type="number" inputMode="numeric" value={f.advancePercent} error={fields.advancePercent} hint="Allowed range 30–50" onChange={(e) => set("advancePercent", e.target.value)} />
+                    <Input label="Advance payment — day (%) — 6 AM to 12 AM" type="number" inputMode="numeric" value={f.advancePercent} error={fields.advancePercent} hint="Allowed range 30–50" onChange={(e) => set("advancePercent", e.target.value)} />
+                    <Input label="Advance payment — night (%) — 12 AM to 6 AM" type="number" inputMode="numeric" value={f.nightAdvancePercent} error={fields.nightAdvancePercent} hint="Allowed range 50–100. 100 = full payment as advance." onChange={(e) => set("nightAdvancePercent", e.target.value)} />
                     <Input label="Check-in opens (minutes before start)" type="number" inputMode="numeric" value={f.checkIn} error={fields.checkInOpensMinutesBefore} onChange={(e) => set("checkIn", e.target.value)} />
                     <Input label="Booking horizon (days ahead)" type="number" inputMode="numeric" value={f.horizon} error={fields.bookingHorizonDays} onChange={(e) => set("horizon", e.target.value)} />
                 </div>

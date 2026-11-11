@@ -48,7 +48,7 @@ export function BookingFlow({
     minDate: string;
     maxDate: string;
     user: FlowUser | null;
-    policy: { advancePercent: number; holdMinutes: number; slotMinutes: number };
+    policy: { advancePercent: number; nightAdvancePercent: number; holdMinutes: number; slotMinutes: number };
 }) {
     const router = useRouter();
 
@@ -234,6 +234,14 @@ export function BookingFlow({
         }, 0);
     }, [data, sel]);
 
+    // --- Time-based advance display: night slots (12 AM–6 AM) use nightAdvancePercent ---
+    const displayAdvancePercent = useMemo(() => {
+        if (!info) return policy.advancePercent;
+        const startHour = parseInt(info.start.split(":")[0], 10);
+        if (startHour >= 0 && startHour < 6) return policy.nightAdvancePercent;
+        return policy.advancePercent;
+    }, [info, policy.advancePercent, policy.nightAdvancePercent]);
+
     // After the hold exists, show the server's saved amounts, not the preview.
     // While the quote is loading or has failed, fall back to the per-cell estimate
     // so the user always sees a real number.
@@ -261,8 +269,8 @@ export function BookingFlow({
                     vat: 0,
                     vatRate: null,
                     total: estimatedSubtotal,
-                    advance: Math.round((estimatedSubtotal * policy.advancePercent) / 100),
-                    balance: estimatedSubtotal - Math.round((estimatedSubtotal * policy.advancePercent) / 100),
+                    advance: Math.round((estimatedSubtotal * displayAdvancePercent) / 100),
+                    balance: estimatedSubtotal - Math.round((estimatedSubtotal * displayAdvancePercent) / 100),
                 }
                 : null;
 
@@ -423,7 +431,7 @@ export function BookingFlow({
                                 info={info}
                                 amounts={amounts}
                                 loading={quoteLoading}
-                                advancePercent={policy.advancePercent}
+                                advancePercent={displayAdvancePercent}
                                 error={quoteState.error}
                             />
                             {step === 1 && (
@@ -441,7 +449,7 @@ export function BookingFlow({
                         total={amounts?.total ?? null}
                         detail={
                             info
-                                ? `${info.pitchName} · ${info.start}–${info.end}${amounts ? ` · ${policy.advancePercent}% advance` : ""}`
+                                ? `${info.pitchName} · ${info.start}–${info.end}${amounts ? ` · ${displayAdvancePercent}% advance` : ""}`
                                 : "Pick a slot to continue"
                         }
                         disabled={!canContinue}

@@ -37,6 +37,7 @@ export interface SetupStaff {
 export interface PolicyForm {
     holdMinutes: number;
     advancePercent: number;
+    nightAdvancePercent: number;
     checkInOpensMinutesBefore: number;
     bookingHorizonDays: number;
     vatRatePercent: number | null;

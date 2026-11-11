@@ -12,9 +12,13 @@ export function boundaryLabel(minutes: number): string {
 export function gridBoundaries(open: string, close: string, step: number): string[] {
     const o = toMinutes(open);
     const c = toMinutes(close);
-    if (c <= o || (c - o) % step !== 0) return [];
+    if (c <= o || step <= 0) return [];
     const out: string[] = [];
-    for (let m = o; m <= c; m += step) out.push(boundaryLabel(m));
+    // Iterate by step; the last boundary may be closer to close than step
+    // (shorter final slot), which is fine for a 24-hour turf.
+    for (let m = o; m < c; m += step) out.push(boundaryLabel(m));
+    // Always include close as the final boundary (used as "Until" option)
+    out.push(boundaryLabel(c));
     return out;
 }
 

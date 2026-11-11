@@ -385,23 +385,20 @@ function PitchForm({
                 />
             </SheetSection>
 
-            <SheetSection icon={Clock} title="Slot duration" description="The turf is open 24 hours. Pick how long each bookable slot is.">
-                <Select
-                    label="Slot length"
+            <SheetSection icon={Clock} title="Slot duration" description="The turf is open 24 hours. Enter how long each bookable slot is (in minutes). Any value 15–240 works.">
+                <Input
+                    label="Slot length (minutes)"
+                    type="number"
+                    inputMode="numeric"
+                    min={15}
+                    max={240}
                     value={String(f.slotMinutes)}
                     error={fields.slotMinutes}
-                    onChange={(e) => set("slotMinutes", Number(e.target.value))}
-                    hint="Customers can only book whole slots of this length."
-                >
-                    <option value="45">45 minutes</option>
-                    <option value="60">1 hour</option>
-                    <option value="75">1 hour 15 minutes</option>
-                    <option value="90">1.5 hours (1 hour 30 minutes)</option>
-                    <option value="105">1 hour 45 minutes</option>
-                    <option value="120">2 hours</option>
-                </Select>
+                    onChange={(e) => set("slotMinutes", Number(e.target.value) || 90)}
+                    hint="Enter any number of minutes (15–240). E.g. 15, 30, 45, 60, 90, 120."
+                />
                 <p className="-mt-2 text-xs text-evergreen/70">
-                    The turf is open 24 hours, so this pitch has {Math.round((24 * 60) / f.slotMinutes)} bookable slots per day.
+                    The turf is open 24 hours, so this pitch has {Math.floor((24 * 60) / f.slotMinutes)} bookable slots per day.
                 </p>
                 <Select
                     label="Max slots per booking (how many a customer can book together)"

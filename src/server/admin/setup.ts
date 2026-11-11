@@ -516,6 +516,7 @@ export function getPolicyForm(): PolicyForm {
     return {
         holdMinutes: policies.holdMinutes,
         advancePercent: policies.advancePercent,
+        nightAdvancePercent: policies.nightAdvancePercent ?? 100,
         checkInOpensMinutesBefore: policies.checkInOpensMinutesBefore,
         bookingHorizonDays: policies.bookingHorizonDays,
         vatRatePercent: policies.vatRatePercent,
@@ -539,6 +540,7 @@ export async function updatePolicies(user: ServerUser, input: PolicyInput) {
     const scalars = {
         holdMinutes: input.holdMinutes,
         advancePercent: input.advancePercent,
+        nightAdvancePercent: input.nightAdvancePercent,
         checkInOpensMinutesBefore: input.checkInOpensMinutesBefore,
         bookingHorizonDays: input.bookingHorizonDays,
         vatRatePercent: input.vatRatePercent,

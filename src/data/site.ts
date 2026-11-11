@@ -35,7 +35,8 @@ export const legalLinks = [
 // Never hard-code these elsewhere. [CONFIRM] all values with the owner.
 export const policies: Policies = shared<Policies>("policies", {
     slotMinutes: 90,
-    advancePercent: 30,   // 06:00 AM – 12:00 AM = 30% advance (indoor turf, 24h)
+    advancePercent: 30,
+    nightAdvancePercent: 100,   // 00:00–06:00 = full booking money as advance
     holdMinutes: 10,
     checkInOpensMinutesBefore: 30,
     bookingHorizonDays: 14,
