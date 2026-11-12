@@ -8,6 +8,7 @@ import { AppError, clientIp, handleError, ok } from "@/server/http";
 import { rateLimit } from "@/server/security/rateLimit";
 import type { AvailabilityResponse } from "@/types/booking";
 import { todayDhaka } from "@/lib/time.server";
+import { connectDb } from "@/server/db/connect";
 
 export async function GET(req: NextRequest) {
     try {
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
             throw new AppError("VALIDATION", "That sport is not available.", 400);
         }
 
+        await connectDb();
+
         const now = new Date();
         const today = await todayDhaka(now);
         const last = addDays(today, policies.bookingHorizonDays);
@@ -38,6 +41,7 @@ export async function GET(req: NextRequest) {
         }
 
         const branchPitches = getBranchPitches(venue.id, q.sport);
+
         const pitches = await Promise.all(
             branchPitches.map(async (p) => ({
                 id: p.id,

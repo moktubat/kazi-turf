@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
         console.log("[setup/rates] createRate...");
         await createRate(user, parsed);
         revalidatePath("/admin/setup", "page");
+        revalidatePath("/", "page");
+        revalidatePath("/book", "page");
         console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true }, 201);
     } catch (e) {
@@ -40,6 +42,8 @@ export async function PATCH(req: NextRequest) {
         console.log("[setup/rates] updateRate...");
         await updateRate(user, parsed);
         revalidatePath("/admin/setup", "page");
+        revalidatePath("/", "page");
+        revalidatePath("/book", "page");
         console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true });
     } catch (e) {
@@ -61,6 +65,8 @@ export async function DELETE(req: NextRequest) {
         console.log("[setup/rates] deleteRate...");
         await deleteRate(user, parsed.id);
         revalidatePath("/admin/setup", "page");
+        revalidatePath("/", "page");
+        revalidatePath("/book", "page");
         console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ deleted: true });
     } catch (e) {

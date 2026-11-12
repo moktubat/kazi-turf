@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarSearch, RefreshCw } from "lucide-react";
+import { AlertTriangle, CalendarDays, CalendarSearch, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ApiError, api, isAbort } from "@/lib/api";
@@ -61,6 +61,7 @@ export function BookingFlow({
     const [refreshing, setRefreshing] = useState(false);
 
     const [sel, setSel] = useState<Sel>({ pitchId: null, cellStarts: [] });
+    const [pitchFilter, setPitchFilter] = useState<string>("");
     const [quoteState, setQuoteState] = useState<QuoteState>({ status: "idle" });
     const [step, setStep] = useState<1 | 2>(1);
     const [hold, setHold] = useState<BookingDto | null>(null);
@@ -135,6 +136,7 @@ export function BookingFlow({
         setSport(s);
         setData(null);
         resetSelection();
+        setPitchFilter("");
         remember(s);
     }
 
@@ -276,7 +278,11 @@ export function BookingFlow({
 
     const quoteLoading = quoteState.status === "loading";
     const canContinue = !!info && !!amounts && !quoteLoading && quoteState.status !== "error";
-    const hasOpen = data?.pitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE")) ?? false;
+    const visiblePitches = pitchFilter
+        ? data?.pitches.filter((p) => p.id === pitchFilter) ?? []
+        : data?.pitches ?? [];
+    const hasOpen = visiblePitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE")) ?? false;
+
 
     /* ---------- actions ---------- */
     function onToggle(pitchId: string, cell: Cell) {
@@ -328,11 +334,29 @@ export function BookingFlow({
     return (
         <>
             <div className="bg-evergreen text-white">
-                <div className="mx-auto max-w-main space-y-4 px-4 py-6">
+                <div className="mx-auto max-w-main space-y-4 px-4 py-6 md:py-8">
                     <Stepper step={step} />
-                    <h1 className="text-2xl font-extrabold text-white md:text-3xl">
-                        {step === 1 ? "Choose your slot" : "Confirm & pay"}
-                    </h1>
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <p className="mb-1 flex items-center gap-2 font-heading text-xs font-bold uppercase tracking-[0.18em] text-emerald">
+                                <span aria-hidden className="h-0.5 w-6 bg-emerald" />
+                                {step === 1 ? "Step 1 · Choose" : "Step 2 · Pay"}
+                            </p>
+                            <h1 className="text-2xl font-extrabold text-white md:text-3xl">
+                                {step === 1 ? "Choose your slot" : "Confirm & pay"}
+                            </h1>
+                        </div>
+                        {step === 1 && (
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface/15 px-3 py-1.5 font-semibold text-white">
+                                    <CalendarDays size={14} aria-hidden /> {date}
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald px-3 py-1.5 font-semibold text-evergreen">
+                                    {sport}
+                                </span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
             <div className="mx-auto max-w-main px-4 py-6 pb-32 lg:pb-10">
@@ -346,8 +370,11 @@ export function BookingFlow({
                                     date={date}
                                     minDate={minDate}
                                     maxDate={maxDate}
+                                    pitches={data?.pitches.map((p) => ({ id: p.id, name: p.name, format: p.format }))}
+                                    pitchFilter={pitchFilter}
                                     onSport={changeSport}
                                     onDate={changeDate}
+                                    onPitch={setPitchFilter}
                                 />
 
                                 {notice && (
@@ -384,7 +411,11 @@ export function BookingFlow({
                                     <>
                                         {!hasOpen && (
                                             <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                <p className="font-semibold">No slots are available for this date.</p>
+                                                <p className="font-semibold">
+                                                    {pitchFilter
+                                                        ? "No slots are available for this field on this date."
+                                                        : "No slots are available for this date."}
+                                                </p>
                                                 {data.nextAvailableDate ? (
                                                     <Button variant="outline" onClick={() => changeDate(data.nextAvailableDate!)}>
                                                         <CalendarSearch size={18} aria-hidden /> Next available
@@ -395,7 +426,7 @@ export function BookingFlow({
                                             </Card>
                                         )}
                                         <SlotGrid
-                                            pitches={data.pitches}
+                                            pitches={visiblePitches}
                                             selectedPitchId={sel.pitchId}
                                             selected={sel.cellStarts}
                                             preferPitchId={initial.pitchId}

@@ -12,6 +12,8 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
         const { id } = await params;
         await deletePitch(user, id);
         revalidatePath("/admin/setup", "page");
+        revalidatePath("/", "page");
+        revalidatePath("/book", "page");
         return ok({ deleted: true });
     } catch (e) {
         return handleError(e);

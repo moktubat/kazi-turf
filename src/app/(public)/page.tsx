@@ -10,7 +10,8 @@ import { ContactSection } from "@/components/pages/home/ContactSection";
 import { FinalCta } from "@/components/pages/home/FinalCta";
 import { todayDhaka } from "@/lib/time.server";
 import { getPublicVenue, getPublicPolicies } from "@/server/public-data";
-import type { Branch, Policies } from "@/types";
+import { getBranchPitches } from "@/server/availability";
+import type { Branch, Policies, Pitch } from "@/types";
 
 function HeroFallback() {
     return <section className="min-h-[100svh] bg-evergreen animate-pulse" />;
@@ -18,8 +19,13 @@ function HeroFallback() {
 
 async function HeroSection({ venue, policies }: { venue: Branch; policies: Policies }) {
     const today = await todayDhaka();
+    // Fetch pitches for all sports so the Hero search form can list them in the Pitch dropdown
+    const pitchesBySport = await Promise.all(
+        venue.sports.map((sport) => getBranchPitches(venue.id, sport))
+    );
+    const pitches: Pitch[] = pitchesBySport.flat();
     return (
-        <Hero today={today} venue={venue} policies={policies} />
+        <Hero today={today} venue={venue} policies={policies} pitches={pitches} />
     );
 }
 

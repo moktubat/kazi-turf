@@ -29,8 +29,10 @@ export function BookingSearchForm({
     const maxDate = addDays(today, policies.bookingHorizonDays);
     const uid = useId();
 
+    // Lenient status check: if status is missing, assume active (defensive — the in-memory
+    // array should always have status, but older cached entries might not).
     const sportPitches = (pitchesProp ?? []).filter(
-        (p) => p.sport === sport && p.status === "ACTIVE"
+        (p) => p.sport === sport && (p.status === "ACTIVE" || p.status === undefined)
     );
 
     const [pitchId, setPitchId] = useState("");
@@ -38,10 +40,9 @@ export function BookingSearchForm({
     const [slot, setSlot] = useState("");
 
     // 24-hour turf: build slot times for the full day using the global slot length.
-    // (Per-pitch length is respected on the /book page after the user picks a pitch.)
     const slotMinutes = policies.slotMinutes;
-    const openMin = 0;     // 00:00 — open 24 hours
-    const closeMin = 24 * 60; // 24:00
+    const openMin = 0;
+    const closeMin = 24 * 60;
 
     const times: string[] = [];
     for (let m = openMin; m < closeMin; m += slotMinutes) {
@@ -61,7 +62,6 @@ export function BookingSearchForm({
     return (
         <form
             onSubmit={onSubmit}
-            // Bigger search box: stack on small screens, 3 inputs + button on lg.
             className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-center lg:gap-2"
             aria-label="Find available slots"
         >
@@ -104,7 +104,6 @@ export function BookingSearchForm({
 
             <button
                 type="submit"
-                // Bigger, taller, full-width on mobile, side-by-side on lg.
                 className="mt-1 inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-teal px-8 font-heading text-base font-bold text-white transition-colors hover:bg-evergreen sm:col-span-2 lg:col-span-1 lg:mt-0 lg:ml-2"
             >
                 <Search size={20} aria-hidden /> Search

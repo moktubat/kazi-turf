@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
         console.log("[setup/pitches] step 3: createPitch");
         await createPitch(user, parsed);
         revalidatePath("/admin/setup", "page");
+        revalidatePath("/", "page");
+        revalidatePath("/book", "page");
         console.log("[setup/pitches] step 3 done:", Date.now() - start, "ms");
 
         console.log("[setup/pitches] SUCCESS");
@@ -51,6 +53,8 @@ export async function PATCH(req: NextRequest) {
         console.log("[setup/pitches] step 3: updatePitch");
         await updatePitch(user, parsed);
         revalidatePath("/admin/setup", "page");
+        revalidatePath("/", "page");
+        revalidatePath("/book", "page");
         console.log("[setup/pitches] step 3 done:", Date.now() - start, "ms");
 
         console.log("[setup/pitches] SUCCESS");

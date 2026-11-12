@@ -1,16 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import { BookingSearchForm } from "./BookingSearchForm";
-import type { Branch, Policies } from "@/types";
+import type { Branch, Pitch, Policies } from "@/types";
 
 export function Hero({
     today,
     venue,
     policies,
+    pitches,
 }: {
     today: string;
     venue: Branch;
     policies: Policies;
+    pitches?: Pitch[];
 }) {
     const sports = (venue.sportConfigs ?? []).filter((s) => s.active);
     const [sportId, setSportId] = useState(sports[0]?.id ?? "");
@@ -57,7 +59,7 @@ export function Hero({
             <div className="absolute inset-0 bg-gradient-to-b from-evergreen/80 via-evergreen/55 to-evergreen/80" />
 
             {/* Centered content: just the sport tabs + a bigger search box */}
-            <div className="relative z-10 mx-auto flex min-h-svh max-w-3xl flex-col items-center justify-center gap-6 px-4 py-24 lg:max-w-4xl">
+            <div className="relative z-10 mx-auto flex min-h-svh max-w-3xl flex-col items-center justify-center gap-1 px-4 py-24 lg:max-w-4xl">
                 {/* Sport tabs */}
                 <div role="tablist" aria-label="Select sport" className="scrollbar-thin flex w-full justify-center gap-2 overflow-x-auto pb-1">
                     {sports.map((s) => {
@@ -84,6 +86,7 @@ export function Hero({
                         today={today}
                         venue={venue}
                         policies={policies}
+                        pitches={pitches}
                         onInteract={() => setAutoRotate(false)}
                     />
                 </div>
