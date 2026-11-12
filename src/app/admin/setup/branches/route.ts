@@ -3,6 +3,7 @@ import { branchUpdateSchema } from "@/schemas/setup";
 import { staffGuard } from "@/server/admin/guard";
 import { updateBranch } from "@/server/admin/setup";
 import { handleError, ok, readJson } from "@/server/http";
+import { revalidatePath } from "next/cache";
 
 export async function PATCH(req: NextRequest) {
     const start = Date.now();
@@ -20,10 +21,12 @@ export async function PATCH(req: NextRequest) {
 
         console.log("[setup/branches] step 3: updateBranch");
         await updateBranch(user, parsed);
-        console.log("[setup/branches] step 3 done:", Date.now() - start, "ms");
-
-        console.log("[setup/branches] SUCCESS");
+        revalidatePath("/admin/setup", "page");
+        revalidatePath("/", "page");
+        revalidatePath("/book", "page");
+        revalidatePath("/legal", "page");
         return ok({ saved: true });
+
     } catch (e) {
         console.error("[setup/branches] ERROR:", Date.now() - start, "ms");
         console.error("[setup/branches] error:", e instanceof Error ? e.message : e);

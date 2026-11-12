@@ -9,7 +9,7 @@ export const branches: Branch[] = shared<Branch[]>("branches", [
         address: "Sample Road, Bogura Sadar, Bogura",
         phone: "+8801700000001",
         whatsapp: "8801700000001",
-        mapUrl: "https://maps.google.com/?q=Bogura",
+        mapUrl: "https://maps.app.goo.gl/3ikwjgqMxvGfHUwm8",
         hours: "24 hours",
         status: "ACTIVE",
         sports: ["Football", "Cricket", "Badminton", "Volly"],

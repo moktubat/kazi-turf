@@ -3,6 +3,7 @@ import { rateDeleteSchema, rateSchema, rateUpdateSchema } from "@/schemas/setup"
 import { staffGuard } from "@/server/admin/guard";
 import { createRate, deleteRate, updateRate } from "@/server/admin/setup";
 import { handleError, ok, readJson } from "@/server/http";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
     const start = Date.now();
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
 
         console.log("[setup/rates] createRate...");
         await createRate(user, parsed);
+        revalidatePath("/admin/setup", "page");
         console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true }, 201);
     } catch (e) {
@@ -37,6 +39,7 @@ export async function PATCH(req: NextRequest) {
 
         console.log("[setup/rates] updateRate...");
         await updateRate(user, parsed);
+        revalidatePath("/admin/setup", "page");
         console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true });
     } catch (e) {
@@ -57,6 +60,7 @@ export async function DELETE(req: NextRequest) {
 
         console.log("[setup/rates] deleteRate...");
         await deleteRate(user, parsed.id);
+        revalidatePath("/admin/setup", "page");
         console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ deleted: true });
     } catch (e) {

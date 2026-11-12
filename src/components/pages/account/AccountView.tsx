@@ -9,6 +9,7 @@ import { BookingRow } from "./BookingRow";
 import { BookingSheet } from "./BookingSheet";
 import { NextBookingCard } from "./NextBookingCard";
 import { ProfileForms } from "./ProfileForms";
+import { DEFAULT_REFUND_POLICY } from "@/data/defaultRefundPolicy";
 
 interface BookingGroup {
     id: string;
@@ -254,15 +255,7 @@ function RefundPolicyView({
     const hasContent =
         policy.tiers.length > 0 || policy.method || policy.timing || policy.exceptions.length > 0;
 
-    if (!hasContent) {
-        return (
-            <EmptyState
-                icon={RotateCcw}
-                title="Refund policy"
-                description="Our refund policy is being finalised. Please contact the venue for cancellation and refund details."
-            />
-        );
-    }
+    const effective = hasContent ? policy : DEFAULT_REFUND_POLICY;
 
     return (
         <div className="space-y-5">
@@ -279,11 +272,11 @@ function RefundPolicyView({
                     </div>
                 </div>
 
-                {policy.tiers.length > 0 && (
+                {effective.tiers.length > 0 && (
                     <div className="space-y-3">
                         <p className="text-sm font-semibold">Cancellation windows</p>
                         <ul className="space-y-2">
-                            {policy.tiers.map((t, i) => (
+                            {effective.tiers.map((t, i) => (
                                 <li key={i} className="rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
                                     <p className="font-semibold text-evergreen">{t.when}</p>
                                     <p className="mt-0.5 text-evergreen/80">{t.outcome}</p>
@@ -293,25 +286,25 @@ function RefundPolicyView({
                     </div>
                 )}
 
-                {policy.method && (
+                {effective.method && (
                     <div className="space-y-1">
                         <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Refund method</p>
-                        <p className="text-sm text-evergreen/85">{policy.method}</p>
+                        <p className="text-sm text-evergreen/85">{effective.method}</p>
                     </div>
                 )}
 
-                {policy.timing && (
+                {effective.timing && (
                     <div className="space-y-1">
                         <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Refund timing</p>
-                        <p className="text-sm text-evergreen/85">{policy.timing}</p>
+                        <p className="text-sm text-evergreen/85">{effective.timing}</p>
                     </div>
                 )}
 
-                {policy.exceptions.length > 0 && (
+                {effective.exceptions.length > 0 && (
                     <div className="space-y-1">
                         <p className="text-xs font-bold uppercase tracking-wide text-evergreen/60">Exceptions</p>
                         <ul className="list-disc space-y-1 pl-5 text-sm text-evergreen/85">
-                            {policy.exceptions.map((e, i) => (
+                            {effective.exceptions.map((e, i) => (
                                 <li key={i}>{e}</li>
                             ))}
                         </ul>

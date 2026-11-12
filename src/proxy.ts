@@ -24,6 +24,7 @@ export function proxy(req: NextRequest) {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: blob: https://res.cloudinary.com",
         "font-src 'self' https://fonts.gstatic.com",
+        "frame-src 'self' https://www.google.com https://maps.google.com",
         `connect-src 'self'${PROD ? "" : " ws: wss:"}`,
         "object-src 'none'",
         "base-uri 'self'",
@@ -31,6 +32,7 @@ export function proxy(req: NextRequest) {
         "frame-ancestors 'none'",
         ...(PROD ? ["upgrade-insecure-requests"] : []),
     ].join("; ");
+
 
     const res = NextResponse.next();
     res.headers.set("Content-Security-Policy", csp);

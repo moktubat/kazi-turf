@@ -3,6 +3,7 @@ import { policySchema } from "@/schemas/setup";
 import { staffGuard } from "@/server/admin/guard";
 import { updatePolicies } from "@/server/admin/setup";
 import { handleError, ok, readJson } from "@/server/http";
+import { revalidatePath } from "next/cache";
 
 export async function PATCH(req: NextRequest) {
     const start = Date.now();
@@ -17,8 +18,11 @@ export async function PATCH(req: NextRequest) {
 
         console.log("[setup/policies] updatePolicies...");
         await updatePolicies(user, parsed);
-        console.log("[setup/policies] SUCCESS:", Date.now() - start, "ms");
+        revalidatePath("/admin/setup", "page");
+        revalidatePath("/legal", "page");
+        revalidatePath("/account", "page");
         return ok({ saved: true });
+
     } catch (e) {
         console.error("[setup/policies] ERROR:", e instanceof Error ? e.message : e);
         console.error("[setup/policies] stack:", e instanceof Error ? e.stack : "no stack");

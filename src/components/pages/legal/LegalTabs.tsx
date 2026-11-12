@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "@/components/ui/Tabs";
 import type { LegalDoc, LegalTab } from "@/data/legal";
+import { DEFAULT_REFUND_POLICY } from "@/data/defaultRefundPolicy";
 
 type RefundPolicy = {
     tiers: { when: string; outcome: string }[];
@@ -96,57 +97,46 @@ export function LegalTabs({
 }
 
 function refundIntro(p: RefundPolicy): string {
-    const hasContent =
-        p.tiers.length > 0 || p.method || p.timing || p.exceptions.length > 0;
-    return hasContent
-        ? "All turfs are indoor — weather is never a reason for a refund. The windows below describe what happens to your advance if you cancel."
-        : "Our refund policy is being finalised. Please contact the venue for cancellation and refund details.";
+    return "All turfs are indoor — weather is never a reason for a refund. The windows below describe what happens to your advance if you cancel.";
 }
 
 function buildRefundSections(p: RefundPolicy): LegalDoc["sections"] {
     const hasContent =
         p.tiers.length > 0 || p.method || p.timing || p.exceptions.length > 0;
-    if (!hasContent) {
-        return [
-            {
-                heading: "Refund policy",
-                paragraphs: [
-                    "Our refund policy is being finalised. Please contact the venue for cancellation and refund details.",
-                ],
-            },
-        ];
-    }
+
+    // Fall back to realistic default data when the admin hasn't saved a policy yet.
+    const effective = hasContent ? p : DEFAULT_REFUND_POLICY;
 
     const sections: LegalDoc["sections"] = [];
 
-    if (p.tiers.length > 0) {
+    if (effective.tiers.length > 0) {
         sections.push({
             heading: "Cancellation windows",
             paragraphs: [
                 "The amount of your advance that is refunded depends on how far in advance you cancel:",
             ],
-            bullets: p.tiers.map((t) => `${t.when}: ${t.outcome}`),
+            bullets: effective.tiers.map((t) => `${t.when}: ${t.outcome}`),
         });
     }
 
-    if (p.method) {
+    if (effective.method) {
         sections.push({
             heading: "Refund method",
-            paragraphs: [p.method],
+            paragraphs: [effective.method],
         });
     }
 
-    if (p.timing) {
+    if (effective.timing) {
         sections.push({
             heading: "Refund timing",
-            paragraphs: [p.timing],
+            paragraphs: [effective.timing],
         });
     }
 
-    if (p.exceptions.length > 0) {
+    if (effective.exceptions.length > 0) {
         sections.push({
             heading: "Exceptions",
-            bullets: p.exceptions,
+            bullets: effective.exceptions,
         });
     }
 

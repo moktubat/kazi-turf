@@ -3,6 +3,7 @@ import { staffCreateSchema, staffUpdateSchema } from "@/schemas/setup";
 import { staffGuard } from "@/server/admin/guard";
 import { createStaff, updateStaff } from "@/server/admin/setup";
 import { handleError, ok, readJson } from "@/server/http";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
     const start = Date.now();
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
 
         console.log("[setup/staff] createStaff...");
         await createStaff(user, parsed);
+        revalidatePath("/admin/setup", "page");
         console.log("[setup/staff] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true }, 201);
     } catch (e) {
@@ -37,6 +39,7 @@ export async function PATCH(req: NextRequest) {
 
         console.log("[setup/staff] updateStaff...");
         await updateStaff(user, parsed);
+        revalidatePath("/admin/setup", "page");
         console.log("[setup/staff] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true });
     } catch (e) {

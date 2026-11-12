@@ -3,6 +3,7 @@ import { pitchSchema, pitchUpdateSchema } from "@/schemas/setup";
 import { staffGuard } from "@/server/admin/guard";
 import { createPitch, updatePitch } from "@/server/admin/setup";
 import { handleError, ok, readJson } from "@/server/http";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
     const start = Date.now();
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
 
         console.log("[setup/pitches] step 3: createPitch");
         await createPitch(user, parsed);
+        revalidatePath("/admin/setup", "page");
         console.log("[setup/pitches] step 3 done:", Date.now() - start, "ms");
 
         console.log("[setup/pitches] SUCCESS");
@@ -48,6 +50,7 @@ export async function PATCH(req: NextRequest) {
 
         console.log("[setup/pitches] step 3: updatePitch");
         await updatePitch(user, parsed);
+        revalidatePath("/admin/setup", "page");
         console.log("[setup/pitches] step 3 done:", Date.now() - start, "ms");
 
         console.log("[setup/pitches] SUCCESS");

@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, User, Mail, Phone, Trophy, FileText } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Field";
 import { contactSchema, type ContactInput } from "@/schemas/contact";
@@ -74,58 +74,56 @@ export function ContactForm({ sports }: { sports: string[] }) {
             className="relative space-y-5"
             aria-label="Send us a message"
         >
-            <div className="space-y-1">
-                <h3 className="font-heading text-2xl font-extrabold text-evergreen sm:text-3xl">
-                    Send Us a Message
-                </h3>
-                <p className="text-sm text-evergreen/70">
-                    Fill out the form below and our team will get back to you within 24 hours.
+            <div className="space-y-3">
+                <h3 className="font-heading text-3xl font-bold md:text-4xl">Send Us a Message</h3>
+                <p className="max-w-md text-evergreen/80">
+                    Fill out the form and our team will get back to you within 24 hours.
                 </p>
             </div>
 
-            {/* First name + Last name */}
             <div className="grid gap-4 sm:grid-cols-2">
                 <Input
                     label="First name"
+                    icon={User}
+                    placeholder="Enter first name"
                     autoComplete="given-name"
                     error={errors.firstName?.message}
                     {...register("firstName")}
                 />
                 <Input
                     label="Last name"
+                    icon={User}
+                    placeholder="Enter last name"
                     autoComplete="family-name"
                     error={errors.lastName?.message}
                     {...register("lastName")}
                 />
             </div>
 
-            {/* Email + Phone */}
             <div className="grid gap-4 sm:grid-cols-2">
                 <Input
                     label="Email"
+                    icon={Mail}
                     type="email"
+                    placeholder="Enter email"
                     autoComplete="email"
                     error={errors.email?.message}
                     {...register("email")}
                 />
                 <Input
                     label="Phone"
+                    icon={Phone}
                     type="tel"
                     inputMode="tel"
+                    placeholder="Enter phone"
                     autoComplete="tel"
-                    placeholder="01XXXXXXXXX"
                     error={errors.phone?.message}
                     {...register("phone")}
                 />
             </div>
 
-            {/* Sport + Subject */}
             <div className="grid gap-4 sm:grid-cols-2">
-                <Select
-                    label="Sport"
-                    error={errors.sport?.message}
-                    {...register("sport")}
-                >
+                <Select label="Sport" icon={Trophy} error={errors.sport?.message} {...register("sport")}>
                     {sports.length === 0 && <option value="">No sports yet</option>}
                     {sports.map((s) => (
                         <option key={s} value={s}>{s}</option>
@@ -133,22 +131,23 @@ export function ContactForm({ sports }: { sports: string[] }) {
                 </Select>
                 <Input
                     label="Subject"
-                    placeholder="What is this about?"
+                    icon={FileText}
+                    placeholder="Enter subject"
                     error={errors.subject?.message}
                     {...register("subject")}
                 />
             </div>
 
-            {/* Message */}
             <Textarea
                 label="Message"
                 rows={5}
-                placeholder="Tell us what we can help you with"
+                placeholder="Type here . . ."
+                className="resize-none"
                 error={errors.message?.message}
                 {...register("message")}
             />
 
-            {/* Honeypot: hidden from people and assistive tech */}
+            {/* Honeypot */}
             <div aria-hidden className="absolute -left-[9999px]">
                 <label>
                     Website
@@ -156,15 +155,12 @@ export function ContactForm({ sports }: { sports: string[] }) {
                 </label>
             </div>
 
-            <p className="text-sm text-evergreen/80">
-                By sending this message you agree to our{" "}
-                <Link href="/legal#privacy" className="font-semibold text-teal underline underline-offset-2">
-                    Privacy Policy
-                </Link>
-                . We usually reply the same day.
-            </p>
-
-            <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+            <Button
+                type="submit"
+                size="lg"
+                className="w-fit bg-evergreen px-8 text-white hover:bg-pitch"
+                disabled={isSubmitting}
+            >
                 {isSubmitting ? "Sending…" : "Send Message"}
             </Button>
 

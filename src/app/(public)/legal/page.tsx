@@ -6,6 +6,8 @@ import { getPublicRefundPolicy } from "@/server/public-data";
 
 export const metadata: Metadata = { title: "Terms, Privacy & Refund policy" };
 
+export const instant = false;
+
 export default async function LegalPage() {
     const refundPolicy = await getPublicRefundPolicy();
 

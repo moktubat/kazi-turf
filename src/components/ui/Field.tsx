@@ -11,6 +11,10 @@ interface ShellProps {
     hint?: string;
 }
 
+interface IconProp {
+    icon?: React.ElementType;
+}
+
 function Shell({
     id,
     label,
@@ -42,44 +46,62 @@ function describedBy(id: string, error?: string, hint?: string) {
     return error ? `${id}-error` : hint ? `${id}-hint` : undefined;
 }
 
+function WithIcon({ icon: Icon, children }: IconProp & { children: React.ReactNode }) {
+    if (!Icon) return <>{children}</>;
+    return (
+        <div className="relative">
+            {children}
+            <Icon
+                size={18}
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-evergreen/50"
+            />
+        </div>
+    );
+}
+
 export const Input = forwardRef<
     HTMLInputElement,
-    React.InputHTMLAttributes<HTMLInputElement> & ShellProps
->(function Input({ label, error, hint, id, className, ...rest }, ref) {
+    React.InputHTMLAttributes<HTMLInputElement> & ShellProps & IconProp
+>(function Input({ label, error, hint, id, icon, className, ...rest }, ref) {
     const auto = useId();
     const fid = id ?? auto;
     return (
         <Shell id={fid} label={label} error={error} hint={hint}>
-            <input
-                ref={ref}
-                id={fid}
-                aria-invalid={!!error}
-                aria-describedby={describedBy(fid, error, hint)}
-                className={cn(control, error ? "border-booked" : "border-evergreen/20", className)}
-                {...rest}
-            />
+            <WithIcon icon={icon}>
+                <input
+                    ref={ref}
+                    id={fid}
+                    aria-invalid={!!error}
+                    aria-describedby={describedBy(fid, error, hint)}
+                    className={cn(control, icon && "pl-10", error ? "border-booked" : "border-evergreen/20", className)}
+                    {...rest}
+                />
+            </WithIcon>
         </Shell>
     );
 });
 
 export const Select = forwardRef<
     HTMLSelectElement,
-    React.SelectHTMLAttributes<HTMLSelectElement> & ShellProps
->(function Select({ label, error, hint, id, className, children, ...rest }, ref) {
+    React.SelectHTMLAttributes<HTMLSelectElement> & ShellProps & IconProp
+>(function Select({ label, error, hint, id, icon, className, children, ...rest }, ref) {
     const auto = useId();
     const fid = id ?? auto;
     return (
         <Shell id={fid} label={label} error={error} hint={hint}>
-            <select
-                ref={ref}
-                id={fid}
-                aria-invalid={!!error}
-                aria-describedby={describedBy(fid, error, hint)}
-                className={cn(control, error ? "border-booked" : "border-evergreen/20", className)}
-                {...rest}
-            >
-                {children}
-            </select>
+            <WithIcon icon={icon}>
+                <select
+                    ref={ref}
+                    id={fid}
+                    aria-invalid={!!error}
+                    aria-describedby={describedBy(fid, error, hint)}
+                    className={cn(control, icon && "pl-10", error ? "border-booked" : "border-evergreen/20", className)}
+                    {...rest}
+                >
+                    {children}
+                </select>
+            </WithIcon>
         </Shell>
     );
 });
