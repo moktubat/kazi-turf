@@ -47,8 +47,8 @@ export function VenueTab({ venue }: { venue: Branch }) {
     );
 }
 
-function VenueForm({ venue }: { venue: Branch }) {
-    const [f, setF] = useState<FormState>({
+function buildVenueFormState(venue: Branch): FormState {
+    return {
         name: venue.name,
         address: venue.address,
         phone: venue.phone,
@@ -57,14 +57,23 @@ function VenueForm({ venue }: { venue: Branch }) {
         hours: "24 hours",
         status: venue.status,
         sports: venue.sports,
-        // Ensure sportConfigs is initialized from venue data
         sportConfigs: (venue.sportConfigs ?? []).map(sc => ({
             id: sc.id || slugify(sc.name),
             name: sc.name,
             image: sc.image || "",
             active: sc.active ?? true,
         })),
-    });
+    };
+}
+
+function VenueForm({ venue }: { venue: Branch }) {
+    const [f, setF] = useState<FormState>(() => buildVenueFormState(venue));
+    const [prevVenue, setPrevVenue] = useState(venue);
+    if (venue !== prevVenue) {
+        setPrevVenue(venue);
+        setF(buildVenueFormState(venue));
+    }
+
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
 
@@ -113,14 +122,10 @@ function VenueForm({ venue }: { venue: Branch }) {
     function submit(e: React.FormEvent) {
         e.preventDefault();
 
-        // CRITICAL: Derive `sports` array from `sportConfigs`.
-        // This makes sportConfigs the single source of truth — no separate
-        // text input to get out of sync.
         const sports = f.sportConfigs
             .filter((sc) => sc.name.trim().length > 0)
             .map((sc) => sc.name);
 
-        // Also ensure each config has a proper id (slug)
         const sportConfigs = f.sportConfigs
             .filter((sc) => sc.name.trim().length > 0)
             .map((sc) => ({

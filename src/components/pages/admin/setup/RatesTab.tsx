@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Banknote, Calendar, CalendarRange, Clock, Pencil, Plus, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -25,37 +26,88 @@ const TIME_PHASES: { label: string; from: string; until: string }[] = [
 ];
 
 export function RatesTab({
-    rates,
-    pitches,
-    coverage,
+    rates: initialRates,
+    pitches: initialPitches,
+    coverage: initialCoverage,
 }: {
     rates: SetupRate[];
     pitches: SetupPitch[];
     coverage: Record<string, string[]>;
 }) {
-    const [pitchId, setPitchId] = useState(pitches[0]?.id ?? "");
+    const router = useRouter();
+
+    const [rates, setRates] = useState(initialRates);
+    const [prevRates, setPrevRates] = useState(initialRates);
+    if (initialRates !== prevRates) {
+        setPrevRates(initialRates);
+        setRates(initialRates);
+    }
+
+    const [pitches, setPitches] = useState(initialPitches);
+    const [prevPitches, setPrevPitches] = useState(initialPitches);
+    if (initialPitches !== prevPitches) {
+        setPrevPitches(initialPitches);
+        setPitches(initialPitches);
+    }
+
+    const [coverage, setCoverage] = useState(initialCoverage);
+    const [prevCoverage, setPrevCoverage] = useState(initialCoverage);
+    if (initialCoverage !== prevCoverage) {
+        setPrevCoverage(initialCoverage);
+        setCoverage(initialCoverage);
+    }
+
     const [editing, setEditing] = useState<SetupRate | "new" | null>(null);
-    const pitch = pitches.find((p) => p.id === pitchId);
+
+    const sports = Array.from(new Set(pitches.map(p => p.sport)));
+    const [sportFilter, setSportFilter] = useState(sports[0] ?? "");
+    const sportPitches = pitches.filter(p => p.sport === sportFilter);
+
+    const [pitchId, setPitchId] = useState(sportPitches[0]?.id ?? "");
+
+    if (!pitches.some(p => p.id === pitchId)) {
+        setPitchId(sportPitches[0]?.id ?? "");
+    }
+
+    function changeSport(s: string) {
+        setSportFilter(s);
+        const firstPitch = pitches.find(p => p.sport === s);
+        setPitchId(firstPitch?.id ?? "");
+    }
+
+    const pitch = pitches.find(p => p.id === pitchId);
 
     if (pitches.length === 0 || !pitch) {
         return <Card><p className="font-semibold">Add a field first, then set its slot prices.</p></Card>;
     }
 
     const mine = rates
-        .filter((r) => r.pitchId === pitch.id)
+        .filter(r => r.pitchId === pitch.id)
         .sort((a, b) => a.days[0] - b.days[0] || toMinutes(a.startTime) - toMinutes(b.startTime));
     const gaps = coverage[pitch.id] ?? [];
 
     return (
         <div className="space-y-5">
+            {/* TWO separate selectors: Sport first, then Field */}
+            <div className="grid gap-3 sm:grid-cols-2">
+                <Select label="Sport" value={sportFilter} onChange={(e) => changeSport(e.target.value)}>
+                    {sports.length === 0 && <option value="">No sports yet</option>}
+                    {sports.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                    ))}
+                </Select>
+                <Select label="Field" value={pitch.id} onChange={(e) => setPitchId(e.target.value)}>
+                    {sportPitches.length === 0 && <option value="">No fields for this sport</option>}
+                    {sportPitches.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </Select>
+            </div>
+
             <div className="flex flex-wrap items-end justify-between gap-3">
-                <div className="min-w-56">
-                    <Select label="Field" value={pitch.id} onChange={(e) => setPitchId(e.target.value)}>
-                        {pitches.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name} · {p.sport}</option>
-                        ))}
-                    </Select>
-                </div>
+                <p className="text-sm text-evergreen/80">
+                    Price per {pitch.slotMinutes ?? 90}-minute slot for <strong>{pitch.name}</strong> ({pitch.sport}).
+                </p>
                 <Button onClick={() => setEditing("new")}>
                     <Plus size={18} aria-hidden /> Add slot price
                 </Button>
@@ -156,7 +208,10 @@ export function RatesTab({
                         key={editing === "new" ? "new" : editing.id}
                         pitch={pitch}
                         rate={editing === "new" ? null : editing}
-                        onDone={() => setEditing(null)}
+                        onDone={() => {
+                            setEditing(null);
+                            router.refresh();
+                        }}
                     />
                 )}
             </SideSheet>

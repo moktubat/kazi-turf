@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { AlertTriangle } from "lucide-react";
 import { LegalTabs } from "@/components/pages/legal/LegalTabs";
 import { getLegalDocs, legalStatus } from "@/data/legal";
+import { getPublicRefundPolicy } from "@/server/public-data";
 
 export const metadata: Metadata = { title: "Terms, Privacy & Refund policy" };
 
 export default async function LegalPage() {
+    const refundPolicy = await getPublicRefundPolicy();
+
     return (
         <>
             <div className="bg-evergreen text-white">
@@ -31,7 +34,7 @@ export default async function LegalPage() {
             </div>
 
             <div className="mx-auto max-w-3xl px-4 py-8 pb-16">
-                <LegalTabs docs={getLegalDocs()} />
+                <LegalTabs docs={getLegalDocs()} refundPolicy={refundPolicy} />
             </div>
         </>
     );

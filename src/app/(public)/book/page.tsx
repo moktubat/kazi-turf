@@ -5,12 +5,11 @@ import { BookingFlow, type FlowInitial } from "@/components/pages/booking/Bookin
 import { BookingResult } from "@/components/pages/booking/BookingResult";
 import type { FlowVenue } from "@/components/pages/booking/FilterBar";
 import { Button } from "@/components/ui/Button";
-import { venue } from "@/data/branches";
-import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
 import { getSessionUser } from "@/server/auth/session";
 import { getPitch } from "@/server/availability";
 import { todayDhaka } from "@/lib/time.server";
+import { getPublicVenue, getPublicPolicies } from "@/server/public-data";
 
 export const metadata: Metadata = { title: "Book a slot" };
 
@@ -52,6 +51,11 @@ async function BookContent({ searchParams }: { searchParams: Params }) {
         }
         return <BookingResult code={code} />;
     }
+
+    const [venue, policies] = await Promise.all([
+        getPublicVenue(),
+        getPublicPolicies(),
+    ]);
 
     if (venue.status !== "ACTIVE" || venue.sports.length === 0) {
         return (

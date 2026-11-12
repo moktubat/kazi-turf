@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -14,7 +15,15 @@ import { venue } from "@/data/branches";
 
 const PITCHES_EDIT = "pitches.edit";
 
-export function StaffTab({ staff }: { staff: SetupStaff[] }) {
+export function StaffTab({ staff: initialStaff }: { staff: SetupStaff[] }) {
+    const router = useRouter();
+    const [staff, setStaff] = useState(initialStaff);
+    const [prevStaff, setPrevStaff] = useState(initialStaff);
+    if (initialStaff !== prevStaff) {
+        setPrevStaff(initialStaff);
+        setStaff(initialStaff);
+    }
+
     const [editing, setEditing] = useState<SetupStaff | "new" | null>(null);
 
     return (
@@ -54,12 +63,19 @@ export function StaffTab({ staff }: { staff: SetupStaff[] }) {
                 ))}
             </ul>
 
-            <SideSheet open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add staff" : "Edit staff"}>
+            <SideSheet
+                open={!!editing}
+                onClose={() => setEditing(null)}
+                title={editing === "new" ? "Add staff" : "Edit staff"}
+            >
                 {editing && (
                     <StaffForm
                         key={editing === "new" ? "new" : editing.id}
                         user={editing === "new" ? null : editing}
-                        onDone={() => setEditing(null)}
+                        onDone={() => {
+                            setEditing(null);
+                            router.refresh();
+                        }}
                     />
                 )}
             </SideSheet>

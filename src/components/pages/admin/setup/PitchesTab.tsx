@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, FileEdit, Plus, Ruler, ToggleLeft, Trash2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -57,14 +58,21 @@ interface FormState {
 }
 
 export function PitchesTab({
-    pitches,
+    pitches: initialPitches,
     slotMinutes,
-    onChanged,
 }: {
     pitches: SetupPitch[];
     slotMinutes: number;
-    onChanged?: () => void;
 }) {
+    const router = useRouter();
+    // Local state — synced from server props + updated optimistically
+    const [pitches, setPitches] = useState(initialPitches);
+    const [prevPitches, setPrevPitches] = useState(initialPitches);
+    if (initialPitches !== prevPitches) {
+        setPrevPitches(initialPitches);
+        setPitches(initialPitches);
+    }
+
     const [editing, setEditing] = useState<SetupPitch | "new" | null>(null);
     const [deleting, setDeleting] = useState<SetupPitch | null>(null);
     const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -76,14 +84,21 @@ export function PitchesTab({
         setDeleteError(null);
         try {
             await api(`/api/admin/pitches/${encodeURIComponent(deleting.id)}`, { method: "DELETE" });
+            // Optimistic: remove immediately from local state
+            const deletedId = deleting.id;
+            setPitches(prev => prev.filter(p => p.id !== deletedId));
             setDeleting(null);
-            onChanged?.();
+            // Then ask server for authoritative list
+            router.refresh();
         } catch (e) {
             setDeleteError(e instanceof ApiError ? e.message : "Could not delete. Please try again.");
         } finally {
             setDeleteBusy(false);
         }
     }
+
+    // Called by PitchForm after a successful create/update — refresh server data
+    const handleChanged = () => router.refresh();
 
     return (
         <div className="space-y-6">
@@ -164,7 +179,7 @@ export function PitchesTab({
                         slotMinutes={slotMinutes}
                         onDone={() => {
                             setEditing(null);
-                            onChanged?.();
+                            handleChanged();
                         }}
                     />
                 )}

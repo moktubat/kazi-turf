@@ -9,8 +9,8 @@ import type { PolicyForm } from "@/types/setup";
 import { Check, num } from "./ui";
 import { useSave } from "./useSave";
 
-export function PoliciesTab({ policies }: { policies: PolicyForm }) {
-    const [f, setF] = useState({
+function buildPolicyFormState(policies: PolicyForm) {
+    return {
         holdMinutes: String(policies.holdMinutes),
         advancePercent: String(policies.advancePercent),
         nightAdvancePercent: String(policies.nightAdvancePercent ?? 100),
@@ -24,7 +24,17 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
         timing: policies.refund.timing,
         exceptions: policies.refund.exceptions.join("\n"),
         reviewed: policies.legalReviewed,
-    });
+    };
+}
+
+export function PoliciesTab({ policies }: { policies: PolicyForm }) {
+    const [f, setF] = useState(() => buildPolicyFormState(policies));
+    const [prevPolicies, setPrevPolicies] = useState(policies);
+    if (policies !== prevPolicies) {
+        setPrevPolicies(policies);
+        setF(buildPolicyFormState(policies));
+    }
+
     const [saved, setSaved] = useState(false);
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => {
