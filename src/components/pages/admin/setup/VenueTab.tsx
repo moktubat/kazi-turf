@@ -7,8 +7,11 @@ import type { Branch } from "@/types";
 import { FormActions } from "./ui";
 import { useSave } from "./useSave";
 import { Button } from "@/components/ui/Button";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
+import { useRouter } from "next/navigation";
+import { SideSheet } from "@/components/ui/SideSheet";
+import { api, ApiError } from "@/lib/api";
 
 interface SportConfig {
     id: string;
@@ -67,12 +70,19 @@ function buildVenueFormState(venue: Branch): FormState {
 }
 
 function VenueForm({ venue }: { venue: Branch }) {
+    const router = useRouter();
     const [f, setF] = useState<FormState>(() => buildVenueFormState(venue));
     const [prevVenue, setPrevVenue] = useState(venue);
     if (venue !== prevVenue) {
         setPrevVenue(venue);
         setF(buildVenueFormState(venue));
     }
+
+    // Sport-delete confirmation modal state.
+    const [deletingSport, setDeletingSport] = useState<SportConfig | null>(null);
+    const [confirmText, setConfirmText] = useState("");
+    const [deleteBusy, setDeleteBusy] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
@@ -101,11 +111,61 @@ function VenueForm({ venue }: { venue: Branch }) {
         }));
     }
 
+    /**
+     * If the sport is already saved on the server (exists in `venue.sportConfigs`),
+     * open the cascade-delete confirmation modal. If it was only just added in this
+     * form session (not yet persisted), just drop it from local state — there's
+     * nothing on the server to delete.
+     */
     function removeSport(i: number) {
-        setF((s) => ({
-            ...s,
-            sportConfigs: s.sportConfigs.filter((_, idx) => idx !== i),
-        }));
+        const sport = f.sportConfigs[i];
+        const savedOnServer = (venue.sportConfigs ?? []).some((sc) => sc.id === sport.id);
+        if (savedOnServer && sport.name.trim()) {
+            setConfirmText("");
+            setDeleteError(null);
+            setDeletingSport(sport);
+        } else {
+            setF((s) => ({
+                ...s,
+                sportConfigs: s.sportConfigs.filter((_, idx) => idx !== i),
+            }));
+        }
+    }
+
+    /** Required confirmation text — e.g. football_delete, cricket_delete. */
+    const requiredConfirmText = deletingSport
+        ? `${deletingSport.id}_delete`
+        : "";
+
+    async function confirmDeleteSport() {
+        if (!deletingSport) return;
+        if (confirmText.trim().toLowerCase() !== requiredConfirmText) {
+            setDeleteError(`Type exactly: ${requiredConfirmText}`);
+            return;
+        }
+        setDeleteBusy(true);
+        setDeleteError(null);
+        try {
+            await api(
+                `/api/admin/setup/branches/sports/${encodeURIComponent(deletingSport.id)}`,
+                { method: "DELETE" }
+            );
+            // Remove from local form state.
+            setF((s) => ({
+                ...s,
+                sportConfigs: s.sportConfigs.filter((sc) => sc.id !== deletingSport.id),
+                sports: s.sports.filter((name) => name !== deletingSport.name),
+            }));
+            setDeletingSport(null);
+            // Pull authoritative server data.
+            router.refresh();
+        } catch (e) {
+            setDeleteError(
+                e instanceof ApiError ? e.message : "Could not delete sport. Please try again."
+            );
+        } finally {
+            setDeleteBusy(false);
+        }
     }
 
     /** Reorder a sport up or down. Array order = display order on the homepage. */
@@ -302,6 +362,69 @@ function VenueForm({ venue }: { venue: Branch }) {
 
                 <FormActions busy={busy} error={error} label="Save changes" onCancel={() => { }} />
             </form>
+
+            {/* Sport cascade-delete confirmation modal — dynamic per sport */}
+            <SideSheet
+                open={!!deletingSport}
+                onClose={() => setDeletingSport(null)}
+                title={deletingSport ? `Delete ${deletingSport.name}` : "Delete sport"}
+                description="This permanently deletes the sport, all its fields, all slot prices, and the sport's hero image on Cloudinary."
+                icon={Trash2}
+            >
+                {deletingSport && (
+                    <div className="space-y-4">
+                        <div className="rounded-xl bg-booked-soft p-3 text-sm">
+                            <p className="flex items-start gap-2 font-semibold text-booked">
+                                <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" />
+                                This will remove:
+                            </p>
+                            <ul className="mt-2 list-disc space-y-1 pl-7 text-booked/90">
+                                <li>The sport <strong>{deletingSport.name}</strong> from the venue</li>
+                                <li>Every field (pitch) assigned to <strong>{deletingSport.name}</strong></li>
+                                <li>Every slot price for those fields</li>
+                                <li>The sport&apos;s hero background image from Cloudinary</li>
+                            </ul>
+                            <p className="mt-2 text-booked/80">
+                                Existing bookings stay valid; only new bookings are affected.
+                            </p>
+                        </div>
+
+                        <Input
+                            label={`Type ${requiredConfirmText} to confirm`}
+                            value={confirmText}
+                            onChange={(e) => {
+                                setConfirmText(e.target.value);
+                                setDeleteError(null);
+                            }}
+                            placeholder={requiredConfirmText}
+                            autoComplete="off"
+                            hint={`Sport-wise confirmation: e.g. football_delete, cricket_delete`}
+                            error={deleteError ?? undefined}
+                        />
+
+                        <div className="flex gap-2">
+                            <Button
+                                variant="danger"
+                                className="flex-1"
+                                disabled={
+                                    deleteBusy ||
+                                    confirmText.trim().toLowerCase() !== requiredConfirmText
+                                }
+                                onClick={confirmDeleteSport}
+                            >
+                                {deleteBusy ? "Deleting…" : `Delete ${deletingSport.name}`}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => setDeletingSport(null)}
+                                disabled={deleteBusy}
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </SideSheet>
         </Card>
     );
 }

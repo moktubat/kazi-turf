@@ -20,14 +20,17 @@ export function Header({ user }: { user: SessionUser | null }) {
     const isStaff = user?.role === "STAFF" || user?.role === "SUPER_ADMIN";
     const isLogin = pathname === "/login";
 
-    // Only the homepage has a dark hero for the bar to sit on. Every other route
-    // gets a solid evergreen bar, so white text never lands on a near-white page.
     const overHero = pathname === "/" && !scrolled && !open;
 
-    useEffect(() => setOpen(false), [pathname]);
+    const [prevPath, setPrevPath] = useState(pathname);
+    if (pathname !== prevPath) {
+        setPrevPath(pathname);
+        setOpen(false);
+    }
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 8);
+
         onScroll();
         window.addEventListener("scroll", onScroll, { passive: true });
         return () => window.removeEventListener("scroll", onScroll);
@@ -59,20 +62,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                         <span className="sr-only"> — {site.tagline}</span>
                     </Link>
 
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href="/"
-                            className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-evergreen transition-colors hover:bg-evergreen/10"
-                        >
-                            Home
-                        </Link>
-                        <Link
-                            href="/book"
-                            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-evergreen px-4 text-sm font-bold text-white transition-colors hover:bg-teal"
-                        >
-                            <CalendarCheck size={18} aria-hidden /> Book now
-                        </Link>
-                    </div>
+                    <div className="flex items-center gap-2" />
                 </div>
             </header>
         );
@@ -94,27 +84,11 @@ export function Header({ user }: { user: SessionUser | null }) {
                         <span className="sr-only"> — {site.tagline}</span>
                     </Link>
 
-                    {/* Desktop primary nav */}
-                    <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
-                        <Link
-                            href="/"
-                            aria-current={pathname === "/" ? "page" : undefined}
-                            className={cn(barLink, pathname === "/" && "bg-surface/10")}
-                        >
-                            Home
-                        </Link>
-                    </nav>
+                    {/* Desktop primary nav — Home link removed per client request */}
+                    <nav aria-label="Primary" className="hidden lg:flex" />
                 </div>
 
                 <div className="flex items-center gap-1">
-                    <Link
-                        href="/"
-                        aria-current={pathname === "/" ? "page" : undefined}
-                        className={cn(barLink, "lg:hidden", pathname === "/" && "bg-surface/10")}
-                    >
-                        Home
-                    </Link>
-
                     {user ? (
                         <>
                             <Link href="/account" className={barLink}>
@@ -144,13 +118,8 @@ export function Header({ user }: { user: SessionUser | null }) {
                         </Link>
                     )}
 
-                    {/* Primary CTA: desktop only. Phones already have the bottom action bar. */}
-                    <Link
-                        href="/book"
-                        className="ml-1 hidden min-h-11 items-center gap-2 rounded-xl border-2 border-emerald px-4 text-sm font-bold text-emerald transition-colors hover:bg-emerald hover:text-evergreen md:inline-flex"
-                    >
-                        <CalendarCheck size={18} aria-hidden /> Book now
-                    </Link>
+                    {/* Book now CTA removed from header per client request.
+                        Mobile users still have the bottom MobileActionBar with Book Now. */}
 
                     <button
                         type="button"

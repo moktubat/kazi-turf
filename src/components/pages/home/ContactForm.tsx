@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, AlertTriangle, User, Mail, Phone, Trophy, FileText } from "lucide-react";
@@ -71,7 +70,7 @@ export function ContactForm({ sports }: { sports: string[] }) {
         <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
-            className="relative space-y-5"
+            className="relative space-y-5 rounded-3xl border border-evergreen/10 bg-surface p-6 shadow-sm md:p-8"
             aria-label="Send us a message"
         >
             <div className="space-y-3">

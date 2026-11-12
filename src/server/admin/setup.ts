@@ -292,14 +292,22 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
         );
     }
 
+    // Cascade: delete every slot claim AND every pricing rule (slot price) for this pitch.
     await SlotClaimModel.deleteMany({ pitchId: id });
 
-    // Capture the Cloudinary public_id BEFORE we splice the pitch out.
-    // p.image is `string | null` — guard against null so publicIdFromImage gets a string.
+    // Capture BEFORE we mutate the arrays.
     const cloudinaryPublicId = p.image ? publicIdFromImage(p.image) : null;
+    const removedRulesCount = pricingRules.reduce(
+        (n, r) => (r.pitchId === id ? n + 1 : n),
+        0
+    );
 
+    // Splice out the pricing rules (slots) for this pitch, then the pitch itself.
+    for (let i = pricingRules.length - 1; i >= 0; i--) {
+        if (pricingRules[i].pitchId === id) pricingRules.splice(i, 1);
+    }
     pitches.splice(idx, 1);
-    await persistConfig("pitches");
+    await persistConfig("pitches", "pricingRules");
 
     // Best-effort Cloudinary cleanup.
     if (cloudinaryPublicId) {
@@ -315,7 +323,115 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
             change: "deleted",
             name: p.name,
             sport: p.sport,
+            ratesRemoved: removedRulesCount,
             cloudinaryPublicId: cloudinaryPublicId ?? null,
+        },
+    });
+}
+
+/**
+ * Cascade-delete a sport and everything attached to it:
+ *   1. Every pitch of that sport (and each pitch's slot claims + pricing rules + Cloudinary image)
+ *   2. The sport's own hero background image on Cloudinary
+ *   3. The sport entry in branch.sportConfigs and branch.sports
+ *
+ * Refuses if any pitch of that sport has an upcoming live booking — cancel those first
+ * or disable the sport instead.
+ */
+export async function deleteSport(user: ServerUser, sportId: string, now: Date = new Date()) {
+    assertSuperAdmin(user);
+    await begin();
+
+    const branch = branches[0];
+    if (!branch) throw new AppError("NOT_FOUND", "Venue not found.", 404);
+
+    const sportConfig = (branch.sportConfigs ?? []).find((s) => s.id === sportId);
+    if (!sportConfig) throw new AppError("NOT_FOUND", `Sport "${sportId}" not found.`, 404);
+
+    const sportName = sportConfig.name;
+    const doomedPitches = pitches.filter(
+        (p) => p.branchId === branch.id && p.sport === sportName
+    );
+    const pitchIds = doomedPitches.map((p) => p.id);
+
+    // Refuse if any of those pitches still have upcoming live bookings.
+    if (pitchIds.length > 0) {
+        const upcoming = await BookingModel.countDocuments({
+            pitchId: { $in: pitchIds },
+            bookingStatus: { $in: ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] },
+            startAt: { $gte: now.toISOString() },
+        });
+        if (upcoming > 0) {
+            throw new AppError(
+                "SPORT_IN_USE",
+                `${sportName} has ${upcoming} upcoming booking${upcoming === 1 ? "" : "s"}. Cancel them first, or disable the sport instead of deleting.`,
+                409
+            );
+        }
+    }
+
+    // 1. Cascade: delete slot claims for every doomed pitch.
+    if (pitchIds.length > 0) {
+        await SlotClaimModel.deleteMany({ pitchId: { $in: pitchIds } });
+    }
+
+    // 2. Capture Cloudinary public_ids for every pitch image BEFORE we splice.
+    const pitchImagePublicIds: string[] = [];
+    for (const p of doomedPitches) {
+        if (p.image) {
+            const pid = publicIdFromImage(p.image);
+            if (pid) pitchImagePublicIds.push(pid);
+        }
+    }
+
+    // 3. Splice out pricing rules (slot prices) for those pitches.
+    const removedRulesCount = pricingRules.reduce(
+        (n, r) => (pitchIds.includes(r.pitchId) ? n + 1 : n),
+        0
+    );
+    for (let i = pricingRules.length - 1; i >= 0; i--) {
+        if (pitchIds.includes(pricingRules[i].pitchId)) pricingRules.splice(i, 1);
+    }
+
+    // 4. Splice out the pitches themselves.
+    for (let i = pitches.length - 1; i >= 0; i--) {
+        if (pitchIds.includes(pitches[i].id)) pitches.splice(i, 1);
+    }
+
+    // 5. Capture the sport's hero background public_id BEFORE we mutate the branch.
+    const sportImagePublicId = sportConfig.image ? publicIdFromImage(sportConfig.image) : null;
+
+    // 6. Remove the sport from branch.sportConfigs and branch.sports.
+    branch.sportConfigs = (branch.sportConfigs ?? []).filter((s) => s.id !== sportId);
+    branch.sports = branch.sports.filter((s) => s !== sportName);
+
+    await persistConfig("pitches", "pricingRules", "branches");
+
+    // Bust cached public pages so the homepage / book page reflect the removed sport.
+    revalidatePath("/");
+    revalidatePath("/book");
+    revalidatePath("/admin/setup", "page");
+
+    // 7. Best-effort Cloudinary cleanup — pitch images + sport hero background.
+    for (const pid of pitchImagePublicIds) {
+        await deleteImage(pid);
+    }
+    if (sportImagePublicId) {
+        await deleteImage(sportImagePublicId);
+    }
+
+    await logAudit(user, {
+        action: "BRANCH_CHANGED",
+        entityType: "BRANCH",
+        entityId: branch.id,
+        branchId: branch.id,
+        meta: {
+            change: "sport_deleted",
+            sport: sportName,
+            sportId,
+            pitchesRemoved: doomedPitches.length,
+            ratesRemoved: removedRulesCount,
+            cloudinaryImagesDeleted: pitchImagePublicIds.length + (sportImagePublicId ? 1 : 0),
         },
     });
 }
