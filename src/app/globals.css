@@ -119,6 +119,31 @@
   background: rgba(11, 110, 79, 0.5);
 }
 
+/* Visible scrollbar — for mobile sport tabs in the Hero where the thin one is too easy to miss */
+.scrollbar-visible {
+  scrollbar-width: auto;
+  scrollbar-color: rgba(11, 110, 79, 0.75) rgba(11, 110, 79, 0.12);
+}
+
+.scrollbar-visible::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: rgba(11, 110, 79, 0.12);
+  border-radius: 9999px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: rgba(11, 110, 79, 0.6);
+  border-radius: 9999px;
+}
+
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 110, 79, 0.85);
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
