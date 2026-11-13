@@ -64,7 +64,7 @@ export function Hero({
                 <div
                     role="tablist"
                     aria-label="Select sport"
-                    className="scrollbar-visible flex w-full justify-start gap-2 overflow-x-auto pb-2 md:justify-center md:scrollbar-thin md:pb-1"
+                    className="scrollbar-thin flex w-full justify-start gap-2 overflow-x-auto pb-2 md:justify-center md:pb-1"
                 >
                     {sports.map((s) => {
                         const selected = s.id === sportId;
@@ -76,8 +76,8 @@ export function Hero({
                                 aria-selected={selected}
                                 onClick={() => { setAutoRotate(false); setSportId(s.id); }}
                                 className={`min-h-9 shrink-0 rounded-xl border px-3 py-1.5 text-xs font-semibold backdrop-blur-sm transition-all md:min-h-12 md:rounded-full md:px-7 md:py-0 md:text-base md:transition-colors ${selected
-                                        ? "border-emerald bg-emerald text-evergreen shadow-md ring-2 ring-emerald/40 md:ring-0 md:shadow-none"
-                                        : "border-surface/25 bg-surface/10 text-surface hover:bg-surface/20"
+                                    ? "border-emerald bg-emerald text-evergreen shadow-md ring-2 ring-emerald/40 md:ring-0 md:shadow-none"
+                                    : "border-surface/25 bg-surface/10 text-surface hover:bg-surface/20"
                                     }`}
                             >
                                 {s.name}

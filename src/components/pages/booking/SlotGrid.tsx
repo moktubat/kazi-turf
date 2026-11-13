@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Timer, X, Wrench } from "lucide-react";
 import { Tabs } from "@/components/ui/Tabs";
 import type { Cell } from "@/server/availability";
@@ -26,14 +26,46 @@ export function SlotGrid({
     preferPitchId?: string;
     onToggle: (pitchId: string, cell: Cell) => void;
 }) {
+    // Live "now" — ticks every 60s so a slot auto-hides the moment its start time passes,
+    // without waiting for the 30s server auto-refresh in BookingFlow.
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 60_000);
+        return () => clearInterval(id);
+    }, []);
+
+    // Hide past slots
+    const isPast = (c: Cell) =>
+        c.status === "PAST" || new Date(c.cellStart).getTime() <= now - 60_000;
+
+    // Drop past cells; drop any pitch that has no visible cells left (e.g. all 6 AM – 4 PM past).
+    const visiblePitches = pitches
+        .map((p) => ({ ...p, cells: p.cells.filter((c) => !isPast(c)) }))
+        .filter((p) => p.cells.length > 0);
+
     const [mobilePitch, setMobilePitch] = useState(
-        preferPitchId && pitches.some((p) => p.id === preferPitchId) ? preferPitchId : pitches[0]?.id
+        preferPitchId && visiblePitches.some((p) => p.id === preferPitchId)
+            ? preferPitchId
+            : visiblePitches[0]?.id
     );
-    const activeId = pitches.some((p) => p.id === mobilePitch) ? mobilePitch : pitches[0]?.id;
-    const active = pitches.find((p) => p.id === activeId);
+    const activeId = visiblePitches.some((p) => p.id === mobilePitch)
+        ? mobilePitch
+        : visiblePitches[0]?.id;
+    const active = visiblePitches.find((p) => p.id === activeId);
 
     const isSelected = (pitchId: string, cell: Cell) =>
         selectedPitchId === pitchId && selected.includes(cell.cellStart);
+
+    if (visiblePitches.length === 0) {
+        return (
+            <div className="rounded-2xl border border-evergreen/10 bg-surface p-8 text-center">
+                <p className="font-semibold text-evergreen">All slots for today have already started.</p>
+                <p className="mt-1 text-sm text-evergreen/70">
+                    Pick a future date from the date picker above to see available slots.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">
@@ -50,8 +82,12 @@ export function SlotGrid({
 
             {/* Desktop: pitch rows x time columns */}
             <div className="hidden space-y-5 md:block">
-                {pitches.map((p) => (
-                    <section key={p.id} aria-label={p.name} className="rounded-2xl border border-evergreen/10 bg-surface p-4 shadow-sm">
+                {visiblePitches.map((p) => (
+                    <section
+                        key={p.id}
+                        aria-label={p.name}
+                        className="rounded-2xl border border-evergreen/10 bg-surface p-4 shadow-sm"
+                    >
                         <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
                             <h3 className="text-base font-bold">{p.name}</h3>
                             <p className="text-sm text-evergreen/70">
@@ -77,17 +113,17 @@ export function SlotGrid({
 
             {/* Mobile: pitch tabs + wrapped chip grid (no sideways-only scrolling) */}
             <div className="md:hidden">
-                {pitches.length > 1 && (
+                {visiblePitches.length > 1 && (
                     <Tabs
                         label="Pitches"
-                        items={pitches.map((p) => ({ id: p.id, label: p.name }))}
+                        items={visiblePitches.map((p) => ({ id: p.id, label: p.name }))}
                         value={activeId ?? ""}
                         onChange={setMobilePitch}
                     />
                 )}
                 {active && (
                     <div
-                        {...(pitches.length > 1
+                        {...(visiblePitches.length > 1
                             ? { role: "tabpanel", id: `panel-${active.id}`, "aria-labelledby": `tab-${active.id}` }
                             : {})}
                         className="mt-3"

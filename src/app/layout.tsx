@@ -70,7 +70,7 @@ export default async function RootLayout({
                     <HeaderWithUser />
                 </Suspense>
 
-                <main id="main" className="min-h-[70vh] pb-24 md:pb-0">
+                <main id="main" className="min-h-[70vh] pb-14 md:pb-0">
                     {children}
                 </main>
 

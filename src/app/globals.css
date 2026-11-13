@@ -97,26 +97,27 @@
 
 /* Custom scrollbar — replaces the thick default one on the slot grid and other horizontal scrollers */
 .scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(11, 110, 79, 0.35) transparent;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(11, 110, 79, 0.6) rgba(11, 110, 79, 0.08);
 }
 
 .scrollbar-thin::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
+  height: 8px;
+  width: 8px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(11, 110, 79, 0.08);
+  border-radius: 9999px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(11, 110, 79, 0.3);
+  background: rgba(11, 110, 79, 0.5);
   border-radius: 9999px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(11, 110, 79, 0.5);
+  background: rgba(11, 110, 79, 0.75);
 }
 
 /* Visible scrollbar — for mobile sport tabs in the Hero where the thin one is too easy to miss */
