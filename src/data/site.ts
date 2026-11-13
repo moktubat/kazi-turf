@@ -5,8 +5,8 @@ export const site = {
     name: "KaziTurf",
     tagline: "Lock Your Slot. Own The Pitch.",
     // [CONFIRM] sample numbers, replace with official ones
-    phone: "+8801700000000",
-    whatsapp: "8801700000000",
+    phone: "+8801354490362",
+    whatsapp: "8801354490362",
     email: "hello@kaziturf.vercel.app",
     timezone: "Asia/Dhaka",
     currency: "BDT",

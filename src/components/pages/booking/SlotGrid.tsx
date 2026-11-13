@@ -96,7 +96,7 @@ export function SlotGrid({
                             </p>
                         </div>
                         <div className="scrollbar-thin overflow-x-auto pb-2">
-                            <div className="grid grid-flow-col auto-cols-[minmax(5.75rem,1fr)] gap-2">
+                            <div className="grid grid-flow-col auto-cols-[5.75rem] justify-start gap-2">
                                 {p.cells.map((c) => (
                                     <SlotChip
                                         key={c.cellStart}

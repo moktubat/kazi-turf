@@ -12,7 +12,7 @@ import { resetDb, startDb, stopDb } from "./helpers";
 import { todayDhaka } from "@/lib/time.server";
 
 const mkUser = (id: string, role: ServerUser["role"], branchIds: string[]): ServerUser => ({
-    id, name: id, role, phone: "01700000000", email: null, branchIds, permissions: [],
+    id, name: id, role, phone: "01354490362", email: null, branchIds, permissions: [],
 });
 const staff = mkUser("staff-bogura", "STAFF", ["bogura"]);
 const admin = mkUser("admin", "SUPER_ADMIN", []);

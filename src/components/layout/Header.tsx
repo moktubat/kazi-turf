@@ -11,30 +11,19 @@ import { cn } from "@/lib/cn";
 import type { SessionUser } from "@/types";
 
 const barLink =
-    "inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-surface/10";
+    "inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-evergreen transition-colors hover:bg-mint";
 
 export function Header({ user }: { user: SessionUser | null }) {
     const [open, setOpen] = useState(false);
-    const [scrolled, setScrolled] = useState(false);
     const pathname = usePathname();
     const isStaff = user?.role === "STAFF" || user?.role === "SUPER_ADMIN";
     const isLogin = pathname === "/login";
-
-    const overHero = pathname === "/" && !scrolled && !open;
 
     const [prevPath, setPrevPath] = useState(pathname);
     if (pathname !== prevPath) {
         setPrevPath(pathname);
         setOpen(false);
     }
-
-    useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 8);
-
-        onScroll();
-        window.addEventListener("scroll", onScroll, { passive: true });
-        return () => window.removeEventListener("scroll", onScroll);
-    }, []);
 
     useEffect(() => {
         if (!open) return;
@@ -54,14 +43,16 @@ export function Header({ user }: { user: SessionUser | null }) {
         return (
             <header className="absolute inset-x-0 top-0 z-40">
                 <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-8">
-                    <Link
-                        href="/"
-                        className="whitespace-nowrap font-heading text-xl font-extrabold text-evergreen lg:text-white"
-                    >
-                        Kazi<span className="text-teal lg:text-emerald">Turf</span>
-                        <span className="sr-only"> — {site.tagline}</span>
+                    <Link href="/" aria-label={`${site.name} — ${site.tagline}`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src="/sports/logo2.png"
+                            alt={site.name}
+                            className="h-12 w-auto"
+                            width={40}
+                            height={40}
+                        />
                     </Link>
-
                     <div className="flex items-center gap-2" />
                 </div>
             </header>
@@ -69,19 +60,18 @@ export function Header({ user }: { user: SessionUser | null }) {
     }
 
     return (
-        <header
-            className={cn(
-                "sticky top-0 z-40 border-b transition-colors duration-300",
-                overHero
-                    ? "border-transparent bg-transparent"
-                    : "border-white/10 bg-evergreen/95 shadow-md backdrop-blur-md"
-            )}
-        >
+        <header className="sticky top-0 z-40 border-b border-evergreen/10 bg-canvas/80 shadow-md backdrop-blur-md supports-[backdrop-filter]:bg-canvas/70">
             <div className="mx-auto flex h-16 max-w-main items-center justify-between gap-3 px-4">
                 <div className="flex items-center gap-6">
-                    <Link href="/" className="whitespace-nowrap font-heading text-xl font-extrabold text-white">
-                        Kazi<span className="text-emerald">Turf</span>
-                        <span className="sr-only"> — {site.tagline}</span>
+                    <Link href="/" aria-label={`${site.name} — ${site.tagline}`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src="/sports/logo2.png"
+                            alt={site.name}
+                            className="h-12 w-auto"
+                            width={40}
+                            height={40}
+                        />
                     </Link>
 
                     {/* Desktop primary nav — Home link removed per client request */}
@@ -103,7 +93,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                             {isStaff && (
                                 <Link
                                     href="/admin"
-                                    className="hidden min-h-11 items-center rounded-xl border-2 border-white/40 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-surface/10 sm:inline-flex"
+                                    className="hidden min-h-11 items-center rounded-xl border-2 border-teal/40 px-3 py-1.5 text-sm font-semibold text-teal transition-colors hover:bg-mint sm:inline-flex"
                                 >
                                     Admin
                                 </Link>
@@ -112,7 +102,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                     ) : (
                         <Link
                             href="/login"
-                            className="inline-flex min-h-11 items-center rounded-xl bg-emerald px-4 py-2 text-sm font-bold text-evergreen transition-colors hover:bg-mint"
+                            className="inline-flex min-h-11 items-center rounded-xl bg-teal px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-evergreen"
                         >
                             Sign In
                         </Link>
@@ -127,7 +117,7 @@ export function Header({ user }: { user: SessionUser | null }) {
                         aria-label={open ? "Close menu" : "Open menu"}
                         aria-expanded={open}
                         aria-controls="site-menu"
-                        className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-white transition-colors hover:bg-surface/10 lg:hidden"
+                        className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-evergreen transition-colors hover:bg-mint lg:hidden"
                     >
                         <span className="relative block h-6 w-6">
                             <Menu
@@ -160,6 +150,22 @@ export function Header({ user }: { user: SessionUser | null }) {
                     >
                         <nav aria-label="Site menu" className="mx-auto max-w-main px-4 py-6">
                             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                <li className="sm:col-span-2 lg:col-span-3">
+                                    <Link
+                                        href="/"
+                                        aria-label={`${site.name} — ${site.tagline}`}
+                                        className="flex min-h-14 items-center gap-3 rounded-2xl px-4 py-3 hover:bg-mint"
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src="/sports/logo2.png"
+                                            alt={site.name}
+                                            className="h-10 w-auto"
+                                            width={40}
+                                            height={40}
+                                        />
+                                    </Link>
+                                </li>
                                 <li>
                                     <MenuLink href="/book" icon={CalendarCheck} label="Book a slot" primary />
                                 </li>

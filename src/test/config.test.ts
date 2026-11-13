@@ -9,7 +9,7 @@ import { ensureConfig } from "@/server/config";
 import { resetDb, startDb, stopDb } from "./helpers";
 
 const mk = (id: string, role: ServerUser["role"], branchIds: string[], permissions: string[] = []): ServerUser => ({
-    id, name: id, role, phone: "01700000000", email: null, branchIds, permissions,
+    id, name: id, role, phone: "01354490362", email: null, branchIds, permissions,
 });
 const admin = mk("admin", "SUPER_ADMIN", []);
 
