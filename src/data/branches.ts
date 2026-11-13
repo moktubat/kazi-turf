@@ -6,7 +6,7 @@ export const branches: Branch[] = shared<Branch[]>("branches", [
         id: "bogura",
         name: "KaziTurf",
         slug: "kaziturf",
-        address: "Sample Road, Bogura Sadar, Bogura",
+        address: "Shabgram, Bogura",
         phone: "+8801700000001",
         whatsapp: "8801700000001",
         mapUrl: "https://maps.app.goo.gl/3ikwjgqMxvGfHUwm8",

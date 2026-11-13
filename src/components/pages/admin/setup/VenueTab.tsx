@@ -147,7 +147,7 @@ function VenueForm({ venue }: { venue: Branch }) {
         setDeleteError(null);
         try {
             await api(
-                `/api/admin/setup/branches/sports/${encodeURIComponent(deletingSport.id)}`,
+                `/admin/setup/branches/sports/${encodeURIComponent(deletingSport.id)}`,
                 { method: "DELETE" }
             );
             // Remove from local form state.
