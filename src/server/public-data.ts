@@ -9,15 +9,20 @@ import { refundConfig } from "@/data/legal";
 
 async function getConfig<T>(key: string): Promise<T | null> {
     try {
-        // Opt into dynamic rendering: Mongoose internally reads the clock for
-        // connection/timestamp logic, which Next.js 16 flags as "unstable new Date()"
-        // during prerendering. connection() marks this render as dynamic.
         await connection();
         await connectDb();
         const doc = await ConfigModel.findOne({ key }).lean();
         if (!doc) return null;
         return (doc as unknown as { value: T }).value;
     } catch (e) {
+        // PPR throws HANGING_PROMISE_REJECTION when the static shell finishes before
+        // the dynamic connection() resolves. That's expected — we fall back to the
+        // static default and the dynamic render picks up the real data on the client.
+        // Don't log these as errors; they're normal PPR behaviour.
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes("HANGING_PROMISE_REJECTION") || msg.includes("connection()")) {
+            return null;
+        }
         console.error(`[getConfig:${key}] error:`, e);
         return null;
     }

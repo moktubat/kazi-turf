@@ -1,8 +1,10 @@
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+
   images: {
     remotePatterns: [
       {
@@ -11,14 +13,6 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
-  },
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
   },
 };
 
