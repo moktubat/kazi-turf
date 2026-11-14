@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronDown, ClipboardList, LayoutGrid, Settings, TrendingUp } from "lucide-react";
@@ -31,6 +31,16 @@ export function AdminNav({
 
     // Start expanded if we're already on the setup page.
     const [setupOpen, setSetupOpen] = useState(onSetup);
+
+    // Mobile bar: ref + auto-scroll active link into view.
+    // Declared BEFORE any early return so hook order is stable across renders.
+    const navRef = useRef<HTMLElement>(null);
+    useEffect(() => {
+        const root = navRef.current;
+        if (!root) return;
+        const active = root.querySelector<HTMLElement>('[aria-current="page"]');
+        active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }, [pathname]);
 
     const items = [
         { href: "/admin", label: "Desk", icon: LayoutGrid, exact: true, show: true, group: "Overview" },
@@ -159,7 +169,11 @@ export function AdminNav({
 
     // ───────────────────────────── bar (mobile / tablet) ─────────────────────────────
     return (
-        <nav aria-label="Admin" className="flex gap-2 overflow-x-auto py-2">
+        <nav
+            ref={navRef}
+            aria-label="Admin"
+            className="scrollbar-visible flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-px-2 py-2"
+        >
             {items.map(({ href, label, icon: Icon, exact }) => {
                 const active = isActive(href, exact);
                 return (
@@ -168,11 +182,13 @@ export function AdminNav({
                         href={href}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                            "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 font-heading text-sm font-semibold",
-                            active ? "bg-teal text-white shadow-sm" : "bg-mint text-evergreen hover:bg-emerald/40"
+                            "inline-flex min-h-12 shrink-0 snap-center items-center gap-2 rounded-2xl border px-5 font-heading text-sm font-semibold transition-all",
+                            active
+                                ? "border-teal bg-teal text-white shadow-md"
+                                : "border-evergreen/10 bg-mint text-evergreen hover:border-teal/40 hover:bg-emerald/30"
                         )}
                     >
-                        <Icon size={16} aria-hidden /> {label}
+                        <Icon size={18} aria-hidden /> {label}
                     </Link>
                 );
             })}
@@ -181,11 +197,13 @@ export function AdminNav({
                     href="/admin/setup"
                     aria-current={onSetup ? "page" : undefined}
                     className={cn(
-                        "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 font-heading text-sm font-semibold",
-                        onSetup ? "bg-teal text-white shadow-sm" : "bg-mint text-evergreen hover:bg-emerald/40"
+                        "inline-flex min-h-12 shrink-0 snap-center items-center gap-2 rounded-2xl border px-5 font-heading text-sm font-semibold transition-all",
+                        onSetup
+                            ? "border-teal bg-teal text-white shadow-md"
+                            : "border-evergreen/10 bg-mint text-evergreen hover:border-teal/40 hover:bg-emerald/30"
                     )}
                 >
-                    <Settings size={16} aria-hidden /> Setup
+                    <Settings size={18} aria-hidden /> Setup
                 </Link>
             )}
         </nav>

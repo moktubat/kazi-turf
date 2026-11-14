@@ -26,37 +26,15 @@ const TIME_PHASES: { label: string; from: string; until: string }[] = [
 ];
 
 export function RatesTab({
-    rates: initialRates,
-    pitches: initialPitches,
-    coverage: initialCoverage,
+    rates,
+    pitches,
+    coverage,
 }: {
     rates: SetupRate[];
     pitches: SetupPitch[];
     coverage: Record<string, string[]>;
 }) {
     const router = useRouter();
-
-    const [rates, setRates] = useState(initialRates);
-    const [prevRates, setPrevRates] = useState(initialRates);
-    if (initialRates !== prevRates) {
-        setPrevRates(initialRates);
-        setRates(initialRates);
-    }
-
-    const [pitches, setPitches] = useState(initialPitches);
-    const [prevPitches, setPrevPitches] = useState(initialPitches);
-    if (initialPitches !== prevPitches) {
-        setPrevPitches(initialPitches);
-        setPitches(initialPitches);
-    }
-
-    const [coverage, setCoverage] = useState(initialCoverage);
-    const [prevCoverage, setPrevCoverage] = useState(initialCoverage);
-    if (initialCoverage !== prevCoverage) {
-        setPrevCoverage(initialCoverage);
-        setCoverage(initialCoverage);
-    }
-
     const [editing, setEditing] = useState<SetupRate | "new" | null>(null);
 
     const sports = Array.from(new Set(pitches.map(p => p.sport)));
@@ -65,9 +43,9 @@ export function RatesTab({
 
     const [pitchId, setPitchId] = useState(sportPitches[0]?.id ?? "");
 
-    if (!pitches.some(p => p.id === pitchId)) {
-        setPitchId(sportPitches[0]?.id ?? "");
-    }
+    const effectivePitchId = sportPitches.some(p => p.id === pitchId)
+        ? pitchId
+        : sportPitches[0]?.id ?? "";
 
     function changeSport(s: string) {
         setSportFilter(s);
@@ -75,7 +53,7 @@ export function RatesTab({
         setPitchId(firstPitch?.id ?? "");
     }
 
-    const pitch = pitches.find(p => p.id === pitchId);
+    const pitch = pitches.find(p => p.id === effectivePitchId);
 
     if (pitches.length === 0 || !pitch) {
         return <Card><p className="font-semibold">Add a field first, then set its slot prices.</p></Card>;
@@ -96,7 +74,7 @@ export function RatesTab({
                         <option key={s} value={s}>{s}</option>
                     ))}
                 </Select>
-                <Select label="Field" value={pitch.id} onChange={(e) => setPitchId(e.target.value)}>
+                <Select label="Field" value={effectivePitchId} onChange={(e) => setPitchId(e.target.value)}>
                     {sportPitches.length === 0 && <option value="">No fields for this sport</option>}
                     {sportPitches.map((p) => (
                         <option key={p.id} value={p.id}>{p.name}</option>
@@ -135,7 +113,7 @@ export function RatesTab({
                     <p className="font-semibold">No slot prices yet for this field.</p>
                     <p className="text-sm text-evergreen/70">
                         Customers cannot book this field until you add at least one price.
-                        Click <strong>“Add slot price”</strong> to set the price for a day range and time window.
+                        Click <strong>&quot;Add slot price&quot;</strong> to set the price for a day range and time window.
                     </p>
                 </Card>
             ) : (
@@ -236,7 +214,6 @@ function RateForm({ pitch, rate, onDone }: {
     onDone: () => void;
 }) {
     const isNew = !rate;
-    // Use this pitch's own slot length (fall back to the global default for legacy pitches).
     const slotMinutes = pitch.slotMinutes ?? 90;
     const times = gridBoundaries(pitch.openTime, pitch.closeTime, slotMinutes);
     const [f, setF] = useState<FormState>({
@@ -254,8 +231,6 @@ function RateForm({ pitch, rate, onDone }: {
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
 
-    // How many individual time slots this price window covers. Shown as a live preview
-    // so the admin understands "1 price rule = N bookable slots".
     const slotsCovered = (() => {
         if (!f.startTime || !f.endTime) return 0;
         const spanMin = toMinutes(f.endTime) - toMinutes(f.startTime);
@@ -274,11 +249,11 @@ function RateForm({ pitch, rate, onDone }: {
             startTime: f.startTime,
             endTime: f.endTime,
             pricePerSlot: num(f.price),
-            tier: "Off-peak", // field kept for data compat; UI hides it
+            tier: "Off-peak",
             effectiveFrom: f.effectiveFrom,
             effectiveTo: f.effectiveTo,
             discountType: f.discountType || null,
-            discountDirection: f.discountType ? "DISCOUNT" : null, // always DISCOUNT
+            discountDirection: f.discountType ? "DISCOUNT" : null,
             discountValue: f.discountType && f.discountValue ? num(f.discountValue) : null,
         };
         save(isNew ? rateSchema : rateUpdateSchema, isNew ? body : { ...body, id: rate.id }, "/admin/setup/rates", isNew ? "POST" : "PATCH", onDone);
@@ -286,7 +261,6 @@ function RateForm({ pitch, rate, onDone }: {
 
     return (
         <form onSubmit={submit} noValidate className="space-y-6" aria-label={isNew ? "Add slot price" : "Edit slot price"}>
-            {/* Plain-English intro — explains what "adding a slot price" means */}
             <div className="rounded-xl bg-mint/40 p-4 text-sm">
                 <p className="font-semibold text-evergreen">
                     {isNew ? "Set a price for one or more time slots" : "Update this price window"}
@@ -441,7 +415,7 @@ function RateForm({ pitch, rate, onDone }: {
                 )}
             </SheetSection>
 
-            <SheetSection icon={CalendarRange} title="Effective dates" description="Leave both empty for “always”. Use these for seasonal pricing (e.g. winter rates).">
+            <SheetSection icon={CalendarRange} title="Effective dates" description={'Leave both empty for "always". Use these for seasonal pricing (e.g. winter rates).'}>
                 <div className="grid grid-cols-2 gap-4">
                     <Input
                         label="Effective from (optional)"
@@ -462,15 +436,22 @@ function RateForm({ pitch, rate, onDone }: {
 
             <FormActions busy={busy} error={error} label={isNew ? "Add slot price" : "Save changes"} onCancel={onDone} />
 
-            {
-                !isNew &&
-                (confirmDelete ? (
+            {!isNew && (
+                confirmDelete ? (
                     <div className="space-y-2 rounded-xl bg-booked-soft p-3 text-sm">
-                        <p className="font-medium text-booked">Delete this slot price? Existing bookings keep their saved prices, but unpriced slots cannot be booked.</p>
+                        <p className="font-medium text-booked">
+                            Delete this slot price? Existing bookings keep their saved prices, but unpriced slots cannot be booked.
+                        </p>
                         <Button
-                            variant="danger"
-                            disabled={busy}
-                            onClick={() => save(rateDeleteSchema, { id: rate.id }, "/admin/setup/rates", "DELETE", onDone)}
+                            variant="danger" disabled={busy} onClick={() =>
+                                save(
+                                    rateDeleteSchema,
+                                    { id: rate.id },
+                                    "/admin/setup/rates",
+                                    "DELETE",
+                                    onDone
+                                )
+                            }
                         >
                             Yes, delete
                         </Button>
@@ -479,8 +460,8 @@ function RateForm({ pitch, rate, onDone }: {
                     <Button variant="ghost" className="text-booked" onClick={() => setConfirmDelete(true)}>
                         Delete this slot price
                     </Button>
-                ))
-            }
+                )
+            )}
         </form >
     );
 }
