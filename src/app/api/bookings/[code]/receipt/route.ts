@@ -1,5 +1,5 @@
 // Built from trusted server data. Same generator as the staff print view (lib/printReceipt).
-import { NextResponse, type NextRequest } from "next/server";
+import { connection, NextResponse, type NextRequest } from "next/server";
 import { hasVerifiedPayment, receiptHtml } from "@/lib/printReceipt";
 import { toAdminDto } from "@/server/admin/dto";
 import { canAccessBranch, requireUser } from "@/server/auth/guards";
@@ -10,6 +10,7 @@ import { rateLimitAsync } from "@/server/security/rateLimit";
 type Ctx = { params: Promise<{ code: string }> };
 
 export async function GET(req: NextRequest, { params }: Ctx) {
+    await connection();
     try {
         const user = await requireUser();
         if (!rateLimitAsync(`receipt:${user.id}`, 30, 60_000)) {

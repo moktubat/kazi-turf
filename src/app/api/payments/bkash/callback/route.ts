@@ -1,6 +1,6 @@
 // bKash sends the customer's browser here. Nothing in the URL is trusted:
 // the payment is looked up by its bKash ID and CONFIRMED by asking bKash directly.
-import { NextResponse, type NextRequest } from "next/server";
+import { connection, NextResponse, type NextRequest } from "next/server";
 import { BookingModel, PaymentModel } from "@/models";
 import { connectDb } from "@/server/db/connect";
 import { clientIp } from "@/server/http";
@@ -15,6 +15,7 @@ function go(req: NextRequest, path: string, search = "") {
 }
 
 export async function GET(req: NextRequest) {
+    await connection();
     try {
         if (!(await rateLimitAsync(`bkcb:${clientIp(req)}`, 30, 60_000))) return go(req, "/book");
 

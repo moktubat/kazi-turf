@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 import { bookingSearchSchema, walkInSchema } from "@/schemas/admin";
 import { staffGuard } from "@/server/admin/guard";
 import { searchBookings } from "@/server/admin/search";
@@ -7,6 +7,7 @@ import { handleError, ok, readJson } from "@/server/http";
 
 // Search and filter (branch scope enforced inside).
 export async function GET(req: NextRequest) {
+    await connection();
     try {
         const user = await staffGuard(req, false);
         const q = bookingSearchSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
 
 // Walk-in booking.
 export async function POST(req: NextRequest) {
+    await connection();
     try {
         const user = await staffGuard(req, true);
         const input = walkInSchema.parse(await readJson(req));

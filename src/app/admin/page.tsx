@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { StaffDesk } from "@/components/pages/admin/StaffDesk";
 import { addDays } from "@/lib/time";
 import { accessibleBranches } from "@/server/admin/access";
@@ -8,7 +9,16 @@ import { getPublicPolicies } from "@/server/public-data";
 
 export const metadata: Metadata = { title: "Staff Desk" };
 
-export default async function AdminPage() {
+function StaffDeskFallback() {
+    return (
+        <div className="mx-auto max-w-main px-4 py-6 pb-32 lg:pb-10">
+            <div className="h-8 w-48 animate-pulse rounded bg-evergreen/10" />
+            <div className="mt-6 h-64 animate-pulse rounded-2xl bg-evergreen/10" />
+        </div>
+    );
+}
+
+async function AdminContent() {
     const user = await requireStaffPage("/admin");
     const mine = accessibleBranches(user);
     const venue = mine[0];
@@ -36,5 +46,13 @@ export default async function AdminPage() {
             maxDate={addDays(today, policies.bookingHorizonDays)}
             role={user.role}
         />
+    );
+}
+
+export default function AdminPage() {
+    return (
+        <Suspense fallback={<StaffDeskFallback />}>
+            <AdminContent />
+        </Suspense>
     );
 }

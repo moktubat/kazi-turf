@@ -1,7 +1,7 @@
 // Called by a scheduler every few minutes with:  Authorization: Bearer <CRON_SECRET>
 // (Vercel Cron sends this header automatically when CRON_SECRET is set.)
 import { createHash, timingSafeEqual } from "crypto";
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 import { fail, handleError, ok } from "@/server/http";
 import { reconcilePending } from "@/server/payments/reconcile";
 
@@ -12,6 +12,7 @@ function same(a: string, b: string) {
 }
 
 export async function GET(req: NextRequest) {
+    await connection();
     try {
         const secret = process.env.CRON_SECRET;
         if (!secret || !same(req.headers.get("authorization") ?? "", `Bearer ${secret}`)) {

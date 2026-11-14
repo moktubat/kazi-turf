@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 import { staffGuard } from "@/server/admin/guard";
 import { getBookingDetail } from "@/server/admin/search";
 import { handleError, ok } from "@/server/http";
@@ -6,7 +6,9 @@ import { handleError, ok } from "@/server/http";
 type Ctx = { params: Promise<{ code: string }> };
 
 export async function GET(req: NextRequest, { params }: Ctx) {
+    await connection();
     try {
+
         const user = await staffGuard(req, false);
         const { code } = await params;
         return ok(await getBookingDetail(user, code));

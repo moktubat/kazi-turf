@@ -10,6 +10,7 @@ import { getSessionUser } from "@/server/auth/session";
 import { getPitch } from "@/server/availability";
 import { todayDhaka } from "@/lib/time.server";
 import { getPublicVenue, getPublicPolicies } from "@/server/public-data";
+import { connection } from "next/server";
 
 export const metadata: Metadata = { title: "Book a slot" };
 
@@ -35,6 +36,7 @@ function BookFallback() {
 }
 
 async function BookContent({ searchParams }: { searchParams: Params }) {
+    await connection();
     const sp = await searchParams;
 
     const one = (k: string) => {

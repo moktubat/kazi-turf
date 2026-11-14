@@ -4,7 +4,7 @@ import type { Policies } from "@/types";
 export const site = {
     name: "Kazi Sports Arena",
     shortName: "Kazi Sports",
-    tagline: "Play Anytime. Rain or Shine.",
+    tagline: "Bogura's 24/7 Indoor Sports Arena",
     // Real contact details
     phone: "+8801354490362",
     whatsapp: "8801354490362",

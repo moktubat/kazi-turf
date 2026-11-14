@@ -6,7 +6,6 @@ import { SessionModel, UserModel } from "@/models";
 import { connectDb } from "@/server/db/connect";
 import type { SessionUser } from "@/types";
 import type { User } from "@/types/user"
-import { cacheLife } from "next/cache";
 
 const PROD = process.env.NODE_ENV === "production";
 // __Host- prefix pins the cookie to this exact host over HTTPS in production.
@@ -76,8 +75,6 @@ async function userForToken(token: string | undefined): Promise<ServerUser | nul
 }
 
 export async function getSessionUser(): Promise<ServerUser | null> {
-    "use cache: private";
-    cacheLife({ stale: 30 });
     const jar = await cookies();
     return userForToken(jar.get(SESSION_COOKIE)?.value);
 }

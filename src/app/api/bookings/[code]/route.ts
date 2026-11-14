@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 import { getSessionUser } from "@/server/auth/session";
 import { getBookingForUser, releaseHold } from "@/server/bookings";
 import { AppError, clientIp, handleError, ok } from "@/server/http";
@@ -19,6 +19,7 @@ async function guard(req: NextRequest) {
 
 // Server-verified state, used by the result step and its polling.
 export async function GET(req: NextRequest, { params }: Ctx) {
+    await connection();
     try {
         const user = await guard(req);
         const { code } = await params;

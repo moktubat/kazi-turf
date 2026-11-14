@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 import { venue } from "@/data/branches";
 import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
@@ -11,6 +11,7 @@ import { todayDhaka } from "@/lib/time.server";
 import { connectDb } from "@/server/db/connect";
 
 export async function GET(req: NextRequest) {
+    await connection();
     try {
         // Reduced from 120/min to 30/min — availability data is cacheable for 30s.
         if (!(await rateLimitAsync(`avail:${clientIp(req)}`, 30, 60_000))) {

@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 import { boardQuerySchema } from "@/schemas/admin";
 import { getBoard } from "@/server/admin/board";
 import { staffGuard } from "@/server/admin/guard";
@@ -6,6 +6,7 @@ import { handleError, ok } from "@/server/http";
 import { venue } from "@/data/branches";
 
 export async function GET(req: NextRequest) {
+    await connection();
     try {
         const user = await staffGuard(req, false);
         const sp = req.nextUrl.searchParams;
