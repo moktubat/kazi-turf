@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+
 import { Hero } from "@/components/pages/home/Hero";
 import { Ticker } from "@/components/pages/home/Ticker";
 import { VenuesSection } from "@/components/pages/home/VenuesSection";
@@ -8,30 +9,59 @@ import { GallerySection } from "@/components/pages/home/GallerySection";
 import { FaqSection } from "@/components/pages/home/FaqSection";
 import { ContactSection } from "@/components/pages/home/ContactSection";
 import { FinalCta } from "@/components/pages/home/FinalCta";
+
 import { todayDhaka } from "@/lib/time.server";
 import { getPublicVenue, getPublicPolicies } from "@/server/public-data";
 import { getBranchPitches } from "@/server/availability";
+
 import type { Branch, Policies, Pitch } from "@/types";
 
 function HeroFallback() {
-    return <section className="min-h-[100svh] bg-evergreen animate-pulse" />;
+    return (
+        <section className="min-h-[100svh] animate-pulse bg-evergreen" />
+    );
 }
 
-async function HeroSection({ venue, policies }: { venue: Branch; policies: Policies }) {
+function HomePageFallback() {
+    return (
+        <>
+            <HeroFallback />
+            <div className="h-20 animate-pulse bg-evergreen/5" />
+            <div className="min-h-96 animate-pulse bg-canvas" />
+            <div className="min-h-80 animate-pulse bg-surface" />
+            <div className="min-h-96 animate-pulse bg-canvas" />
+        </>
+    );
+}
+
+async function HeroSection({
+    venue,
+    policies,
+}: {
+    venue: Branch;
+    policies: Policies;
+}) {
     const today = await todayDhaka();
-    // Fetch pitches for all sports so the Hero search form can list them in the Pitch dropdown
+
+    // Fetch pitches for all sports so the Hero search form
+    // can list them in the Pitch dropdown.
     const pitchesBySport = await Promise.all(
-        venue.sports.map((sport) => getBranchPitches(venue.id, sport))
+        venue.sports.map((sport) =>
+            getBranchPitches(venue.id, sport)
+        )
     );
     const pitches: Pitch[] = pitchesBySport.flat();
     return (
-        <Hero today={today} venue={venue} policies={policies} pitches={pitches} />
+        <Hero
+            today={today}
+            venue={venue}
+            policies={policies}
+            pitches={pitches}
+        />
     );
 }
 
-export const instant = false;
-
-export default async function HomePage() {
+async function HomeContent() {
     await connection();
 
     const [venue, policies] = await Promise.all([
@@ -42,7 +72,10 @@ export default async function HomePage() {
     return (
         <>
             <Suspense fallback={<HeroFallback />}>
-                <HeroSection venue={venue} policies={policies} />
+                <HeroSection
+                    venue={venue}
+                    policies={policies}
+                />
             </Suspense>
             <Ticker venue={venue} policies={policies} />
             <VenuesSection venue={venue} />
@@ -52,5 +85,13 @@ export default async function HomePage() {
             <ContactSection venue={venue} />
             <FinalCta venue={venue} />
         </>
+    );
+}
+
+export default function HomePage() {
+    return (
+        <Suspense fallback={<HomePageFallback />}>
+            <HomeContent />
+        </Suspense>
     );
 }

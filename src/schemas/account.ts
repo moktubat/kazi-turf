@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { phoneInput } from "./common";
+import { customerPasswordChangeSchema } from "./password";
 
 const optionalEmail = z
     .string()
@@ -14,15 +15,8 @@ export const profileSchema = z.object({
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 
-export const passwordSchema = z
-    .object({
-        currentPassword: z.string().min(1, "Enter your current password").max(72, "Too long"),
-        newPassword: z.string().min(8, "Use at least 8 characters").max(72, "Too long"),
-    })
-    .refine((v) => v.currentPassword !== v.newPassword, {
-        path: ["newPassword"],
-        message: "Choose a different password",
-    });
+export const passwordSchema = customerPasswordChangeSchema();
+
 export type PasswordInput = z.infer<typeof passwordSchema>;
 
 export const changeRequestSchema = z.object({

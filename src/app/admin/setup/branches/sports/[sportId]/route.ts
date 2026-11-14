@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { staffGuard } from "@/server/admin/guard";
 import { deleteSport } from "@/server/admin/setup";
 import { handleError, ok } from "@/server/http";
 import { revalidatePath } from "next/cache";
+import { superAdminGuard } from "@/server/admin/superGuard";
 
 type Ctx = { params: Promise<{ sportId: string }> };
 
@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ sportId: string }> };
 // attached to this sport, then removes the sport from the venue.
 export async function DELETE(req: NextRequest, { params }: Ctx) {
     try {
-        const user = await staffGuard(req, true);
+        const user = await superAdminGuard(req, true);
         const { sportId } = await params;
         await deleteSport(user, sportId);
         revalidatePath("/admin/setup", "page");

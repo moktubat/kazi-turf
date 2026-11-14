@@ -43,6 +43,9 @@ const dayRange = (date: string): [string, string] => [
     dhakaToUtc(addDays(date, 1), 0).toISOString(),
 ];
 
+const CELL_CACHE_TTL_MS = 30_000; // 30 seconds
+const cellCache = new Map<string, { at: number; cells: Cell[] }>();
+
 async function loadClaims(pitchIds: string[], fromIso: string, toIso: string): Promise<SlotClaim[]> {
     if (pitchIds.length === 0) return [];
     await connectDb();
@@ -92,6 +95,24 @@ function buildCells(pitch: Pitch, date: string, claims: SlotClaim[], now: Date, 
     return cells;
 }
 
+/** Batch-load availability for all pitches of a branch+sport in ONE Mongo query. */
+export async function getBranchAvailability(
+    branchId: string,
+    sport: string,
+    date: string,
+    now: Date = new Date(),
+    opts: AvailabilityOptions = {}
+): Promise<{ pitch: Pitch; cells: Cell[] }[]> {
+    const list = getBranchPitches(branchId, sport);
+    if (list.length === 0) return [];
+    const [from, to] = dayRange(date);
+    const claims = await loadClaims(list.map((p) => p.id), from, to);
+    return list.map((pitch) => ({
+        pitch,
+        cells: buildCells(pitch, date, claims, now, opts),
+    }));
+}
+
 export async function getPitchAvailability(
     pitchId: string,
     date: string,
@@ -100,8 +121,18 @@ export async function getPitchAvailability(
 ): Promise<Cell[]> {
     const pitch = getPitch(pitchId);
     if (!pitch) return [];
+    const cacheKey = `${pitchId}|${date}|${opts.allowStarted ? "1" : "0"}`;
+    const cached = cellCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < CELL_CACHE_TTL_MS) return cached.cells;
     const [from, to] = dayRange(date);
-    return buildCells(pitch, date, await loadClaims([pitchId], from, to), now, opts);
+    const cells = buildCells(pitch, date, await loadClaims([pitchId], from, to), now, opts);
+    cellCache.set(cacheKey, { at: Date.now(), cells });
+    if (cellCache.size > 500) {
+        // Evict oldest 25% to bound memory.
+        const entries = [...cellCache.entries()].sort((a, b) => a[1].at - b[1].at);
+        for (let i = 0; i < Math.floor(entries.length / 4); i++) cellCache.delete(entries[i][0]);
+    }
+    return cells;
 }
 
 export async function getNextOpenSlots(branchId: string, date: string, limit = 4, sport?: string) {

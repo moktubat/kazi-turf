@@ -139,6 +139,7 @@ export async function createWalkIn(
         source: "counter",
         holdExpiresAt: now.toISOString(),
         createdAt: now.toISOString(),
+        createdFromIp: null,
     };
 
     await tx(async (s) => {

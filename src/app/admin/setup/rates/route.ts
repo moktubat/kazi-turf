@@ -6,72 +6,43 @@ import { handleError, ok, readJson } from "@/server/http";
 import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
-    const start = Date.now();
-    console.log("[setup/rates] POST START (create)");
     try {
         const user = await staffGuard(req, true);
-        console.log("[setup/rates] staffGuard done:", Date.now() - start, "ms");
-
-        const body = await readJson(req);
-        console.log("[setup/rates] body:", JSON.stringify(body, null, 2));
-        const parsed = rateSchema.parse(body);
-
-        console.log("[setup/rates] createRate...");
+        const parsed = rateSchema.parse(await readJson(req));
         await createRate(user, parsed);
         revalidatePath("/admin/setup", "page");
         revalidatePath("/", "page");
         revalidatePath("/book", "page");
-        console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true }, 201);
     } catch (e) {
-        console.error("[setup/rates] ERROR:", e instanceof Error ? e.message : e);
-        console.error("[setup/rates] stack:", e instanceof Error ? e.stack : "no stack");
         return handleError(e);
     }
 }
 
 export async function PATCH(req: NextRequest) {
-    const start = Date.now();
-    console.log("[setup/rates] PATCH START (update)");
     try {
         const user = await staffGuard(req, true);
-        const body = await readJson(req);
-        console.log("[setup/rates] body:", JSON.stringify(body, null, 2));
-        const parsed = rateUpdateSchema.parse(body);
-
-        console.log("[setup/rates] updateRate...");
+        const parsed = rateUpdateSchema.parse(await readJson(req));
         await updateRate(user, parsed);
         revalidatePath("/admin/setup", "page");
         revalidatePath("/", "page");
         revalidatePath("/book", "page");
-        console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ saved: true });
     } catch (e) {
-        console.error("[setup/rates] ERROR:", e instanceof Error ? e.message : e);
-        console.error("[setup/rates] stack:", e instanceof Error ? e.stack : "no stack");
         return handleError(e);
     }
 }
 
 export async function DELETE(req: NextRequest) {
-    const start = Date.now();
-    console.log("[setup/rates] DELETE START");
     try {
         const user = await staffGuard(req, true);
-        const body = await readJson(req);
-        console.log("[setup/rates] body:", JSON.stringify(body, null, 2));
-        const parsed = rateDeleteSchema.parse(body);
-
-        console.log("[setup/rates] deleteRate...");
+        const parsed = rateDeleteSchema.parse(await readJson(req));
         await deleteRate(user, parsed.id);
         revalidatePath("/admin/setup", "page");
         revalidatePath("/", "page");
         revalidatePath("/book", "page");
-        console.log("[setup/rates] SUCCESS:", Date.now() - start, "ms");
         return ok({ deleted: true });
     } catch (e) {
-        console.error("[setup/rates] ERROR:", e instanceof Error ? e.message : e);
-        console.error("[setup/rates] stack:", e instanceof Error ? e.stack : "no stack");
         return handleError(e);
     }
 }

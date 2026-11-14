@@ -5,33 +5,17 @@ import path from "path";
 // FIX: Configure the Cloudinary SDK with env vars.
 // Without this, the SDK doesn't know your credentials even though
 // cloudinaryConfigured() returns true (it only checks env vars exist).
-if (
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
-) {
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
     cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
         api_key: process.env.CLOUDINARY_API_KEY,
         api_secret: process.env.CLOUDINARY_API_SECRET,
         secure: true,
     });
-    console.log("[cloudinary] SDK configured with env vars");
-} else {
-    console.log("[cloudinary] SDK NOT configured — missing one or more env vars");
 }
 
-/**
- * Check if Cloudinary env vars are set.
- */
 export function cloudinaryConfigured(): boolean {
-    const configured = !!(
-        process.env.CLOUDINARY_CLOUD_NAME &&
-        process.env.CLOUDINARY_API_KEY &&
-        process.env.CLOUDINARY_API_SECRET
-    );
-    console.log("[cloudinary] configured:", configured, "| cloud_name:", process.env.CLOUDINARY_CLOUD_NAME ? "set" : "missing");
-    return configured;
+    return !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
 }
 
 export interface UploadResult {
@@ -59,9 +43,10 @@ export async function uploadImage(
     });
 
     if (!cloudinaryConfigured()) {
-        console.log("[cloudinary] NOT configured → using local fallback");
+        if (process.env.NODE_ENV === "production") {
+            throw new Error("Cloudinary is not configured. Set CLOUDINARY_* env vars in production.");
+        }
         const local = await uploadLocal(buffer, opts);
-        console.log("[cloudinary] local fallback done:", Date.now() - start, "ms");
         return local;
     }
 

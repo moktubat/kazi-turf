@@ -3,16 +3,17 @@ import { venue } from "@/data/branches";
 import { policies } from "@/data/site";
 import { addDays } from "@/lib/time";
 import { availabilityQuerySchema } from "@/schemas/booking";
-import { findNextAvailableDate, getBranchPitches, getPitchAvailability } from "@/server/availability";
+import { findNextAvailableDate, getBranchAvailability } from "@/server/availability";
 import { AppError, clientIp, handleError, ok } from "@/server/http";
-import { rateLimit } from "@/server/security/rateLimit";
+import { rateLimitAsync } from "@/server/security/rateLimit";
 import type { AvailabilityResponse } from "@/types/booking";
 import { todayDhaka } from "@/lib/time.server";
 import { connectDb } from "@/server/db/connect";
 
 export async function GET(req: NextRequest) {
     try {
-        if (!rateLimit(`avail:${clientIp(req)}`, 120, 60_000)) {
+        // Reduced from 120/min to 30/min — availability data is cacheable for 30s.
+        if (!(await rateLimitAsync(`avail:${clientIp(req)}`, 30, 60_000))) {
             throw new AppError("RATE_LIMITED", "Too many requests. Please wait a moment.", 429);
         }
 
@@ -40,18 +41,17 @@ export async function GET(req: NextRequest) {
             throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
         }
 
-        const branchPitches = getBranchPitches(venue.id, q.sport);
+        // SINGLE batched Mongo query for all pitches of this branch+sport.
+        const pitchData = await getBranchAvailability(venue.id, q.sport, q.date, now);
 
-        const pitches = await Promise.all(
-            branchPitches.map(async (p) => ({
-                id: p.id,
-                name: p.name,
-                sport: p.sport,
-                format: p.format,
-                maxConsecutiveSlots: p.maxConsecutiveSlots,
-                cells: await getPitchAvailability(p.id, q.date, now),
-            }))
-        );
+        const pitches = pitchData.map(({ pitch, cells }) => ({
+            id: pitch.id,
+            name: pitch.name,
+            sport: pitch.sport,
+            format: pitch.format,
+            maxConsecutiveSlots: pitch.maxConsecutiveSlots,
+            cells,
+        }));
 
         const hasOpen = pitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE"));
 
@@ -66,7 +66,10 @@ export async function GET(req: NextRequest) {
                 : await findNextAvailableDate(venue.id, q.sport, q.date, last, now),
         };
 
-        return ok(body);
+        // Cache the public availability response at the edge for 30 seconds.
+        const res = ok(body);
+        res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+        return res;
     } catch (e) {
         return handleError(e);
     }

@@ -12,6 +12,7 @@ import { getSessionUser } from "@/server/auth/session";
 import { connectDb } from "@/server/db/connect";
 import { HideOnRoutes } from "@/components/layout/HideOnRoutes";
 import { getPublicVenue } from "@/server/public-data";
+import { site } from "@/data/site";
 
 const jakarta = Plus_Jakarta_Sans({
     subsets: ["latin"],
@@ -28,12 +29,57 @@ const vietnam = Be_Vietnam_Pro({
 });
 
 export const metadata: Metadata = {
+    metadataBase: new URL(site.url),
     title: {
-        default: "KaziTurf — Turf & Sports Court Booking",
-        template: "%s | KaziTurf",
+        default: "Kazi Sports Arena — Indoor Turf & Sports Court Booking in Bogura",
+        template: "%s | Kazi Sports Arena",
     },
-    description:
-        "Book turf and sports courts in Bangladesh. Pay a bKash advance, pay the balance at the venue.",
+    description: site.seoDescription,
+    keywords: site.seoKeywords,
+    authors: [{ name: "Kazi Sports Arena" }],
+    creator: "Kazi Sports Arena",
+    publisher: "Kazi Sports Arena",
+    applicationName: "Kazi Sports Arena",
+    category: "Sports & Recreation",
+    alternates: {
+        canonical: site.url,
+    },
+    openGraph: {
+        type: "website",
+        locale: "en_US",
+        url: site.url,
+        siteName: "Kazi Sports Arena",
+        title: "Kazi Sports Arena — Indoor Turf & Sports Court Booking in Bogura",
+        description: site.seoDescription,
+        images: [
+            {
+                url: "/sports/logo2.png",
+                width: 1200,
+                height: 630,
+                alt: "Kazi Sports Arena — Indoor sports facility in Bogura",
+            },
+        ],
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "Kazi Sports Arena — Indoor Sports in Bogura",
+        description: site.seoDescription,
+        images: ["/sports/logo2.png"],
+    },
+    robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+            index: true,
+            follow: true,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+        },
+    },
+    icons: {
+        icon: "/sports/logo2.png",
+        apple: "/sports/logo2.png",
+    },
 };
 
 export const viewport: Viewport = {
@@ -56,11 +102,7 @@ async function FooterWithVenue() {
     return <Footer venue={venue} />;
 }
 
-export default async function RootLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en" className={`${jakarta.variable} ${vietnam.variable}`}>
             <body>

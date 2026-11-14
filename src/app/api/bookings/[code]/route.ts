@@ -3,7 +3,7 @@ import { getSessionUser } from "@/server/auth/session";
 import { getBookingForUser, releaseHold } from "@/server/bookings";
 import { AppError, clientIp, handleError, ok } from "@/server/http";
 import { reconcileBooking } from "@/server/payments/reconcile";
-import { rateLimit } from "@/server/security/rateLimit";
+import { rateLimitAsync } from "@/server/security/rateLimit";
 
 type Ctx = { params: Promise<{ code: string }> };
 
@@ -11,7 +11,7 @@ async function guard(req: NextRequest) {
     const user = await getSessionUser();
     if (!user) throw new AppError("UNAUTHENTICATED", "Sign in to continue.", 401);
     // Booking-code lookups are rate limited (spec §10.1).
-    if (!rateLimit(`lookup:${user.id}:${clientIp(req)}`, 60, 60_000)) {
+    if (!(await rateLimitAsync(`lookup:${user.id}:${clientIp(req)}`, 60, 60_000))) {
         throw new AppError("RATE_LIMITED", "Too many requests. Please wait a moment.", 429);
     }
     return user;

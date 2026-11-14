@@ -11,6 +11,9 @@ export interface User {
     permissions: string[];
     status: "ACTIVE" | "DISABLED";
     createdAt: string;
+    // True after the phone number has been verified via OTP (audit finding CONF-03).
+    // Optional so existing docs/users created before OTP was introduced still type-check.
+    phoneVerified?: boolean;
 }
 
 export interface SessionRecord {

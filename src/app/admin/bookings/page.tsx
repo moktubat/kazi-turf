@@ -5,7 +5,6 @@ import { accessibleBranches } from "@/server/admin/access";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 import { todayDhaka } from "@/lib/time.server";
 
-export const instant = false;
 export const metadata: Metadata = { title: "Bookings" };
 
 type Params = Promise<Record<string, string | string[] | undefined>>;

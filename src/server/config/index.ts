@@ -9,6 +9,7 @@ import { pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
 import { ConfigModel } from "@/models";
 import { isDup } from "@/server/db/util";
+import { AppError } from "../http";
 
 const registry = { branches, pitches, pricingRules, policies, refundConfig, legalStatus } as const;
 export type ConfigKey = keyof typeof registry;
@@ -51,12 +52,20 @@ async function seed(key: ConfigKey) {
     }
 }
 
+const versions = new Map<ConfigKey, number>();
+
 async function load() {
-    const docs = await ConfigModel.find({ key: { $in: KEYS } }).lean<{ key: ConfigKey; value: unknown }[]>();
-    const saved = new Map(docs.map((d) => [d.key, d.value]));
+    const docs = await ConfigModel.find({ key: { $in: KEYS } }).lean<{ key: ConfigKey; value: unknown; version?: number }[]>();
+    const saved = new Map(docs.map((d) => [d.key, d]));
     for (const key of KEYS) {
-        if (saved.has(key)) apply(registry[key], saved.get(key));
-        else await seed(key);
+        const doc = saved.get(key);
+        if (doc) {
+            apply(registry[key], doc.value);
+            versions.set(key, doc.version ?? 0);
+        } else {
+            await seed(key);
+            versions.set(key, 0);
+        }
     }
     state.last = nowMs();
 }
@@ -79,12 +88,32 @@ export async function ensureConfig(force = false): Promise<void> {
 }
 
 async function save(key: ConfigKey) {
-    const set = { value: clone(registry[key]), updatedAt: new Date().toISOString() };
+    const expectedVersion = versions.get(key) ?? 0;
+    const set = {
+        value: clone(registry[key]),
+        updatedAt: new Date().toISOString(),
+        version: expectedVersion + 1,
+    };
     try {
-        await ConfigModel.updateOne({ key }, { $set: set }, { upsert: true });
+        const r = await ConfigModel.updateOne(
+            { key, version: expectedVersion },
+            { $set: set },
+            { upsert: true }
+        );
+        if (r.matchedCount === 0) {
+            // Version mismatch — another instance wrote first.
+            throw new AppError("CONFIG_CONFLICT", "This was just changed by someone else. Reload and try again.", 409);
+        }
+        versions.set(key, expectedVersion + 1);
     } catch (e) {
+        if (e instanceof AppError) throw e;
         if (!isDup(e)) throw e;
-        await ConfigModel.updateOne({ key }, { $set: set }); // lost the first-insert race: plain update
+        // Lost the first-insert race: retry without upsert.
+        const r = await ConfigModel.updateOne({ key, version: expectedVersion }, { $set: set });
+        if (r.matchedCount === 0) {
+            throw new AppError("CONFIG_CONFLICT", "This was just changed by someone else. Reload and try again.", 409);
+        }
+        versions.set(key, expectedVersion + 1);
     }
 }
 

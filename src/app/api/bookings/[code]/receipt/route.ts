@@ -5,14 +5,14 @@ import { toAdminDto } from "@/server/admin/dto";
 import { canAccessBranch, requireUser } from "@/server/auth/guards";
 import { findBookingByCode } from "@/server/bookings";
 import { AppError, handleError } from "@/server/http";
-import { rateLimit } from "@/server/security/rateLimit";
+import { rateLimitAsync } from "@/server/security/rateLimit";
 
 type Ctx = { params: Promise<{ code: string }> };
 
 export async function GET(req: NextRequest, { params }: Ctx) {
     try {
         const user = await requireUser();
-        if (!rateLimit(`receipt:${user.id}`, 30, 60_000)) {
+        if (!rateLimitAsync(`receipt:${user.id}`, 30, 60_000)) {
             throw new AppError("RATE_LIMITED", "Too many requests. Please wait a moment.", 429);
         }
 

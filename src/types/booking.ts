@@ -28,6 +28,10 @@ export interface Booking {
     holdExpiresAt: string;
     createdAt: string;
 
+    // IP the booking was created from — used for IP-based holds cap (audit finding CONF-15).
+    // Null for counter (walk-in) bookings created by staff.
+    createdFromIp?: string | null;
+
     // Check-in and cancellation information
     checkedInAt?: string | null;
     cancelledAt?: string | null;

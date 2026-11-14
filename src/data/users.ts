@@ -1,45 +1,16 @@
-import type { Role } from "@/types";
-
-// DEV-ONLY demo accounts. The store never seeds these in production.
-// Real staff and admins are created through /admin/setup (Batch 5) or a seed script.
-export const demoUsers: {
+// This file is kept for backwards compatibility only. Demo users live in
+// `./demo-users.dev.ts` and are imported by the seed script when SEED_DEMO=1.
+//
+// Do NOT import from this file in production code paths.
+export type DemoUser = {
     id: string;
     name: string;
     phone: string;
     email: string | null;
     password: string;
-    role: Role;
+    role: "CUSTOMER" | "STAFF" | "SUPER_ADMIN";
     branchIds: string[];
     permissions: string[];
-}[] = [
-        {
-            id: "demo-customer",
-            name: "Demo Customer",
-            phone: "01711111111",
-            email: null,
-            password: "Demo@12345",
-            role: "CUSTOMER",
-            branchIds: [],
-            permissions: [],
-        },
-        {
-            id: "demo-staff",
-            name: "Demo Staff",
-            phone: "01722222222",
-            email: null,
-            password: "Demo@12345",
-            role: "STAFF",
-            branchIds: ["bogura"],
-            permissions: [],
-        },
-        {
-            id: "demo-admin",
-            name: "Demo Super Admin",
-            phone: "01733333333",
-            email: "admin@kaziturf.test",
-            password: "Demo@12345",
-            role: "SUPER_ADMIN",
-            branchIds: [],
-            permissions: ["*"],
-        },
-    ];
+};
+
+export const demoUsers: DemoUser[] = [];

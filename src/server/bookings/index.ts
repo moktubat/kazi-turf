@@ -145,8 +145,9 @@ async function dropStaleHolds(userId: string) {
 export async function createBooking(
     user: ServerUser,
     input: { pitchId: string; cellStarts: string[]; phone: string },
-    now: Date = new Date()
+    opts: { now?: Date; ip?: string } = {}
 ): Promise<BookingDto> {
+    const now = opts.now ?? new Date();
     await connectDb();
     await dropStaleHolds(user.id);
 
@@ -199,6 +200,7 @@ export async function createBooking(
         source: "online",
         holdExpiresAt: holdExpiresAt.toISOString(),
         createdAt: now.toISOString(),
+        createdFromIp: opts.ip ?? null,
     };
 
     // Claims, booking and audit entry succeed or fail together.

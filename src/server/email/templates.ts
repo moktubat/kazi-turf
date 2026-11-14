@@ -88,6 +88,20 @@ export function bookingConfirmationTemplate(input: {
   return { subject, html: shell(subject, body), text };
 }
 
+export function passwordResetEmailTemplate(input: { name: string; resetUrl: string }): { subject: string; html: string; text: string } {
+  const subject = "Reset your KaziTurf password";
+  const body = `
+        <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;">Reset your password</h2>
+        <p style="margin:0 0 16px;color:#6b7280;font-size:14px;">Hi ${escapeHtml(input.name)},</p>
+        <p style="margin:0 0 16px;font-size:14px;">We received a request to reset your KaziTurf password. Click the button below to choose a new one. This link expires in 15 minutes.</p>
+        <p style="margin:24px 0;">
+            <a href="${escapeHtml(input.resetUrl)}" style="display:inline-block;background:#0b6e4f;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Reset password</a>
+        </p>
+        <p style="margin:0;font-size:13px;color:#6b7280;">If you didn't request this, you can safely ignore this email.</p>`;
+  const text = `Reset your KaziTurf password\n\nHi ${input.name},\n\nWe received a request to reset your password. Open this link in your browser to choose a new one (expires in 15 minutes):\n\n${input.resetUrl}\n\nIf you didn't request this, ignore this email.`;
+  return { subject, html: shell(subject, body), text };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

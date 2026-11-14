@@ -22,6 +22,7 @@ const user = new Schema(
         permissions: [String],
         status: { type: String, enum: ["ACTIVE", "DISABLED"], default: "ACTIVE" },
         createdAt: String,
+        phoneVerified: { type: Boolean, default: false },
     },
     opts
 );
@@ -65,6 +66,7 @@ const booking = new Schema(
         source: { type: String, enum: ["online", "counter"], required: true },
         holdExpiresAt: String,
         createdAt: String,
+        createdFromIp: { type: String, default: null }, // for IP-based abuse caps
         checkedInAt: String,
         cancelledAt: String,
         cancelReason: String,
@@ -76,6 +78,7 @@ booking.index({ pitchId: 1, startAt: 1 });
 booking.index({ customerId: 1, startAt: -1 });
 booking.index({ bookingStatus: 1, paymentStatus: 1 });
 booking.index({ bookingStatus: 1, holdExpiresAt: 1 });
+booking.index({ createdFromIp: 1, createdAt: -1 });
 
 const slotClaim = new Schema(
     {
@@ -161,10 +164,14 @@ const inquiry = new Schema(
         body: { type: String, default: null },
         status: { type: String, default: "NEW" },
         createdAt: String,
+        expiresAt: { type: Date, required: true }, // 365 days after createdAt
     },
     opts
 );
 inquiry.index({ status: 1, createdAt: -1 });
+// TTL: MongoDB auto-deletes documents where expiresAt <= now.
+inquiry.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 
 const changeRequest = new Schema(
     {
@@ -185,10 +192,38 @@ const config = new Schema(
         key: { type: String, required: true, unique: true },
         value: Schema.Types.Mixed,
         updatedAt: String,
+        version: { type: Number, default: 0 },
     },
     opts
 );
 
+const otp = new Schema(
+    {
+        id,
+        phone: { type: String, required: true, index: true },
+        codeHash: { type: String, required: true },
+        attempts: { type: Number, default: 0 },
+        verified: { type: Boolean, default: false },
+        expiresAt: { type: Date, required: true },
+        createdAt: Date,
+    },
+    opts
+);
+otp.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+otp.index({ phone: 1, createdAt: -1 });
+
+const resetToken = new Schema(
+    {
+        id,
+        userId: { type: String, required: true, index: true },
+        tokenHash: { type: String, required: true, unique: true },
+        expiresAt: { type: Date, required: true },
+        usedAt: { type: Date, default: null },
+        createdAt: Date,
+    },
+    opts
+);
+resetToken.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const UserModel = reg("User", user);
 export const SessionModel = reg("Session", session);
@@ -227,3 +262,5 @@ export const PitchModel = reg(
 );
 
 export const allModels = () => Object.values(mongoose.models);
+export const OtpModel = reg("Otp", otp);
+export const ResetTokenModel = reg("ResetToken", resetToken);

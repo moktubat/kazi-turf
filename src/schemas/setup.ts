@@ -3,6 +3,7 @@ import { z } from "zod";
 import { normalizePhone } from "@/lib/phone";
 import { toMinutes } from "@/lib/time";
 import { phoneInput } from "./common";
+import { staffPasswordSchema } from "./password";
 
 const hhmm = z.string().regex(/^(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)$/, "Use HH:MM");
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date");
@@ -162,7 +163,7 @@ export const staffCreateSchema = z
         name: z.string().trim().min(2, "Enter a name").max(80, "Too long"),
         phone: phoneInput.transform(normalizePhone),
         email: optionalEmail,
-        password: z.string().min(8, "Use at least 8 characters").max(72, "Too long"),
+        password: staffPasswordSchema,
         ...staffShape,
     })
     .refine((v) => v.role !== "STAFF" || v.branchIds.length > 0, staffBranchRule);
@@ -171,11 +172,7 @@ export const staffUpdateSchema = z
     .object({
         id: z.string().min(1).max(80),
         status: z.enum(["ACTIVE", "DISABLED"]),
-        newPassword: z
-            .string()
-            .max(72, "Too long")
-            .refine((v) => v === "" || v.length >= 8, "Use at least 8 characters")
-            .optional(),
+        newPassword: z.string().max(72, "Too long").refine((v) => v === "" || staffPasswordSchema.safeParse(v).success, "Use at least 12 characters with mixed case, digits and symbols").optional(),
         ...staffShape,
     })
     .refine((v) => v.role !== "STAFF" || v.branchIds.length > 0, staffBranchRule);

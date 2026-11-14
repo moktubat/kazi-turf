@@ -1,8 +1,6 @@
 // Temporary in-memory data layer. Replaced by Mongoose models (Batch 7).
 // globalThis keeps one copy across route bundles and dev hot reloads.
 import "server-only";
-import { demoUsers } from "@/data/users";
-import { hashPasswordSync } from "@/server/auth/password";
 import type { ChangeRequest } from "@/types/account";
 import type { Booking, Inquiry } from "@/types/booking";
 import type { AuditLog, CheckIn, Payment } from "@/types/ops";
@@ -19,29 +17,11 @@ interface Store {
     auditLogs: AuditLog[];
 }
 
-function seedUsers(): User[] {
-    if (process.env.NODE_ENV === "production") return [];
-    const now = new Date().toISOString();
-    return demoUsers.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        phone: u.phone,
-        passwordHash: hashPasswordSync(u.password),
-        role: u.role,
-        branchIds: u.branchIds,
-        permissions: u.permissions,
-        status: "ACTIVE" as const,
-        createdAt: now,
-    }));
-}
-
 const g = globalThis as unknown as { __ktStore?: Store };
-
 export const store: Store = (g.__ktStore ??= {
     bookings: [],
     inquiries: [],
-    users: seedUsers(),
+    users: [],
     sessions: [],
     changeRequests: [],
     payments: [],

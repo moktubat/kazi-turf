@@ -9,6 +9,7 @@ import { AppError } from "@/server/http";
 import type { SessionUser } from "@/types";
 import type { User } from "@/types/user";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "./password";
+import { verifyOtp } from "./otp";
 
 export function toSessionUser(u: User): SessionUser {
     return { id: u.id, name: u.name, role: u.role };
@@ -55,10 +56,14 @@ export async function registerCustomer(input: {
     phone: string;
     email: string;
     password: string;
+    otpCode: string; // NEW — required
 }): Promise<User> {
     await connectDb();
     const phone = normalizePhone(input.phone);
     const email = input.email.trim() ? input.email.trim().toLowerCase() : null;
+
+    // Verify OTP BEFORE creating the account.
+    await verifyOtp(phone, input.otpCode);
 
     const passwordHash = await hashPassword(input.password);
     await assertUnique(phone, email);
@@ -69,19 +74,21 @@ export async function registerCustomer(input: {
         email,
         phone,
         passwordHash,
-        role: "CUSTOMER", // never taken from the browser
+        role: "CUSTOMER",
         branchIds: [],
         permissions: [],
         status: "ACTIVE",
+        phoneVerified: true, // verified via OTP
         createdAt: new Date().toISOString(),
     };
     try {
         await UserModel.create(user);
     } catch (e) {
-        mapDup(e); // two sign-ups racing: the unique index decides
+        mapDup(e);
     }
     return user;
 }
+
 
 export async function updateProfile(userId: string, input: { name: string; phone: string; email: string }) {
     await connectDb();

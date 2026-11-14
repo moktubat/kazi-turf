@@ -2,12 +2,12 @@
 // Creates indexes, the first Super Admin (from env) and, only with SEED_DEMO=1, the dev demo accounts.
 // Safe to run again: existing accounts are skipped.
 import mongoose from "mongoose";
-import { demoUsers } from "@/data/users";
 import { UserModel } from "@/models";
 import { hashPassword } from "@/server/auth/password";
 import { connectDb } from "@/server/db/connect";
 import { randomUUID } from "crypto";
 import { normalizePhone } from "@/lib/phone";
+import { demoUsers } from "@/data/demo-users.dev";
 
 async function addUser(u: {
     name: string;
@@ -33,13 +33,18 @@ async function addUser(u: {
         branchIds: u.branchIds,
         permissions: u.permissions,
         status: "ACTIVE",
+        phoneVerified: true, // seeded by an operator — assume trusted
         createdAt: new Date().toISOString(),
     });
     console.log(`added ${u.role.padEnd(11)} ${phone}`);
 }
 
 async function main() {
-    await connectDb(); // also creates every index, including the unique slot-claim index
+    if (process.env.SEED_DEMO === "1" && process.env.NODE_ENV === "production") {
+        throw new Error("SEED_DEMO=1 is forbidden in production. Demo credentials would give attackers Super Admin access.");
+    }
+
+    await connectDb();
     console.log("indexes ready");
 
     if (process.env.SEED_DEMO === "1") {

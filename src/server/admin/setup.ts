@@ -566,6 +566,7 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
         branchIds,
         permissions: isAdmin ? [] : [...new Set(input.permissions)],
         status: "ACTIVE",
+        phoneVerified: true, // created by a Super Admin — assume trusted
         createdAt: new Date().toISOString(),
     };
     try {

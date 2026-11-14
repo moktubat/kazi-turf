@@ -6,7 +6,6 @@ import { requireStaffPage } from "@/server/auth/pageGuards";
 import { todayDhaka } from "@/lib/time.server";
 import { getPublicPolicies } from "@/server/public-data";
 
-export const instant = false;
 export const metadata: Metadata = { title: "Staff Desk" };
 
 export default async function AdminPage() {

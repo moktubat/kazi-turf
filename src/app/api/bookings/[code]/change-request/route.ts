@@ -4,7 +4,7 @@ import { requireUser } from "@/server/auth/guards";
 import { requestChange } from "@/server/bookings/account";
 import { AppError, handleError, ok, readJson } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
-import { rateLimit } from "@/server/security/rateLimit";
+import { rateLimitAsync } from "@/server/security/rateLimit";
 
 type Ctx = { params: Promise<{ code: string }> };
 
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     try {
         assertSameOrigin(req);
         const user = await requireUser();
-        if (!rateLimit(`change:${user.id}`, 5, 10 * 60_000)) {
+        if (!(await rateLimitAsync(`change:${user.id}`, 5, 10 * 60_000))) {
             throw new AppError("RATE_LIMITED", "Too many requests. Please wait a few minutes.", 429);
         }
         const { code } = await params;
