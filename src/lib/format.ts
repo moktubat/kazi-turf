@@ -22,14 +22,14 @@ export function formatTime(d: Date | string): string {
     }).format(typeof d === "string" ? new Date(d) : d);
 }
 
-/** "HH:MM" string → "h:MM AM/PM". Handles "24:00" as 12:00 AM (end of day). */
+/** "HH:MM" string → "hh:MM AM/PM" (zero-padded, e.g. "06:00 AM"). Handles "24:00" as 12:00 AM (end of day). */
 export function formatTime12(time: string): string {
     if (!time || !/^\d{1,2}:\d{2}$/.test(time)) return time ?? "";
     const [h, m] = time.split(":").map(Number);
     if (h === 24) return `12:${String(m).padStart(2, "0")} AM`;
     const period = h < 12 ? "AM" : "PM";
     const hour12 = h % 12 === 0 ? 12 : h % 12;
-    return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+    return `${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
 }
 
 /** "06:00 – 24:00" → "6:00 AM – 12:00 AM". Accepts –, — or -. */

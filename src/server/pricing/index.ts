@@ -5,19 +5,25 @@ import { dhakaParts, toMinutes } from "@/lib/time";
 import { AppError } from "@/server/http";
 import type { PricingRule } from "@/types";
 
+// Which price applies to one cell: a rule matches by pitch, weekday and time
+// window, and may be scoped to a date range. A date-scoped rule (Ramadan /
+// vacation / Eid pricing created in Admin → Setup → Rates) always wins over the
+// always-on price for the dates it covers — assertRule guarantees at most one
+// scoped rule can match any given date, so there is never a tie.
 export function ruleFor(pitchId: string, cellStart: Date): PricingRule | null {
     const { dow, minutes, date } = dhakaParts(cellStart);
-    return (
-        pricingRules.find(
-            (r) =>
-                r.pitchId === pitchId &&
-                r.days.includes(dow) &&
-                minutes >= toMinutes(r.startTime) &&
-                minutes < toMinutes(r.endTime) &&
-                (!r.effectiveFrom || date >= r.effectiveFrom) &&
-                (!r.effectiveTo || date <= r.effectiveTo)
-        ) ?? null
-    );
+    let base: PricingRule | null = null;
+    for (const r of pricingRules) {
+        if (r.pitchId !== pitchId || !r.days.includes(dow)) continue;
+        if (minutes < toMinutes(r.startTime) || minutes >= toMinutes(r.endTime)) continue;
+        if (r.effectiveFrom || r.effectiveTo) {
+            if (r.effectiveFrom && date < r.effectiveFrom) continue;
+            if (r.effectiveTo && date > r.effectiveTo) continue;
+            return r; // date-scoped rule wins immediately
+        }
+        base ??= r; // first always-on rule as the fallback
+    }
+    return base;
 }
 
 export function priceForCell(pitchId: string, cellStart: Date) {

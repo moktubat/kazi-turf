@@ -126,3 +126,24 @@ export async function persistConfig(...keys: ConfigKey[]): Promise<void> {
         throw e;
     }
 }
+
+/**
+ * Several admins share one login and save from different instances at the same
+ * time. Runs `op`; if another instance won the version race (CONFIG_CONFLICT),
+ * reloads the fresh config and runs `op` again instead of bouncing the admin
+ * with "reload and try again". The closure MUST re-find the objects it edits on
+ * every attempt — a reload replaces the in-memory arrays with fresh clones, so
+ * any reference captured before the retry is stale. Three attempts covers
+ * three admins saving in the same moment.
+ */
+export async function withConfigRetry(op: () => Promise<void>): Promise<void> {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            await op();
+            return;
+        } catch (e) {
+            if (attempt >= 3 || !(e instanceof AppError) || e.code !== "CONFIG_CONFLICT") throw e;
+            await ensureConfig(true).catch(() => undefined);
+        }
+    }
+}

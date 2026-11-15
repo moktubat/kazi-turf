@@ -130,6 +130,7 @@ export async function createWalkIn(
         bookingStatus: "CONFIRMED",
         paymentStatus: paid >= q.total ? "PAID" : "PARTIALLY_PAID",
         subtotal: q.subtotal,
+        originalSubtotal: q.originalSubtotal,
         vatAmount: q.vat,
         total: q.total,
         advanceAmount: paid, // what was actually received at the counter

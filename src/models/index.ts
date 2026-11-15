@@ -57,6 +57,9 @@ const booking = new Schema(
         bookingStatus: { type: String, required: true },
         paymentStatus: { type: String, required: true },
         subtotal: Number,
+        // Price before any date-range discount/surcharge — lets the summary show
+        // "৳3,500 → ৳2,700". Old bookings may not have it; toDto falls back to subtotal.
+        originalSubtotal: Number,
         vatAmount: Number,
         total: Number,
         advanceAmount: Number,

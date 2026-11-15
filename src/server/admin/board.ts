@@ -69,7 +69,11 @@ export async function getBoard(
                 const bk = claim?.bookingId ? byId.get(claim.bookingId) : undefined;
                 return {
                     ...c,
-                    reason: claim?.state === "MAINTENANCE" ? claim.reason : undefined,
+                    // Show the note on staff blocks — maintenance and manual holds (no booking attached).
+                    reason:
+                        claim && (claim.state === "MAINTENANCE" || (claim.state === "HELD" && !claim.bookingId))
+                            ? claim.reason
+                            : undefined,
                     booking:
                         bk && c.status !== "AVAILABLE"
                             ? {

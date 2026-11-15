@@ -45,11 +45,14 @@ export const cancelSchema = z.object({
 
 export const refundSchema = z.object({ note: z.string().trim().max(200).optional() });
 
+// Block one cell for MAINTENANCE (repair) or HELD (manual hold — walk-ins who
+// pay at the venue, friends & family). Unblock deletes either kind.
 export const blockSchema = z
     .object({
         pitchId,
         cellStart: isoStart,
         block: z.boolean(),
+        kind: z.enum(["MAINTENANCE", "HELD"]).default("MAINTENANCE"),
         reason: z.string().trim().max(120).optional(),
     })
     .refine((v) => !v.block || (!!v.reason && v.reason.length >= 3), {

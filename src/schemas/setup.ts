@@ -71,7 +71,14 @@ const branchActiveRules = (v: z.infer<typeof branchBase>, ctx: z.RefinementCtx) 
 };
 
 export const branchUpdateSchema = branchBase
-    .extend({ id: z.string().min(1).max(60) })
+    .extend({
+        id: z.string().min(1).max(60),
+        // Sport ids this save actually changed (client-side diff against the
+        // loaded snapshot). Untouched sports keep the server's current values,
+        // so admins saving in parallel never overwrite each other's work.
+        // Absent (old client / API call) = all sports touched = old behavior.
+        touchedSportIds: z.array(z.string().max(30)).max(10).optional(),
+    })
     .superRefine(branchActiveRules);
 export type BranchUpdateInput = z.infer<typeof branchUpdateSchema>;
 
@@ -116,8 +123,9 @@ const rateBase = z.object({
     effectiveFrom: optDate,
     effectiveTo: optDate,
     discountType: z.enum(["PERCENT", "FIXED"]).nullable().default(null),
-    // Always DISCOUNT — surcharge option removed from the UI.
-    discountDirection: z.literal("DISCOUNT").nullable().default(null),
+    // DISCOUNT lowers the price, SURCHARGE raises it (holidays, Eid week, events).
+    // Combined with effectiveFrom/effectiveTo this is the dynamic date-range pricing.
+    discountDirection: z.enum(["DISCOUNT", "SURCHARGE"]).nullable().default(null),
     discountValue: z.number().int().min(1, "Must be at least 1").max(100000, "Too high").nullable().default(null),
 });
 
@@ -130,12 +138,18 @@ const rateRules = (v: z.infer<typeof rateBase>, ctx: z.RefinementCtx) => {
         ctx.addIssue({ code: "custom", path: ["effectiveTo"], message: "Must be on or after the start date" });
     }
     if (v.discountType && !v.discountValue) {
-        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Enter a discount value" });
+        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Enter an adjustment value" });
     }
     if (v.discountType === "PERCENT" && v.discountValue && v.discountValue > 100) {
         ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Percentage cannot exceed 100" });
     }
-    if (v.discountType === "FIXED" && v.discountValue && v.discountValue >= v.pricePerSlot) {
+    // Only a decrease can eat into the slot price; an increase just adds on top.
+    if (
+        v.discountType === "FIXED" &&
+        v.discountValue &&
+        v.discountDirection === "DISCOUNT" &&
+        v.discountValue >= v.pricePerSlot
+    ) {
         ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Discount must be less than the slot price" });
     }
 };

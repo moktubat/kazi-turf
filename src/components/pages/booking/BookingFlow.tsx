@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, CalendarSearch, RefreshCw } from "lucide-react";
+import { AlertTriangle, CalendarDays, CalendarSearch } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ApiError, api, isAbort } from "@/lib/api";
@@ -12,12 +12,10 @@ import type { Quote } from "@/server/pricing";
 import type { AvailabilityResponse, BookingDto } from "@/types/booking";
 import { ConfirmStep, type FlowUser } from "./ConfirmStep";
 import { FilterBar, type FlowVenue } from "./FilterBar";
-import { SlotGrid } from "./SlotGrid";
+import { SlotTable } from "./SlotTable";
 import { Stepper } from "./Stepper";
 import { SummaryBar } from "./SummaryBar";
 import { SummaryCard, type Amounts, type SelectionInfo } from "./SummaryCard";
-import { addDays } from "@/lib/time";
-import { DateStrip } from "./DateStrip";
 
 export interface FlowInitial {
     sport: string;
@@ -35,7 +33,6 @@ interface Sel {
 type QuoteState = { status: "idle" | "loading" | "ready" | "error"; quote?: Quote; error?: string };
 
 const STORE_KEY = "kt:finder:sport"; // same key as the Home finder
-const REFRESH_MS = 30_000;
 
 export function BookingFlow({
     venue,
@@ -72,19 +69,6 @@ export function BookingFlow({
     const abortRef = useRef<AbortController | null>(null);
     const preselected = useRef(false);
 
-    const dates = useMemo(() => {
-        const out: string[] = [];
-        let d = minDate;
-        let guard = 0;
-        while (d <= maxDate && guard < 60) {
-            out.push(d);
-            d = addDays(d, 1);
-            guard++;
-        }
-        return out;
-    }, [minDate, maxDate]);
-
-
     /* ---------- availability ---------- */
     const load = useCallback(
         async (silent = false) => {
@@ -116,15 +100,6 @@ export function BookingFlow({
         queueMicrotask(() => load());
         return () => abortRef.current?.abort();
     }, [load]);
-
-    // Optional 30s auto-refresh, only while the tab is visible and on Step 1.
-    useEffect(() => {
-        if (step !== 1) return;
-        const id = setInterval(() => {
-            if (document.visibilityState === "visible") load(true);
-        }, REFRESH_MS);
-        return () => clearInterval(id);
-    }, [step, load]);
 
     /* ---------- remembered context ---------- */
     useEffect(() => {
@@ -238,17 +213,22 @@ export function BookingFlow({
         };
     }, [data, sel, date, policy.slotMinutes]);
 
-    // Estimated subtotal from the per-cell prices we already have. Used as a
+    // Estimated totals from the per-cell prices we already have. Used as a
     // fallback while the live quote is loading, or if it ever fails — so the
     // summary never shows ৳— when the user has clearly selected a slot.
-    const estimatedSubtotal = useMemo(() => {
-        if (!data || !sel.pitchId || sel.cellStarts.length === 0) return 0;
+    const estimate = useMemo(() => {
+        if (!data || !sel.pitchId || sel.cellStarts.length === 0) return null;
         const p = data.pitches.find((x) => x.id === sel.pitchId);
-        if (!p) return 0;
-        return sel.cellStarts.reduce((sum, s) => {
+        if (!p) return null;
+        let subtotal = 0;
+        let originalSubtotal = 0;
+        for (const s of sel.cellStarts) {
             const c = p.cells.find((cell) => cell.cellStart === s);
-            return sum + (c?.price ?? 0);
-        }, 0);
+            if (!c) continue;
+            subtotal += c.price;
+            originalSubtotal += c.originalPrice;
+        }
+        return subtotal > 0 ? { subtotal, originalSubtotal } : null;
     }, [data, sel]);
 
     // --- Time-based advance display: night slots (12 AM–6 AM) use nightAdvancePercent ---
@@ -265,6 +245,7 @@ export function BookingFlow({
     const amounts: Amounts | null = hold
         ? {
             subtotal: hold.subtotal,
+            originalSubtotal: hold.originalSubtotal,
             vat: hold.vatAmount,
             vatRate: hold.vatRatePercent,
             total: hold.total,
@@ -274,20 +255,22 @@ export function BookingFlow({
         : quoteState.status === "ready" && quoteState.quote && quoteState.quote.total > 0
             ? {
                 subtotal: quoteState.quote.subtotal,
+                originalSubtotal: quoteState.quote.originalSubtotal,
                 vat: quoteState.quote.vat,
                 vatRate: quoteState.quote.vatRatePercent,
                 total: quoteState.quote.total,
                 advance: quoteState.quote.advance,
                 balance: quoteState.quote.balance,
             }
-            : estimatedSubtotal > 0
+            : estimate
                 ? {
-                    subtotal: estimatedSubtotal,
+                    subtotal: estimate.subtotal,
+                    originalSubtotal: estimate.originalSubtotal,
                     vat: 0,
                     vatRate: null,
-                    total: estimatedSubtotal,
-                    advance: Math.round((estimatedSubtotal * displayAdvancePercent) / 100),
-                    balance: estimatedSubtotal - Math.round((estimatedSubtotal * displayAdvancePercent) / 100),
+                    total: estimate.subtotal,
+                    advance: Math.round((estimate.subtotal * displayAdvancePercent) / 100),
+                    balance: estimate.subtotal - Math.round((estimate.subtotal * displayAdvancePercent) / 100),
                 }
                 : null;
 
@@ -355,7 +338,7 @@ export function BookingFlow({
                         <div>
                             <p className="mb-1 flex items-center gap-2 font-heading text-xs font-bold uppercase tracking-[0.18em] text-emerald">
                                 <span aria-hidden className="h-0.5 w-6 bg-emerald" />
-                                {step === 1 ? "Step 1 · Choose" : "Step 2 · Pay"}
+                                {step === 1 ? "Live slot availability" : "Step 2 · Pay"}
                             </p>
                             <h1 className="text-2xl font-extrabold text-white md:text-3xl">
                                 {step === 1 ? "Choose your slot" : "Confirm & pay"}
@@ -379,8 +362,6 @@ export function BookingFlow({
                     <div className="min-w-0 space-y-5">
                         {step === 1 && (
                             <>
-
-
                                 <FilterBar
                                     venue={venue}
                                     sport={sport}
@@ -389,32 +370,22 @@ export function BookingFlow({
                                     maxDate={maxDate}
                                     pitches={data?.pitches.map((p) => ({ id: p.id, name: p.name, format: p.format }))}
                                     pitchFilter={pitchFilter}
+                                    refreshing={refreshing}
                                     onSport={changeSport}
                                     onDate={changeDate}
                                     onPitch={setPitchFilter}
+                                    onRefresh={() => load(true)}
                                 />
 
-                                <DateStrip
-                                    dates={dates}
-                                    value={date}
-                                    today={minDate}
-                                    onChange={changeDate}
-                                />
-                                
                                 {notice && (
                                     <p role="alert" className="flex items-start gap-2 rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
                                         <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> {notice}
                                     </p>
                                 )}
 
-                                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-evergreen/80">
-                                    <p aria-live="polite">
-                                        {data ? `Last updated ${formatTime(data.updatedAt)}` : "Loading slots…"}
-                                    </p>
-                                    <Button variant="ghost" onClick={() => load(true)} disabled={refreshing} aria-label="Refresh availability">
-                                        <RefreshCw size={16} aria-hidden className={refreshing ? "animate-spin" : ""} /> Refresh
-                                    </Button>
-                                </div>
+                                <p className="text-sm text-evergreen/80" aria-live="polite">
+                                    {data ? `Last updated ${formatTime(data.updatedAt)}` : "Loading slots…"}
+                                </p>
 
                                 {status === "loading" && !data && <SlotSkeleton />}
 
@@ -437,7 +408,7 @@ export function BookingFlow({
                                             <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                                 <p className="font-semibold">
                                                     {pitchFilter
-                                                        ? "No slots are available for this field on this date."
+                                                        ? "No slots are available for this pitch on this date."
                                                         : "No slots are available for this date."}
                                                 </p>
                                                 {data.nextAvailableDate ? (
@@ -449,12 +420,12 @@ export function BookingFlow({
                                                 )}
                                             </Card>
                                         )}
-                                        <SlotGrid
+                                        <SlotTable
                                             pitches={visiblePitches}
                                             selectedPitchId={sel.pitchId}
                                             selected={sel.cellStarts}
-                                            preferPitchId={initial.pitchId}
                                             onToggle={onToggle}
+                                            showTabs={!pitchFilter}
                                         />
                                     </>
                                 )}
@@ -518,9 +489,9 @@ export function BookingFlow({
 
 function SlotSkeleton() {
     return (
-        <div aria-busy aria-label="Loading slots" className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="h-[4.5rem] animate-pulse rounded-xl bg-evergreen/10" />
+        <div aria-busy aria-label="Loading slots" className="space-y-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="h-14 animate-pulse rounded-xl bg-evergreen/10" />
             ))}
         </div>
     );

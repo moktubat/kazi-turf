@@ -18,6 +18,9 @@ export interface Booking {
     bookingStatus: BookingStatus;
     paymentStatus: PaymentStatus;
     subtotal: number;
+    // Price before any date-range discount/surcharge. Optional so bookings made
+    // before this field existed still load; treat missing as "same as subtotal".
+    originalSubtotal?: number;
     vatAmount: number;
     total: number;
     advanceAmount: number;
@@ -58,6 +61,8 @@ export interface BookingDto {
     endAt: string;
     slotCount: number;
     subtotal: number;
+    // Pre-adjustment price, so the UI can show "৳3,500 → ৳2,700".
+    originalSubtotal: number;
     vatAmount: number;
     vatRatePercent: number | null;
     total: number;

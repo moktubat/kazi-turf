@@ -21,10 +21,10 @@ import { endOtherSessions, type ServerUser } from "@/server/auth/session";
 import { assertUnique, mapDup } from "@/server/auth/users";
 import { settleExpired } from "@/server/bookings/expire";
 import { deleteImage, publicIdFromImage } from "@/server/cloudinary";
-import { ensureConfig, persistConfig } from "@/server/config";
+import { ensureConfig, persistConfig, withConfigRetry } from "@/server/config";
 import { connectDb } from "@/server/db/connect";
 import { AppError } from "@/server/http";
-import type { Branch, Pitch, PricingRule } from "@/types";
+import type { Branch, Pitch, PricingRule, SportConfig } from "@/types";
 import type { AuditMeta } from "@/types/ops";
 import type { PolicyForm, SetupData, SetupRate, SetupStaff, SetupTab } from "@/types/setup";
 import type { User } from "@/types/user";
@@ -79,61 +79,91 @@ const inRange = (r: { effectiveFrom?: string; effectiveTo?: string }, d: string)
 export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
     assertSuperAdmin(user);
     await begin();
-    const b = branches.find((x) => x.id === input.id);
-    if (!b) throw new AppError("NOT_FOUND", "Venue not found.", 404);
 
-    const sports = uniq(input.sportConfigs.filter((s) => s.active).map((s) => s.name));
-    for (const p of pitches) {
-        if (p.branchId === b.id && !sports.includes(p.sport)) {
-            throw new AppError("SPORT_IN_USE", `${p.name} is a ${p.sport} pitch. Change the pitch first.`, 409, {
-                sports: `${p.name} uses ${p.sport}`,
-            });
+    // Three admins share one login and save from different devices at the same
+    // time. On a version conflict the whole edit reruns on the fresh config
+    // instead of bouncing the admin with "reload and try again". withConfigRetry
+    // reloads before each retry, so everything in here re-finds its objects.
+    await withConfigRetry(async () => {
+        const b = branches.find((x) => x.id === input.id);
+        if (!b) throw new AppError("NOT_FOUND", "Venue not found.", 404);
+
+        // The browser sends its whole (possibly stale) snapshot of the venue.
+        // Only sports the admin actually touched are taken from the payload;
+        // untouched sports keep the server's current values, so two admins
+        // replacing different hero images never overwrite each other. A missing
+        // touchedSportIds list (old client / API call) means "all touched",
+        // which behaves exactly like the old whole-replace save.
+        const touched = new Set(input.touchedSportIds ?? input.sportConfigs.map((s) => s.id));
+        const incoming = new Map(input.sportConfigs.map((s) => [s.id, s]));
+
+        // [CLOUDINARY] Old image URLs captured BEFORE merging: only what THIS save
+        // replaces gets deleted, never an image another admin just uploaded.
+        const oldImages = new Map<string, string>();
+        for (const s of b.sportConfigs ?? []) {
+            if (s.image) oldImages.set(s.id, s.image);
         }
-    }
 
-    // [CLOUDINARY] Capture old sport background image URLs so we can delete any replaced/removed asset.
-    const oldImages = new Map<string, string>();
-    for (const s of b.sportConfigs ?? []) {
-        if (s.image) oldImages.set(s.id, s.image);
-    }
-
-    const next = {
-        name: input.name,
-        address: input.address,
-        phone: tel(input.phone),
-        whatsapp: waDigits(input.whatsapp),
-        mapUrl: input.mapUrl,
-        hours: input.hours,
-        status: input.status,
-        sports,
-        sportConfigs: input.sportConfigs,
-    };
-    const changes = diff(b as unknown as Record<string, unknown>, next);
-    Object.assign(b, next);
-    await persistConfig("branches");
-
-    // Bust cached public pages so the new sport order / venue details show up immediately.
-    // The admin dashboard already refreshes itself via router.refresh() — this is for the homepage
-    // and /book, which are served by a different serverless instance and would otherwise show stale data.
-    revalidatePath("/");
-    revalidatePath("/book");
-
-    // [CLOUDINARY] Delete any sport background that was replaced or removed.
-    const newImageById = new Map<string, string | null>();
-    for (const s of input.sportConfigs) {
-        newImageById.set(s.id, s.image || null);
-    }
-    for (const [key, oldImg] of oldImages) {
-        const newImg = newImageById.get(key) ?? null;
-        if (oldImg && oldImg !== newImg) {
-            const oldPublicId = publicIdFromImage(oldImg);
-            if (oldPublicId) await deleteImage(oldPublicId);
+        // Merge: kept sports from the server, touched sports from the payload,
+        // payload-only sports appended (just added in this form). Display order
+        // follows this save's form; server-only sports sort to the end.
+        const merged: SportConfig[] = (b.sportConfigs ?? []).map((sc) => {
+            const inc = incoming.get(sc.id);
+            return inc && touched.has(sc.id) ? { ...sc, ...inc } : { ...sc };
+        });
+        for (const inc of input.sportConfigs) {
+            if (!merged.some((m) => m.id === inc.id)) merged.push({ ...inc });
         }
-    }
+        const order = new Map(input.sportConfigs.map((s, i) => [s.id, i]));
+        merged.sort((x, y) => (order.get(x.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(y.id) ?? Number.MAX_SAFE_INTEGER));
 
-    if (Object.keys(changes).length > 0) {
-        await logAudit(user, { action: "BRANCH_CHANGED", entityType: "BRANCH", entityId: b.id, branchId: b.id, meta: changes });
-    }
+        const sports = uniq(merged.filter((s) => s.active).map((s) => s.name));
+        for (const p of pitches) {
+            if (p.branchId === b.id && !sports.includes(p.sport)) {
+                throw new AppError("SPORT_IN_USE", `${p.name} is a ${p.sport} pitch. Change the pitch first.`, 409, {
+                    sports: `${p.name} uses ${p.sport}`,
+                });
+            }
+        }
+
+        const next = {
+            name: input.name,
+            address: input.address,
+            phone: tel(input.phone),
+            whatsapp: waDigits(input.whatsapp),
+            mapUrl: input.mapUrl,
+            hours: input.hours,
+            status: input.status,
+            sports,
+            sportConfigs: merged,
+        };
+        const changes = diff(b as unknown as Record<string, unknown>, next);
+        Object.assign(b, next);
+        await persistConfig("branches");
+
+        // Bust cached public pages so the new sport order / venue details show up immediately.
+        // The admin dashboard already refreshes itself via router.refresh() — this is for the homepage
+        // and /book, which are served by a different serverless instance and would otherwise show stale data.
+        revalidatePath("/");
+        revalidatePath("/book");
+
+        // [CLOUDINARY] Delete any sport background that was replaced or removed.
+        const newImageById = new Map<string, string | null>();
+        for (const s of merged) {
+            newImageById.set(s.id, s.image || null);
+        }
+        for (const [key, oldImg] of oldImages) {
+            const newImg = newImageById.get(key) ?? null;
+            if (oldImg && oldImg !== newImg) {
+                const oldPublicId = publicIdFromImage(oldImg);
+                if (oldPublicId) await deleteImage(oldPublicId);
+            }
+        }
+
+        if (Object.keys(changes).length > 0) {
+            await logAudit(user, { action: "BRANCH_CHANGED", entityType: "BRANCH", entityId: b.id, branchId: b.id, meta: changes });
+        }
+    });
 }
 
 /* ---------- pitches ---------- */
@@ -217,57 +247,62 @@ export async function createPitch(user: ServerUser, input: PitchInput) {
 
 export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now: Date = new Date()) {
     await begin();
-    const p = pitches.find((x) => x.id === input.id);
-    if (!p) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
-    assertPitchEditor(user, p.branchId);
+    // Same parallel-admin protection as updateBranch. The payload describes
+    // exactly one pitch, so re-applying it to the reloaded state is safe:
+    // per-pitch last write wins, other admins' pitches are untouched.
+    await withConfigRetry(async () => {
+        const p = pitches.find((x) => x.id === input.id);
+        if (!p) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
+        assertPitchEditor(user, p.branchId);
 
-    const branch = branches.find((b) => b.id === p.branchId);
-    if (!branch) throw new AppError("NOT_FOUND", "Venue not found.", 404);
-    assertPitchRules(branch, input, p.id);
+        const branch = branches.find((b) => b.id === p.branchId);
+        if (!branch) throw new AppError("NOT_FOUND", "Venue not found.", 404);
+        assertPitchRules(branch, input, p.id);
 
-    // 24-hour turf — openTime / closeTime are constants, no schedule conflict possible.
-    // But changing slotMinutes can shift the grid, so still check that no upcoming
-    // booking falls off the new grid.
-    if (p.slotMinutes !== input.slotMinutes) {
-        await assertScheduleSafe(p.id, "00:00", "24:00", now);
-    }
+        // 24-hour turf — openTime / closeTime are constants, no schedule conflict possible.
+        // But changing slotMinutes can shift the grid, so still check that no upcoming
+        // booking falls off the new grid.
+        if (p.slotMinutes !== input.slotMinutes) {
+            await assertScheduleSafe(p.id, "00:00", "24:00", now);
+        }
 
-    // [CLOUDINARY] Capture the old image URL BEFORE we overwrite the pitch.
-    const oldImage = p.image;
+        // [CLOUDINARY] Capture the old image URL BEFORE we overwrite the pitch.
+        const oldImage = p.image;
 
-    const next = {
-        name: input.name,
-        sport: input.sport,
-        format: input.format,
-        dimensions: input.dimensions,
-        surface: input.surface,
-        openTime: "00:00",
-        closeTime: "24:00",
-        slotMinutes: input.slotMinutes,
-        maxConsecutiveSlots: input.maxConsecutiveSlots,
-        facilities: uniq(input.facilities),
-        image: input.image || null,
-        status: input.status,
-    };
-    const changes = diff(p as unknown as Record<string, unknown>, next);
-    Object.assign(p, next);
-    await persistConfig("pitches");
+        const next = {
+            name: input.name,
+            sport: input.sport,
+            format: input.format,
+            dimensions: input.dimensions,
+            surface: input.surface,
+            openTime: "00:00",
+            closeTime: "24:00",
+            slotMinutes: input.slotMinutes,
+            maxConsecutiveSlots: input.maxConsecutiveSlots,
+            facilities: uniq(input.facilities),
+            image: input.image || null,
+            status: input.status,
+        };
+        const changes = diff(p as unknown as Record<string, unknown>, next);
+        Object.assign(p, next);
+        await persistConfig("pitches");
 
-    // [CLOUDINARY] If the image URL changed, delete the old Cloudinary asset.
-    if (oldImage && oldImage !== next.image) {
-        const oldPublicId = publicIdFromImage(oldImage);
-        if (oldPublicId) await deleteImage(oldPublicId);
-    }
+        // [CLOUDINARY] If the image URL changed, delete the old Cloudinary asset.
+        if (oldImage && oldImage !== next.image) {
+            const oldPublicId = publicIdFromImage(oldImage);
+            if (oldPublicId) await deleteImage(oldPublicId);
+        }
 
-    if (Object.keys(changes).length > 0) {
-        await logAudit(user, {
-            action: "PITCH_CHANGED",
-            entityType: "PITCH",
-            entityId: p.id,
-            branchId: p.branchId,
-            meta: { pitch: p.name, ...changes },
-        });
-    }
+        if (Object.keys(changes).length > 0) {
+            await logAudit(user, {
+                action: "PITCH_CHANGED",
+                entityType: "PITCH",
+                entityId: p.id,
+                branchId: p.branchId,
+                meta: { pitch: p.name, ...changes },
+            });
+        }
+    });
 }
 
 export async function deletePitch(user: ServerUser, id: string, now: Date = new Date()) {
@@ -458,11 +493,20 @@ function assertRule(pitch: Pitch, input: RateInput, selfId?: string) {
 
     const from = input.effectiveFrom || "0000-00-00";
     const to = input.effectiveTo || "9999-99-99";
+    const inputScoped = !!(input.effectiveFrom || input.effectiveTo);
     for (const r of pricingRules) {
         if (r.id === selfId || r.pitchId !== pitch.id) continue;
         if (!r.days.some((d) => input.days.includes(d))) continue;
-        if (!(from <= (r.effectiveTo || "9999-99-99") && (r.effectiveFrom || "0000-00-00") <= to)) continue;
         if (!(s < toMinutes(r.endTime) && toMinutes(r.startTime) < e)) continue;
+        const rFrom = r.effectiveFrom || "0000-00-00";
+        const rTo = r.effectiveTo || "9999-99-99";
+        if (from > rTo || rFrom > to) continue; // date ranges never meet — no conflict
+        // Special date-range pricing (1–20+ day ranges for Ramadan, Eid,
+        // vacations…) may sit on top of the always-on price: ruleFor lets the
+        // scoped rule win on its dates. Everything else — two always-on rules
+        // covering the same slots, or two scoped rules sharing real dates —
+        // would be ambiguous and stays forbidden.
+        if (inputScoped && !(r.effectiveFrom || r.effectiveTo)) continue;
         throw new AppError("RATE_OVERLAP", `This overlaps an existing rate: ${describeRule(r)}.`, 409, {
             startTime: "Overlaps another rate",
         });
@@ -486,59 +530,74 @@ function ruleFields(input: RateInput) {
 
 export async function createRate(user: ServerUser, input: RateInput) {
     await begin();
-    const pitch = pitches.find((p) => p.id === input.pitchId);
-    if (!pitch) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
-    assertPitchEditor(user, pitch.branchId);
-    assertRule(pitch, input);
+    // Slots page: several admins add/change prices at the same time. Retry on
+    // a version conflict with reloaded state — the overlap check re-runs on the
+    // fresh rules, so nothing ambiguous is ever stored.
+    await withConfigRetry(async () => {
+        const pitch = pitches.find((p) => p.id === input.pitchId);
+        if (!pitch) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
+        assertPitchEditor(user, pitch.branchId);
+        assertRule(pitch, input);
 
-    const rule: PricingRule = { id: `${pitch.id}-${randomUUID().slice(0, 8)}`, pitchId: pitch.id, ...ruleFields(input) };
-    pricingRules.push(rule);
-    await persistConfig("pricingRules");
-    await logAudit(user, {
-        action: "PRICE_CHANGED",
-        entityType: "PITCH",
-        entityId: pitch.id,
-        branchId: pitch.branchId,
-        meta: { change: "added", pitch: pitch.name, rate: describeRule(rule), price: rule.pricePerSlot },
+        const rule: PricingRule = { id: `${pitch.id}-${randomUUID().slice(0, 8)}`, pitchId: pitch.id, ...ruleFields(input) };
+        // A failed attempt may have pushed the rule before losing the version
+        // race; only OUR leftover can carry this fresh uuid, so dropping it is safe.
+        const leftover = pricingRules.findIndex((r) => r.id === rule.id);
+        if (leftover !== -1) pricingRules.splice(leftover, 1);
+        pricingRules.push(rule);
+        await persistConfig("pricingRules");
+        await logAudit(user, {
+            action: "PRICE_CHANGED",
+            entityType: "PITCH",
+            entityId: pitch.id,
+            branchId: pitch.branchId,
+            meta: { change: "added", pitch: pitch.name, rate: describeRule(rule), price: rule.pricePerSlot },
+        });
     });
 }
 
 export async function updateRate(user: ServerUser, input: RateUpdateInput) {
     await begin();
-    const rule = pricingRules.find((r) => r.id === input.id);
-    const pitch = rule && pitches.find((p) => p.id === rule.pitchId);
-    if (!rule || !pitch) throw new AppError("NOT_FOUND", "Rate not found.", 404);
-    assertPitchEditor(user, pitch.branchId);
-    assertRule(pitch, { ...input, pitchId: pitch.id }, rule.id);
+    // Same parallel-admin protection as updateBranch: re-find the rule on every
+    // attempt and re-run the overlap check against the fresh state.
+    await withConfigRetry(async () => {
+        const rule = pricingRules.find((r) => r.id === input.id);
+        const pitch = rule && pitches.find((p) => p.id === rule.pitchId);
+        if (!rule || !pitch) throw new AppError("NOT_FOUND", "Rate not found.", 404);
+        assertPitchEditor(user, pitch.branchId);
+        assertRule(pitch, { ...input, pitchId: pitch.id }, rule.id);
 
-    const before = `${describeRule(rule)} ৳${rule.pricePerSlot}`;
-    Object.assign(rule, ruleFields(input));
-    await persistConfig("pricingRules");
-    await logAudit(user, {
-        action: "PRICE_CHANGED",
-        entityType: "PITCH",
-        entityId: pitch.id,
-        branchId: pitch.branchId,
-        meta: { change: "updated", pitch: pitch.name, before, after: `${describeRule(rule)} ৳${rule.pricePerSlot}` },
+        const before = `${describeRule(rule)} ৳${rule.pricePerSlot}`;
+        Object.assign(rule, ruleFields(input));
+        await persistConfig("pricingRules");
+        await logAudit(user, {
+            action: "PRICE_CHANGED",
+            entityType: "PITCH",
+            entityId: pitch.id,
+            branchId: pitch.branchId,
+            meta: { change: "updated", pitch: pitch.name, before, after: `${describeRule(rule)} ৳${rule.pricePerSlot}` },
+        });
     });
 }
 
 export async function deleteRate(user: ServerUser, id: string) {
     await begin();
-    const i = pricingRules.findIndex((r) => r.id === id);
-    const rule = pricingRules[i];
-    const pitch = rule && pitches.find((p) => p.id === rule.pitchId);
-    if (!rule || !pitch) throw new AppError("NOT_FOUND", "Rate not found.", 404);
-    assertPitchEditor(user, pitch.branchId);
+    await withConfigRetry(async () => {
+        const i = pricingRules.findIndex((r) => r.id === id);
+        const rule = pricingRules[i];
+        const pitch = rule && pitches.find((p) => p.id === rule.pitchId);
+        if (!rule || !pitch) throw new AppError("NOT_FOUND", "Rate not found.", 404);
+        assertPitchEditor(user, pitch.branchId);
 
-    pricingRules.splice(i, 1);
-    await persistConfig("pricingRules");
-    await logAudit(user, {
-        action: "PRICE_CHANGED",
-        entityType: "PITCH",
-        entityId: pitch.id,
-        branchId: pitch.branchId,
-        meta: { change: "removed", pitch: pitch.name, rate: describeRule(rule), price: rule.pricePerSlot },
+        pricingRules.splice(i, 1);
+        await persistConfig("pricingRules");
+        await logAudit(user, {
+            action: "PRICE_CHANGED",
+            entityType: "PITCH",
+            entityId: pitch.id,
+            branchId: pitch.branchId,
+            meta: { change: "removed", pitch: pitch.name, rate: describeRule(rule), price: rule.pricePerSlot },
+        });
     });
 }
 

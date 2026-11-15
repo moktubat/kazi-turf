@@ -4,7 +4,11 @@ import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { ApiError } from "@/lib/api";
 
 const MAX_BYTES = 5 * 1024 * 1024;
+// image/jpeg covers BOTH .jpg and .jpeg — same format, two names.
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+const EXTENSIONS = ["jpg", "jpeg", "png", "webp", "avif"];
+// MIME types + extensions → file picker filters correctly on phones & Windows
+const ACCEPT_ATTR = [...ACCEPTED, ...EXTENSIONS.map((e) => `.${e}`)].join(",");
 
 export function ImageUpload({
     label,
@@ -29,7 +33,9 @@ export function ImageUpload({
     const [imgError, setImgError] = useState(false);
 
     async function uploadFile(file: File) {
-        if (!ACCEPTED.includes(file.type)) {
+        const ext = file.name.toLowerCase().split(".").pop() ?? "";
+        const typeOk = ACCEPTED.includes(file.type) || EXTENSIONS.includes(ext);
+        if (!typeOk) {
             setUploadError("Only JPEG, PNG, WebP or AVIF images are accepted.");
             return;
         }
@@ -144,7 +150,7 @@ export function ImageUpload({
                 )}
                 <input
                     type="file"
-                    accept={ACCEPTED.join(",")}
+                    accept={ACCEPT_ATTR}
                     onChange={onFile}
                     className="sr-only"
                     disabled={uploading}

@@ -191,6 +191,7 @@ export async function createBooking(
         bookingStatus: "PENDING_PAYMENT",
         paymentStatus: "NOT_STARTED",
         subtotal: q.subtotal,
+        originalSubtotal: q.originalSubtotal,
         vatAmount: q.vat,
         total: q.total,
         advanceAmount: q.advance,
@@ -286,6 +287,8 @@ export function toDto(b: Booking, now: Date = new Date()): BookingDto {
         endAt: b.endAt,
         slotCount: b.slotCount,
         subtotal: b.subtotal,
+        // Bookings created before this field existed have no saved pre-adjustment price.
+        originalSubtotal: typeof b.originalSubtotal === "number" ? b.originalSubtotal : b.subtotal,
         vatAmount: b.vatAmount,
         vatRatePercent: b.vatRatePercentSnapshot,
         total: b.total,

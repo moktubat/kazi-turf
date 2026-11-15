@@ -12,6 +12,8 @@ export interface SelectionInfo {
 
 export interface Amounts {
     subtotal: number;
+    // Price before any date-range discount/surcharge — same as subtotal when no adjustment.
+    originalSubtotal: number;
     vat: number;
     vatRate: number | null;
     total: number;
@@ -41,6 +43,8 @@ export function SummaryCard({
     advancePercent: number;
     error?: string;
 }) {
+    const adjustment = amounts ? amounts.originalSubtotal - amounts.subtotal : 0; // + saved, − extra
+
     return (
         <section aria-label="Booking summary" className="overflow-hidden rounded-2xl border border-evergreen/10 bg-surface shadow-sm">
             <div className="bg-evergreen px-5 py-3">
@@ -73,7 +77,31 @@ export function SummaryCard({
                                 {loading && (
                                     <p className="text-xs font-medium text-evergreen/70">Updating price…</p>
                                 )}
-                                <Row label="Subtotal" value={formatBDT(amounts.subtotal)} />
+                                <Row
+                                    label="Subtotal"
+                                    value={
+                                        adjustment !== 0 ? (
+                                            <span className="inline-flex flex-wrap items-baseline justify-end gap-x-2">
+                                                <span className="font-medium text-evergreen/50 line-through">
+                                                    {formatBDT(amounts.originalSubtotal)}
+                                                </span>
+                                                <span>{formatBDT(amounts.subtotal)}</span>
+                                            </span>
+                                        ) : (
+                                            formatBDT(amounts.subtotal)
+                                        )
+                                    }
+                                />
+                                {adjustment > 0 && (
+                                    <p className="text-right text-xs font-semibold text-teal">
+                                        You save {formatBDT(adjustment)} ({Math.round((adjustment / amounts.originalSubtotal) * 100)}% off)
+                                    </p>
+                                )}
+                                {adjustment < 0 && (
+                                    <p className="text-right text-xs font-semibold text-held">
+                                        Includes {formatBDT(-adjustment)} {Math.round((-adjustment / amounts.subtotal) * 100)}% surcharge
+                                    </p>
+                                )}
                                 {amounts.vatRate && amounts.vat > 0 && (
                                     <Row
                                         label={

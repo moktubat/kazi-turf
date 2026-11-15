@@ -141,10 +141,11 @@ export function RatesTab({
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
                                             {priced.hasAdjustment && (
-                                                <Badge tone="success">
+                                                <Badge tone={priced.hasSurcharge ? "held" : "success"}>
                                                     {r.discountType === "PERCENT"
-                                                        ? `${r.discountValue}% off`
-                                                        : `${formatBDT(r.discountValue!)} off`}
+                                                        ? `${r.discountDirection === "SURCHARGE" ? "+" : "−"}${r.discountValue}%`
+                                                        : `${r.discountDirection === "SURCHARGE" ? "+" : "−"}${formatBDT(r.discountValue!)}`}
+                                                    {priced.hasSurcharge ? " increase" : " off"}
                                                 </Badge>
                                             )}
                                         </div>
@@ -205,6 +206,7 @@ interface FormState {
     effectiveFrom: string;
     effectiveTo: string;
     discountType: "PERCENT" | "FIXED" | "";
+    discountDirection: "DISCOUNT" | "SURCHARGE" | "";
     discountValue: string;
 }
 
@@ -224,6 +226,7 @@ function RateForm({ pitch, rate, onDone }: {
         effectiveFrom: rate?.effectiveFrom ?? "",
         effectiveTo: rate?.effectiveTo ?? "",
         discountType: rate?.discountType ?? "",
+        discountDirection: rate?.discountDirection ?? "DISCOUNT",
         discountValue: rate?.discountValue ? String(rate.discountValue) : "",
     });
 
@@ -253,7 +256,7 @@ function RateForm({ pitch, rate, onDone }: {
             effectiveFrom: f.effectiveFrom,
             effectiveTo: f.effectiveTo,
             discountType: f.discountType || null,
-            discountDirection: f.discountType ? "DISCOUNT" : null,
+            discountDirection: f.discountType ? (f.discountDirection || "DISCOUNT") : null,
             discountValue: f.discountType && f.discountValue ? num(f.discountValue) : null,
         };
         save(isNew ? rateSchema : rateUpdateSchema, isNew ? body : { ...body, id: rate.id }, "/admin/setup/rates", isNew ? "POST" : "PATCH", onDone);
@@ -365,22 +368,39 @@ function RateForm({ pitch, rate, onDone }: {
 
             <SheetSection
                 icon={Tag}
-                title="Discount (optional)"
-                description="Lower the slot price for promotions, off-season, etc. Surcharge is not used — everyone knows evenings cost more."
+                title="Price adjustment (optional)"
+                description="Decrease for promotions, Ramadan or slow seasons; increase for holidays, Eid week or events. Works on its own, or combined with a date range below."
             >
-                <Select
-                    label="Discount type"
-                    value={f.discountType}
-                    onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}
-                >
-                    <option value="">None (no discount)</option>
-                    <option value="PERCENT">Percentage (%)</option>
-                    <option value="FIXED">Fixed amount (৳)</option>
-                </Select>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Select
+                        label="Adjustment type"
+                        value={f.discountType}
+                        onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}
+                    >
+                        <option value="">None (regular price)</option>
+                        <option value="PERCENT">Percentage (%)</option>
+                        <option value="FIXED">Fixed amount (৳)</option>
+                    </Select>
+
+                    {f.discountType && (
+                        <Select
+                            label="Direction"
+                            value={f.discountDirection || "DISCOUNT"}
+                            onChange={(e) => set("discountDirection", e.target.value as FormState["discountDirection"])}
+                        >
+                            <option value="DISCOUNT">Decrease price</option>
+                            <option value="SURCHARGE">Increase price</option>
+                        </Select>
+                    )}
+                </div>
 
                 {f.discountType && (
                     <Input
-                        label={f.discountType === "PERCENT" ? "Discount percentage (%)" : "Discount amount (৳)"}
+                        label={
+                            f.discountType === "PERCENT"
+                                ? `Percentage (${f.discountDirection === "SURCHARGE" ? "increase" : "discount"} %)`
+                                : `Amount (${f.discountDirection === "SURCHARGE" ? "increase" : "discount"} ৳)`
+                        }
                         type="number"
                         inputMode="numeric"
                         value={f.discountValue}
@@ -388,7 +408,9 @@ function RateForm({ pitch, rate, onDone }: {
                         hint={
                             f.discountType === "PERCENT"
                                 ? "1–100. E.g. 20 = 20% off."
-                                : "Whole taka. Must be less than the slot price."
+                                : f.discountDirection === "SURCHARGE"
+                                    ? "Whole taka added on top of the slot price."
+                                    : "Whole taka. Must be less than the slot price."
                         }
                         error={fields.discountValue}
                         onChange={(e) => set("discountValue", e.target.value)}
@@ -397,17 +419,20 @@ function RateForm({ pitch, rate, onDone }: {
 
                 {f.discountType && f.discountValue && f.price && (
                     (() => {
-                        const priced = applyDiscount(Number(f.price) || 0, f.discountType, Number(f.discountValue) || 0, "DISCOUNT");
+                        const direction = (f.discountDirection || "DISCOUNT") as "DISCOUNT" | "SURCHARGE";
+                        const priced = applyDiscount(Number(f.price) || 0, f.discountType, Number(f.discountValue) || 0, direction);
                         return priced.hasAdjustment ? (
                             <div className="rounded-lg border border-teal/30 bg-mint/50 p-3 text-sm" aria-live="polite">
                                 <p className="text-evergreen/70">
-                                    Original: <span className="line-through">{formatBDT(priced.original)}</span>
+                                    Regular price: <span className="line-through">{formatBDT(priced.original)}</span>
                                 </p>
-                                <p className="font-semibold text-teal">
-                                    After discount: {formatBDT(priced.discounted)}
+                                <p className={`font-semibold ${priced.hasSurcharge ? "text-held" : "text-teal"}`}>
+                                    {priced.hasSurcharge ? "After increase" : "After discount"}: {formatBDT(priced.discounted)}
                                 </p>
                                 <p className="text-xs text-evergreen/60">
-                                    Customer saves {formatBDT(priced.original - priced.discounted)}
+                                    {priced.hasSurcharge
+                                        ? `Customers pay ${formatBDT(priced.discounted - priced.original)} more per slot`
+                                        : `Customers save ${formatBDT(priced.original - priced.discounted)} per slot`}
                                 </p>
                             </div>
                         ) : null;
@@ -415,7 +440,7 @@ function RateForm({ pitch, rate, onDone }: {
                 )}
             </SheetSection>
 
-            <SheetSection icon={CalendarRange} title="Effective dates" description={'Leave both empty for "always". Use these for seasonal pricing (e.g. winter rates).'}>
+            <SheetSection icon={CalendarRange} title="Date range (optional)" description={'Leave both empty for "always". A dated rule overrides the regular price for those days only — perfect for Ramadan/Eid offers or vacation rates of 1, 2, 20 or any number of days.'}>
                 <div className="grid grid-cols-2 gap-4">
                     <Input
                         label="Effective from (optional)"

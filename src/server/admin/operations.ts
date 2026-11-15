@@ -223,11 +223,16 @@ export async function handleChangeRequest(user: ServerUser, code: string, now: D
     return toAdminDto(b, user, now);
 }
 
+// Block (kind: MAINTENANCE or HELD, reason required) or unblock (block: false)
+// one cell. HELD = manual hold for walk-ins / friends & family who pay at the
+// venue; it shows as "Held" on /book just like an online hold. A customer's
+// own online hold or a real booking is never touched.
 export async function setBlock(
     user: ServerUser,
-    input: { pitchId: string; cellStart: string; block: boolean; reason?: string },
+    input: { pitchId: string; cellStart: string; block: boolean; kind?: "MAINTENANCE" | "HELD"; reason?: string },
     now: Date = new Date()
 ) {
+    const kind = input.kind ?? "MAINTENANCE";
     const pitch = getPitch(input.pitchId);
     if (!pitch) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
     assertBranchAccess(user, pitch.branchId);
@@ -240,14 +245,34 @@ export async function setBlock(
     );
     if (!cell) throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
 
-    const meta = { pitch: pitch.name, date, start: cell.start };
+    const meta = { pitch: pitch.name, date, start: cell.start, kind };
     const entityId = `${pitch.id}@${cell.cellStart}`;
     await connectDb();
 
     if (input.block) {
         if (cell.status === "PAST") throw new AppError("SLOT_PAST", "That slot has already ended.", 409);
+        // Never touch a real booking or a customer's live online hold.
+        const existing = await SlotClaimModel.findOne({ pitchId: pitch.id, cellStart: cell.cellStart })
+            .lean<{ state: string; bookingId?: string; expiresAt?: string } | null>();
+        const onlineHold =
+            existing?.state === "HELD" &&
+            !!existing.bookingId &&
+            (!existing.expiresAt || new Date(existing.expiresAt) > now);
+        if (existing?.state === "BOOKED" || onlineHold) {
+            throw new AppError("SLOT_TAKEN", "That slot is booked or on hold for a customer.", 409);
+        }
         await tx(async (s) => {
-            await insertClaims(pitch.id, [cell.cellStart], { state: "MAINTENANCE", reason: input.reason }, now, s);
+            if (existing) {
+                // A staff claim already sits here (expired hold or the other kind):
+                // flip it to the requested kind instead of failing on the unique index.
+                await SlotClaimModel.updateOne(
+                    { pitchId: pitch.id, cellStart: cell.cellStart },
+                    { $set: { state: kind, reason: input.reason ?? null }, $unset: { bookingId: "", expiresAt: "" } },
+                    { session: s }
+                );
+            } else {
+                await insertClaims(pitch.id, [cell.cellStart], { state: kind, reason: input.reason }, now, s);
+            }
             await logAudit(
                 user,
                 { action: "SLOT_BLOCKED", entityType: "SLOT", entityId, branchId: pitch.branchId, meta: { ...meta, reason: input.reason ?? null } },
@@ -256,7 +281,11 @@ export async function setBlock(
         });
     } else {
         await tx(async (s) => {
-            const r = await SlotClaimModel.deleteOne({ pitchId: pitch.id, cellStart: cell.cellStart, state: "MAINTENANCE" }, { session: s });
+            // Only staff claims (no bookingId) can be released here.
+            const r = await SlotClaimModel.deleteOne(
+                { pitchId: pitch.id, cellStart: cell.cellStart, state: { $in: ["MAINTENANCE", "HELD"] }, bookingId: null },
+                { session: s }
+            );
             if (r.deletedCount === 0) throw new AppError("NOT_FOUND", "This slot is not blocked.", 404);
             await logAudit(user, { action: "SLOT_UNBLOCKED", entityType: "SLOT", entityId, branchId: pitch.branchId, meta }, { session: s });
         });

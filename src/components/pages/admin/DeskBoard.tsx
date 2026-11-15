@@ -22,7 +22,10 @@ function Cell({
 
     const bk = cell.booking;
     const available = cell.status === "AVAILABLE";
-    const interactive = available || !!bk || cell.status === "MAINTENANCE";
+    // Tappable: open slots, anything with a booking, staff blocks and manual holds.
+    // An online HELD cell (customer is paying) has a booking attached and opens that instead.
+    const interactive =
+        available || !!bk || cell.status === "MAINTENANCE" || (cell.status === "HELD" && !bk);
     const checkedIn = bk?.bookingStatus === "CHECKED_IN";
     const look = slotLook[cell.status];
     const Icon = checkedIn ? LogIn : look.icon;
@@ -122,7 +125,7 @@ export function DeskBoard({
             <ul className="flex flex-wrap gap-2 text-xs font-semibold" aria-label="Board legend">
                 {[
                     ["Available: tap to add a walk-in", "border-emerald bg-emerald/15"],
-                    ["Held (online, unpaid)", "border-held/40 bg-held-soft text-held"],
+                    ["Held (unpaid online or staff hold)", "border-held/40 bg-held-soft text-held"],
                     ["Booked", "border-booked/40 bg-booked-soft text-booked"],
                     ["Checked in", "border-teal/40 bg-mint text-teal"],
                     ["Maintenance", "border-maint/40 bg-maint-soft text-maint"],
@@ -197,7 +200,7 @@ export function DeskBoard({
                                 onOpen={() => {
                                     if (c.status === "AVAILABLE") onAvailable(active.id, c);
                                     else if (c.booking) onBooking(c.booking.code);
-                                    else if (c.status === "MAINTENANCE") onBlock(active.id, c);
+                                    else if (c.status === "MAINTENANCE" || (c.status === "HELD" && !c.booking)) onBlock(active.id, c);
                                 }}
                                 onMore={() => onBlock(active.id, c)}
                             />

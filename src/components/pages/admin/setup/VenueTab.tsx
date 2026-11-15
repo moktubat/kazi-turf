@@ -193,12 +193,28 @@ function VenueForm({ venue }: { venue: Branch }) {
                 id: sc.id || slugify(sc.name),
             }));
 
+        // Sports this save actually changed (or added), diffed against the venue
+        // snapshot this form was loaded with. The server applies only these and
+        // keeps the current values for every other sport — so when several admins
+        // save in parallel, replacing one sport's background never reverts a
+        // colleague's just-saved image.
+        const serverById = new Map(
+            (venue.sportConfigs ?? []).map((sc) => [sc.id || slugify(sc.name), sc] as const)
+        );
+        const touchedSportIds = sportConfigs
+            .filter((sc) => {
+                const sv = serverById.get(sc.id);
+                if (!sv) return true; // newly added sport
+                return sv.name !== sc.name || (sv.image || "") !== sc.image || (sv.active ?? true) !== sc.active;
+            })
+            .map((sc) => sc.id);
+
         console.log("[VenueTab] submit — derived sports:", sports);
-        console.log("[VenueTab] submit — sportConfigs:", sportConfigs.map(c => `${c.name} (${c.id}) image:${c.image ? "yes" : "no"}`));
+        console.log("[VenueTab] submit — touched sports:", touchedSportIds);
 
         save(
             branchUpdateSchema,
-            { ...f, sports, sportConfigs, id: venue.id },
+            { ...f, sports, sportConfigs, touchedSportIds, id: venue.id },
             "/admin/setup/branches",
             "PATCH",
             () => { }
