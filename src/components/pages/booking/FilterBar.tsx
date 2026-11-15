@@ -74,15 +74,20 @@ export function FilterBar({
                             aria-label="Field"
                             value={pitchFilter}
                             onChange={(e) => onPitch(e.target.value)}
-                            disabled={!pitches || pitches.length === 0}
-                            className={`${control} appearance-none pr-8 disabled:cursor-not-allowed disabled:opacity-50`}
+                            className={`${control} appearance-none pr-8`}
                         >
-                            <option value="">Any field</option>
-                            {(pitches ?? []).map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.name}{p.format ? ` · ${p.format}` : ""}
-                                </option>
-                            ))}
+                            {(!pitches || pitches.length === 0) ? (
+                                <option value="">Loading fields…</option>
+                            ) : (
+                                <>
+                                    <option value="">Any field</option>
+                                    {pitches.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name}{p.format ? ` · ${p.format}` : ""}
+                                        </option>
+                                    ))}
+                                </>
+                            )}
                         </select>
                         <ChevronDown size={16} aria-hidden className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-evergreen/50" />
                     </div>

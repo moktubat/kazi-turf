@@ -15,23 +15,14 @@ function apply(res: NextResponse) {
     return res;
 }
 
-// Random nonce generated per-request for inline scripts/styles.
-function generateNonce(): string {
-    const bytes = new Uint8Array(18);
-    crypto.getRandomValues(bytes);
-    return btoa(String.fromCharCode(...bytes));
-}
-
 export function proxy(req: NextRequest) {
     if (req.nextUrl.pathname.startsWith("/api/")) return apply(NextResponse.next());
 
-    const nonce = generateNonce();
-
     const csp = [
         "default-src 'self'",
-        // Nonce-based script-src: Next.js inline scripts get the nonce attribute.
-        `script-src 'self' 'nonce-${nonce}'${PROD ? "" : " 'unsafe-eval'"}`,
-        // Tailwind injects inline styles; 'unsafe-inline' on style-src is acceptable.
+        // Next.js injects inline bootstrap scripts without a nonce attribute,
+        // so 'unsafe-inline' is required in production. 'unsafe-eval' only in dev.
+        `script-src 'self' 'unsafe-inline'${PROD ? "" : " 'unsafe-eval'"}`,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: blob: https://res.cloudinary.com",
         "font-src 'self' https://fonts.gstatic.com",
@@ -48,7 +39,6 @@ export function proxy(req: NextRequest) {
     res.headers.set("Content-Security-Policy", csp);
     // Make the nonce available to Next.js via a request header so it can be applied
     // to inline scripts rendered by the App Router.
-    res.headers.set("x-nonce", nonce);
     return apply(res);
 }
 

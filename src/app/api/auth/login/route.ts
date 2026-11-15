@@ -5,7 +5,7 @@ import { authenticate, toSessionUser } from "@/server/auth/users";
 import { clearLoginFailures, isLocked, recordLoginFailure } from "@/server/auth/lockout";
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
-import { rateLimitAsync } from "@/server/security/rateLimit";
+import { clearRateLimit, rateLimitAsync } from "@/server/security/rateLimit";
 
 export async function POST(req: NextRequest) {
     try {
@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
         const window = 10 * 60_000;
 
         if (
-            !(await rateLimitAsync(`login-ip:${clientIp(req)}`, 20, window)) ||
-            !(await rateLimitAsync(`login-id:${input.identifier.toLowerCase()}`, 5, window))
+            !(await rateLimitAsync(`login-ip:${clientIp(req)}`, 60, window)) ||
+            !(await rateLimitAsync(`login-id:${input.identifier.toLowerCase()}`, 10, window))
         ) {
             throw new AppError("RATE_LIMITED", "Too many attempts. Please wait a few minutes.", 429);
         }
@@ -40,6 +40,10 @@ export async function POST(req: NextRequest) {
 
         // Successful login — clear the failure counter.
         await clearLoginFailures(input.identifier);
+
+        await clearRateLimit(`login-id:${input.identifier.toLowerCase()}`);
+        await clearRateLimit(`login-ip:${clientIp(req)}`);
+
 
         const { token, expires } = await createSession(user.id);
         const res = ok({ user: toSessionUser(user) });

@@ -1,65 +1,60 @@
-// Shared, distributed-aware rate limiting.
-// - rateLimit():      in-memory, per instance (kept for non-critical paths only)
-// - rateLimitAsync(): shared via Upstash Redis when configured (production-safe)
-//
-// In production EVERY call site MUST use rateLimitAsync. rateLimit is kept only
-// for code paths where a per-instance floor is acceptable (e.g. dev/test).
-import "server-only";
+/**
+ * Sliding-window rate limiter, in-memory per serverless instance.
+ *
+ * Note: On Vercel (serverless), each instance keeps its own counter.
+ * That means the *effective* limit across all instances is roughly
+ * (limit × instance_count). To keep "Too many attempts" from firing
+ * on a single innocent user, the limit numbers themselves should be
+ * generous, AND we use a short sliding window so old hits drop off fast.
+ *
+ * For true distributed rate limiting, swap the Map for Upstash Redis:
+ *   https://upstash.com/docs/redis/sdks/typescript
+ */
 
-const buckets = new Map<string, { count: number; reset: number }>();
+type Hit = { at: number };
 
-/** In-memory limiter — per-instance. Use only in dev or for non-critical endpoints. */
-export function rateLimit(key: string, limit: number, windowMs: number): boolean {
-    const now = Date.now();
-    if (buckets.size > 5000) {
-        for (const [k, b] of buckets) if (b.reset <= now) buckets.delete(k);
-    }
-    const b = buckets.get(key);
-    if (!b || b.reset <= now) {
-        buckets.set(key, { count: 1, reset: now + windowMs });
-        return true;
-    }
-    b.count += 1;
-    return b.count <= limit;
-}
+const buckets = new Map<string, Hit[]>();
+
+// Drop buckets that haven't been touched in this long.
+const GC_INTERVAL_MS = 5 * 60 * 1000;
+let lastGc = Date.now();
 
 /**
- * Distributed limiter via Upstash Redis REST when configured.
- * Falls back to in-memory if Redis is not configured.
- *
- * In production (NODE_ENV === "production") the function HARD-FAILS if Redis
- * is not configured — this prevents silently running with per-instance limits.
+ * Returns `true` if the action is allowed, `false` if rate-limited.
+ * `limit` = max hits inside `windowMs`.
  */
-export async function rateLimitAsync(key: string, limit: number, windowMs: number): Promise<boolean> {
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+export async function rateLimitAsync(
+    key: string,
+    limit: number,
+    windowMs: number
+): Promise<boolean> {
+    const now = Date.now();
 
-    if (!url || !token) {
-        if (process.env.NODE_ENV === "production") {
-            console.error("[rateLimit] UPSTASH_REDIS_REST_URL/TOKEN not set in production — refusing to fall back to per-instance limiting.");
-            // Fail CLOSED: reject the request rather than allow per-instance bypass.
-            return false;
+    // Cheap GC — don't let the map grow forever.
+    if (now - lastGc > GC_INTERVAL_MS) {
+        for (const [k, hits] of buckets) {
+            if (hits.length === 0 || now - hits[hits.length - 1].at > windowMs) {
+                buckets.delete(k);
+            }
         }
-        return rateLimit(key, limit, windowMs);
+        lastGc = now;
     }
 
-    try {
-        const k = `rl:${key}`;
-        const res = await fetch(`${url.replace(/\/+$/, "")}/pipeline`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify([
-                ["INCR", k],
-                ["PEXPIRE", k, String(windowMs), "NX"],
-            ]),
-            cache: "no-store",
-            signal: AbortSignal.timeout(2000),
-        });
-        if (!res.ok) throw new Error(String(res.status));
-        const data = (await res.json()) as { result?: number }[];
-        return Number(data[0]?.result ?? 0) <= limit;
-    } catch (e) {
-        console.error("[rateLimit] Upstash error, falling back to in-memory:", e instanceof Error ? e.message : e);
-        return rateLimit(key, limit, windowMs);
+    const hits = buckets.get(key) ?? [];
+    // Keep only hits inside the sliding window.
+    const fresh = hits.filter((h) => now - h.at < windowMs);
+
+    if (fresh.length >= limit) {
+        buckets.set(key, fresh);
+        return false;
     }
+
+    fresh.push({ at: now });
+    buckets.set(key, fresh);
+    return true;
+}
+
+/** Reset the counter for a key (used after a successful action). */
+export async function clearRateLimit(key: string): Promise<void> {
+    buckets.delete(key);
 }

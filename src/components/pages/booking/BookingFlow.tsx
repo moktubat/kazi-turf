@@ -16,6 +16,8 @@ import { SlotGrid } from "./SlotGrid";
 import { Stepper } from "./Stepper";
 import { SummaryBar } from "./SummaryBar";
 import { SummaryCard, type Amounts, type SelectionInfo } from "./SummaryCard";
+import { addDays } from "@/lib/time";
+import { DateStrip } from "./DateStrip";
 
 export interface FlowInitial {
     sport: string;
@@ -69,6 +71,19 @@ export function BookingFlow({
 
     const abortRef = useRef<AbortController | null>(null);
     const preselected = useRef(false);
+
+    const dates = useMemo(() => {
+        const out: string[] = [];
+        let d = minDate;
+        let guard = 0;
+        while (d <= maxDate && guard < 60) {
+            out.push(d);
+            d = addDays(d, 1);
+            guard++;
+        }
+        return out;
+    }, [minDate, maxDate]);
+
 
     /* ---------- availability ---------- */
     const load = useCallback(
@@ -364,6 +379,8 @@ export function BookingFlow({
                     <div className="min-w-0 space-y-5">
                         {step === 1 && (
                             <>
+
+
                                 <FilterBar
                                     venue={venue}
                                     sport={sport}
@@ -377,6 +394,13 @@ export function BookingFlow({
                                     onPitch={setPitchFilter}
                                 />
 
+                                <DateStrip
+                                    dates={dates}
+                                    value={date}
+                                    today={minDate}
+                                    onChange={changeDate}
+                                />
+                                
                                 {notice && (
                                     <p role="alert" className="flex items-start gap-2 rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
                                         <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> {notice}

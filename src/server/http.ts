@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
- 
+
 export class AppError extends Error {
     constructor(
         public code: string,
@@ -46,8 +46,25 @@ export function handleError(e: unknown) {
 
 
 export function clientIp(req: NextRequest): string {
-    return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const headers = req.headers;
+
+    // Vercel sets this to the real visitor IP.
+    const vercel = headers.get("x-vercel-forwarded-for");
+    if (vercel) return vercel.split(",")[0].trim();
+
+    // Standard proxy header. First entry is the original client.
+    const xff = headers.get("x-forwarded-for");
+    if (xff) return xff.split(",")[0].trim();
+
+    // Some proxies set this.
+    const real = headers.get("x-real-ip");
+    if (real) return real.trim();
+
+    // Fallback — this is the proxy/load-balancer, not the real client,
+    // but it's better than "undefined" (which would share one bucket globally).
+    return req.headers.get("x-forwarded")?.split(" ")[0]?.trim() ?? "0.0.0.0";
 }
+
 
 export async function readJson(req: NextRequest): Promise<unknown> {
     try {

@@ -95,17 +95,15 @@ export function SlotGrid({
                                 {p.maxConsecutiveSlots > 1 && ` · up to ${p.maxConsecutiveSlots} consecutive slots`}
                             </p>
                         </div>
-                        <div className="scrollbar-thin overflow-x-auto pb-2">
-                            <div className="grid grid-flow-col auto-cols-[5.75rem] justify-start gap-2">
-                                {p.cells.map((c) => (
-                                    <SlotChip
-                                        key={c.cellStart}
-                                        cell={c}
-                                        selected={isSelected(p.id, c)}
-                                        onSelect={() => onToggle(p.id, c)}
-                                    />
-                                ))}
-                            </div>
+                        <div className="grid grid-cols-3 gap-2 lg:grid-cols-4 xl:grid-cols-5">
+                            {p.cells.map((c) => (
+                                <SlotChip
+                                    key={c.cellStart}
+                                    cell={c}
+                                    selected={isSelected(p.id, c)}
+                                    onSelect={() => onToggle(p.id, c)}
+                                />
+                            ))}
                         </div>
                     </section>
                 ))}
@@ -132,7 +130,7 @@ export function SlotGrid({
                             {active.format}
                             {active.maxConsecutiveSlots > 1 && ` · up to ${active.maxConsecutiveSlots} consecutive slots`}
                         </p>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-2">
                             {active.cells.map((c) => (
                                 <SlotChip
                                     key={c.cellStart}
