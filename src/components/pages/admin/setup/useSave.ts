@@ -11,6 +11,10 @@ export function useSave() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fields, setFields] = useState<Record<string, string>>({});
+    // True after a 409 CONFIG_CONFLICT: this page's snapshot of the server
+    // data is outdated. We refresh the server-rendered data behind the form;
+    // the admin simply presses Save again with the same edits.
+    const [stale, setStale] = useState(false);
 
     async function save(
         schema: ZodType | null,
@@ -21,6 +25,7 @@ export function useSave() {
     ) {
         setError(null);
         setFields({});
+        setStale(false);
         if (schema) {
             const parsed = schema.safeParse(payload);
             if (!parsed.success) {
@@ -39,9 +44,15 @@ export function useSave() {
             if (e instanceof ApiError) {
                 if (e.fields) setFields(e.fields);
                 setError(e.message);
+                // Optimistic-lock rejection: pull fresh server data in the
+                // background so the next Save runs against the current
+                // version. Local form edits survive router.refresh().
+                if (e.code === "CONFIG_CONFLICT") {
+                    setStale(true);
+                    router.refresh();
+                }
             } else if (e instanceof Error) {
-                // FIX: Show the actual error message, not just "Something went wrong"
-                // This helps diagnose non-ApiError failures (network errors, parse errors, etc.)
+                // Show the actual error message, not just "Something went wrong".
                 setError(`Error: ${e.message}. Check the terminal for [setup/...] logs.`);
             } else {
                 setError(`Unexpected error: ${String(e)}. Check the terminal.`);
@@ -51,5 +62,5 @@ export function useSave() {
         }
     }
 
-    return { busy, error, fields, save };
+    return { busy, error, fields, stale, save };
 }

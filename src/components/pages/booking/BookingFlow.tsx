@@ -16,6 +16,8 @@ import { SlotTable } from "./SlotTable";
 import { Stepper } from "./Stepper";
 import { SummaryBar } from "./SummaryBar";
 import { SummaryCard, type Amounts, type SelectionInfo } from "./SummaryCard";
+import DateStrip from "./DateStrip";
+import { addDays } from "@/lib/time";
 
 export interface FlowInitial {
     sport: string;
@@ -281,6 +283,15 @@ export function BookingFlow({
         : data?.pitches ?? [];
     const hasOpen = visiblePitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE")) ?? false;
 
+    // One-tap date list: today (minDate) through the end of the booking window.
+    const dates = useMemo(() => {
+        const list: string[] = [];
+        for (let d = minDate; ; d = addDays(d, 1)) {
+            list.push(d);
+            if (d >= maxDate) break;
+        }
+        return list;
+    }, [minDate, maxDate]);
 
     /* ---------- actions ---------- */
     function onToggle(pitchId: string, cell: Cell) {
@@ -376,6 +387,9 @@ export function BookingFlow({
                                     onPitch={setPitchFilter}
                                     onRefresh={() => load(true)}
                                 />
+
+                                {/* Date strip — one-tap date switching under the filter bar */}
+                                <DateStrip dates={dates} value={date} today={minDate} onChange={changeDate} />
 
                                 {notice && (
                                     <p role="alert" className="flex items-start gap-2 rounded-xl bg-held-soft p-3 text-sm font-medium text-held">

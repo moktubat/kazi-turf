@@ -47,10 +47,15 @@ export function SlotTable({
     }, []);
 
     // Follow deep links and externally selected pitches.
-    useEffect(() => {
+    // Adjusted during render instead of in an effect — a props change now
+    // re-renders once, with no cascading effect pass.
+    const [prevExternalId, setPrevExternalId] = useState<string | null>(
+        selectedPitchId
+    );
+    if (selectedPitchId !== prevExternalId) {
+        setPrevExternalId(selectedPitchId);
         setActiveId(selectedPitchId);
-    }, [selectedPitchId]);
-
+    }
 
     // Only upcoming slots: drop PAST cells and any pitch left with no visible cells.
     const isPast = (c: Cell) =>
@@ -67,13 +72,6 @@ export function SlotTable({
     const active =
         visiblePitches.find((p) => p.id === activeId) ??
         visiblePitches[0];
-
-    // Automatically fall back when the active pitch has no remaining slots.
-    useEffect(() => {
-        if (active && active.id !== activeId) {
-            setActiveId(active.id);
-        }
-    }, [activeId, active?.id]);
 
     const tabsEnabled =
         showTabs && visiblePitches.length > 1;

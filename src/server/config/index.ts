@@ -16,8 +16,15 @@ export type ConfigKey = keyof typeof registry;
 const KEYS = Object.keys(registry) as ConfigKey[];
 
 const TTL_MS = 5_000;
-const g = globalThis as unknown as { __ktCfg?: { last: number; run: Promise<void> | null } };
-const state = (g.__ktCfg ??= { last: 0, run: null });
+const g = globalThis as unknown as { __ktCfg?: { last: number } };
+const state = (g.__ktCfg ??= { last: 0 });
+
+// Per-module-instance state. Route bundles each get their own copy of this
+// module, so the in-flight load and the "has loaded" flag must live HERE —
+// sharing them through globalThis let one bundle await a load that populated
+// ANOTHER bundle's versions Map, then skip its own via the shared TTL.
+let run: Promise<void> | null = null;
+let populated = false;
 
 // Use performance time instead of Date.now() — Next.js 16's prerender tracker
 // flags Date.now() as "unstable". performance.now() + timeOrigin is not tracked.
@@ -61,27 +68,37 @@ async function load() {
         const doc = saved.get(key);
         if (doc) {
             apply(registry[key], doc.value);
-            versions.set(key, doc.version ?? 0);
+            // save() compares against this exact number, so the stored value
+            // must be a real number. Docs created before the version field
+            // existed (or restored from a dump) have none — backfill once,
+            // otherwise every save 409s "reload and try again" forever, even
+            // after withConfigRetry's forced reloads.
+            const v = typeof doc.version === "number" && Number.isFinite(doc.version) ? doc.version : 0;
+            if (doc.version !== v) {
+                await ConfigModel.updateOne({ key }, { $set: { version: v } });
+            }
+            versions.set(key, v);
         } else {
             await seed(key);
             versions.set(key, 0);
         }
     }
+    populated = true;
     state.last = nowMs();
 }
 
 /** Cheap to call often: reloads at most every 5 s per instance. `force` is used right before an edit. */
 export async function ensureConfig(force = false): Promise<void> {
-    if (force && state.run) await state.run.catch(() => undefined);
-    if (!force && nowMs() - state.last < TTL_MS) return;
+    if (force && run) await run.catch(() => undefined);
+    if (!force && populated && nowMs() - state.last < TTL_MS) return;
 
-    state.run ??= load().finally(() => {
-        state.run = null;
+    run ??= load().finally(() => {
+        run = null;
     });
     try {
-        await state.run;
+        await run;
     } catch (e) {
-        if (state.last === 0) throw e; // never loaded: fail loudly
+        if (!populated && state.last === 0) throw e; // never loaded: fail loudly
         console.error("[config] reload failed, using last known values");
         state.last = nowMs() - TTL_MS + 1_000; // retry in about a second
     }
@@ -102,6 +119,7 @@ async function save(key: ConfigKey) {
         );
         if (r.matchedCount === 0) {
             // Version mismatch — another instance wrote first.
+            console.error(`[config] version conflict on "${key}": expected ${expectedVersion}, matched 0 document(s)`);
             throw new AppError("CONFIG_CONFLICT", "This was just changed by someone else. Reload and try again.", 409);
         }
         versions.set(key, expectedVersion + 1);

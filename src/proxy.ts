@@ -1,6 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { site } from "@/data/site";
 
 const PROD = process.env.NODE_ENV === "production";
+
+// 'self' is tied to the origin the page was opened on. If the page is opened
+// over http://, upgrade-insecure-requests rewrites the form POST to https://
+// before the form-action check, so 'self' no longer matches and Chrome blocks
+// the Logout form. Listing the site's https origins explicitly keeps form
+// posts working no matter which origin the page was opened on.
+const formAction = ["'self'", site.url, site.url.replace("://", "://www.")].join(" ");
 
 const baseHeaders: Record<string, string> = {
     "X-Content-Type-Options": "nosniff",
@@ -30,7 +38,7 @@ export function proxy(req: NextRequest) {
         `connect-src 'self'${PROD ? "" : " ws: wss:"}`,
         "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self'",
+        formAction,
         "frame-ancestors 'none'",
         ...(PROD ? ["upgrade-insecure-requests"] : []),
     ].join("; ");
