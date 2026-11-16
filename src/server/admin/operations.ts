@@ -9,7 +9,7 @@ import type { CheckInInput } from "@/schemas/admin";
 import { logAudit } from "@/server/audit";
 import { assertBranchAccess } from "@/server/auth/guards";
 import type { ServerUser } from "@/server/auth/session";
-import { getPitch, getPitchAvailability } from "@/server/availability";
+import { getPitch, getPitchAvailability, invalidateAvailability } from "@/server/availability";
 import { findBookingById, releaseClaims, settle } from "@/server/bookings";
 import { insertClaims } from "@/server/claims";
 import { connectDb, tx } from "@/server/db/connect";
@@ -290,5 +290,7 @@ export async function setBlock(
             await logAudit(user, { action: "SLOT_UNBLOCKED", entityType: "SLOT", entityId, branchId: pitch.branchId, meta }, { session: s });
         });
     }
+    // Committed: the board refresh and /book must see the new state right away.
+    invalidateAvailability(pitch.id);
     return { ok: true };
 }

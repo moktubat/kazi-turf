@@ -57,7 +57,7 @@ export async function validateWalkIn(user: ServerUser, pitchId: string, cellStar
     const picked = dates.map((d) => cells.find((c) => c.cellStart === d.toISOString()));
     if (picked.some((c) => !c)) throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
 
-    const step = policies.slotMinutes * 60_000;
+    const step = (pitch.slotMinutes ?? policies.slotMinutes) * 60_000; // this field's own slot length
     for (let i = 1; i < picked.length; i++) {
         const gap = new Date(picked[i]!.cellStart).getTime() - new Date(picked[i - 1]!.cellStart).getTime();
         if (gap !== step) throw new AppError("NOT_CONSECUTIVE", "Pick consecutive slots only.", 400);
@@ -111,7 +111,7 @@ export async function createWalkIn(
 
     const id = randomUUID();
     const startStrings = v.starts.map((d) => d.toISOString());
-    const endAt = new Date(v.starts[v.starts.length - 1].getTime() + policies.slotMinutes * 60_000);
+    const endAt = new Date(v.starts[v.starts.length - 1].getTime() + (v.pitch.slotMinutes ?? policies.slotMinutes) * 60_000);
     const paid = input.cashReceived;
 
     const booking: Booking = {

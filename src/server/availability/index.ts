@@ -18,7 +18,7 @@ export interface Cell {
     status: SlotStatus;
     price: number;           // discounted (effective) price
     originalPrice: number;   // pre-dispatch price (same as price when no discount)
-    hasDiscount: boolean;
+    hasDiscount: boolean;    // price differs from originalPrice (reduction or increase)
     tier: string;
 }
 
@@ -46,6 +46,19 @@ const dayRange = (date: string): [string, string] => [
 const CELL_CACHE_TTL_MS = 30_000; // 30 seconds
 const cellCache = new Map<string, { at: number; cells: Cell[] }>();
 
+/**
+ * Drop cached cells after a claim or price change so the Staff Desk board and
+ * /book show the new status/price at once instead of up to 30 s later.
+ * No pitch given = clear everything (the cache is small).
+ */
+export function invalidateAvailability(pitchId?: string) {
+    if (!pitchId) {
+        cellCache.clear();
+        return;
+    }
+    for (const key of cellCache.keys()) if (key.startsWith(`${pitchId}|`)) cellCache.delete(key);
+}
+
 async function loadClaims(pitchIds: string[], fromIso: string, toIso: string): Promise<SlotClaim[]> {
     if (pitchIds.length === 0) return [];
     await connectDb();
@@ -56,7 +69,7 @@ async function loadClaims(pitchIds: string[], fromIso: string, toIso: string): P
     return plainAll<SlotClaim>(docs);
 }
 
-/** Pure: fixed 90-minute grid from opening time (spec 8.3) minus the given claims. */
+/** Pure: the field's own slot grid (pitch.slotMinutes) from opening time, minus the given claims. */
 function buildCells(pitch: Pitch, date: string, claims: SlotClaim[], now: Date, opts: AvailabilityOptions): Cell[] {
     const step = pitch.slotMinutes ?? policies.slotMinutes; // per-pitch slot length
     const open = toMinutes(pitch.openTime);   // "00:00" — 24-hour turf
@@ -88,7 +101,9 @@ function buildCells(pitch: Pitch, date: string, claims: SlotClaim[], now: Date, 
             status,
             price: rate.price,
             originalPrice: rate.originalPrice,
-            hasDiscount: rate.hasDiscount,
+            // Any change from the normal price (up OR down): the /book chips use
+            // price vs originalPrice to tell a reduction from an increase.
+            hasDiscount: rate.hasAdjustment,
             tier: rate.tier,
         });
     }

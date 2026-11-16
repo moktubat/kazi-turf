@@ -1,7 +1,9 @@
-import { pricingRules } from "@/data/pricing";
+import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { formatTime12 } from "@/lib/format";
-import { applyDiscount } from "@/lib/pricing";
+import { applyDiscount, applyPriceAdjustment } from "@/lib/pricing";
+import { toMinutes } from "@/lib/time";
 import { todayDhaka } from "@/lib/time.server";
+import type { PricingRule } from "@/types";
 
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -27,23 +29,48 @@ export interface RateRow {
     peak: RateCell | null;
 }
 
-export async function getRateTable(pitchId: string): Promise<RateRow[]> {
-    const today = await todayDhaka();
+const isDated = (r: PricingRule) => !!(r.effectiveFrom || r.effectiveTo);
+
+/**
+ * A seasonal adjustment active today that covers the WHOLE window of an
+ * always-on rule (every day and every slot of it). A partial overlap is not
+ * shown here because one table cell cannot hold two prices; the booking grid
+ * still shows the exact per-slot price.
+ */
+function seasonalFor(r: PricingRule, today: string) {
+    if (isDated(r)) return null; // a dated price is never adjusted again
+    return (
+        priceAdjustments.find(
+            (a) =>
+                a.pitchIds.includes(r.pitchId) &&
+                today >= a.effectiveFrom &&
+                today <= a.effectiveTo &&
+                r.days.every((d) => a.days.includes(d)) &&
+                toMinutes(a.startTime) <= toMinutes(r.startTime) &&
+                toMinutes(a.endTime) >= toMinutes(r.endTime)
+        ) ?? null
+    );
+}
+
+export async function getRateTable(pitchId: string, now?: Date): Promise<RateRow[]> {
+    const today = await todayDhaka(now);
     const rows = new Map<string, RateRow>();
-    for (const r of pricingRules.filter(
-        (x) =>
-            x.pitchId === pitchId &&
-            (!x.effectiveFrom || today >= x.effectiveFrom) &&
-            (!x.effectiveTo || today <= x.effectiveTo)
-    )) {
+    const active = pricingRules
+        .filter(
+            (x) =>
+                x.pitchId === pitchId &&
+                (!x.effectiveFrom || today >= x.effectiveFrom) &&
+                (!x.effectiveTo || today <= x.effectiveTo)
+        )
+        // Dated rules last, so on their dates they win over the always-on price (same as ruleFor).
+        .sort((a, b) => Number(isDated(a)) - Number(isDated(b)));
+    for (const r of active) {
         const key = [...r.days].sort((a, b) => a - b).join(",");
         const row = rows.get(key) ?? { days: dayLabel(r.days), offPeak: null, peak: null };
-        const priced = applyDiscount(
-            r.pricePerSlot,
-            r.discountType,
-            r.discountValue,
-            r.discountDirection ?? "DISCOUNT"
-        );
+        const seasonal = seasonalFor(r, today);
+        const priced = seasonal
+            ? applyPriceAdjustment(r.pricePerSlot, seasonal)
+            : applyDiscount(r.pricePerSlot, r.discountType, r.discountValue, r.discountDirection ?? "DISCOUNT");
         const cell: RateCell = {
             price: priced.discounted,
             originalPrice: priced.original,

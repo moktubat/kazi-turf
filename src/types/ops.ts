@@ -40,6 +40,7 @@ export interface AuditLog {
     | "BOOKING"
     | "SLOT"
     | "PITCH"
+    | "PRICE_ADJUSTMENT"
     | "BRANCH"
     | "USER"
     | "POLICY"

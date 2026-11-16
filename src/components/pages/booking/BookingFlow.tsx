@@ -17,7 +17,7 @@ import { Stepper } from "./Stepper";
 import { SummaryBar } from "./SummaryBar";
 import { SummaryCard, type Amounts, type SelectionInfo } from "./SummaryCard";
 import DateStrip from "./DateStrip";
-import { addDays } from "@/lib/time";
+import { addDays, slotLengthMinutes } from "@/lib/time";
 
 export interface FlowInitial {
     sport: string;
@@ -211,9 +211,10 @@ export function BookingFlow({
             start: cells[0].start,
             end: cells[cells.length - 1].end,
             slotCount: cells.length,
-            minutes: cells.length * policy.slotMinutes,
+            // Sum each slot's real length: fields can use different slot lengths.
+            minutes: cells.reduce((m, c) => m + slotLengthMinutes(c.start, c.end), 0),
         };
-    }, [data, sel, date, policy.slotMinutes]);
+    }, [data, sel, date]);
 
     // Estimated totals from the per-cell prices we already have. Used as a
     // fallback while the live quote is loading, or if it ever fails — so the

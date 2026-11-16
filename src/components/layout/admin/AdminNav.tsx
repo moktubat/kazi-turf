@@ -26,7 +26,11 @@ export function AdminNav({
 }) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const currentTab = searchParams.get("tab") ?? "venue";
+    // Same tab list the server gives this role (getSetupData): Staff with
+    // pitches.edit only get Fields + Slots; the rest are Super Admin only.
+    const setupChildren =
+        role === "SUPER_ADMIN" ? SETUP_CHILDREN : SETUP_CHILDREN.filter((c) => c.tab === "pitches" || c.tab === "rates");
+    const currentTab = searchParams.get("tab") ?? setupChildren[0]?.tab ?? "venue";
     const onSetup = pathname === "/admin/setup" || pathname.startsWith("/admin/setup/");
 
     // Start expanded if we're already on the setup page.
@@ -130,7 +134,7 @@ export function AdminNav({
                                         id="setup-children"
                                         className="mt-1 ml-4 space-y-0.5 border-l-2 border-evergreen/10 pl-3"
                                     >
-                                        {SETUP_CHILDREN.map(({ tab, label }) => {
+                                        {setupChildren.map(({ tab, label }) => {
                                             const href = `/admin/setup?tab=${tab}`;
                                             const active = onSetup && currentTab === tab;
                                             return (

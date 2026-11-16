@@ -124,7 +124,7 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
                             ) : (
                                 <span className="font-heading text-2xl font-extrabold text-teal">{formatBDT(from)}</span>
                             )}
-                            <span className="text-xs text-evergreen/60">per slot</span>
+                            <span className="text-xs text-evergreen/60">per {pitch.slotMinutes}-min slot</span>
                         </p>
                     )}
                     <div className="grid grid-cols-2 gap-2">

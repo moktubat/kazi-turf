@@ -39,8 +39,11 @@ export function BookingSearchForm({
     const [date, setDate] = useState(today);
     const [slot, setSlot] = useState("");
 
-    // 24-hour turf: build slot times for the full day using the global slot length.
-    const slotMinutes = policies.slotMinutes;
+    // 24-hour turf: slot start times follow the chosen field's own slot length
+    // ("Any pitch": the shared length if all fields agree, else the default).
+    const picked = sportPitches.find((p) => p.id === pitchId);
+    const lengths = [...new Set(sportPitches.map((p) => p.slotMinutes).filter(Boolean))];
+    const slotMinutes = picked?.slotMinutes ?? (lengths.length === 1 ? lengths[0] : policies.slotMinutes);
     const openMin = 0;
     const closeMin = 24 * 60;
 

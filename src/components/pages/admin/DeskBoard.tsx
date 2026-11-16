@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { LogIn, MoreHorizontal } from "lucide-react";
+import { CalendarPlus, LogIn, MoreHorizontal, Wrench } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import type { BoardCell, BoardPitch } from "@/types/admin";
@@ -12,10 +12,12 @@ function Cell({
     cell,
     onOpen,
     onMore,
+    showMore,
 }: {
     cell: BoardCell;
     onOpen: () => void;
     onMore: () => void;
+    showMore: boolean;
 }) {
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const fired = useRef(false);
@@ -29,7 +31,12 @@ function Cell({
     const checkedIn = bk?.bookingStatus === "CHECKED_IN";
     const look = slotLook[cell.status];
     const Icon = checkedIn ? LogIn : look.icon;
-    const label = checkedIn ? "Checked in" : look.label;
+    // Tell a staff hold apart from a customer's online hold (they pay within minutes).
+    const label = checkedIn
+        ? "Checked in"
+        : cell.status === "HELD"
+            ? bk ? "Held · customer paying" : "Held by staff"
+            : look.label;
 
     const clear = () => {
         if (timer.current) clearTimeout(timer.current);
@@ -89,10 +96,10 @@ function Cell({
                 )}
             </button>
 
-            {available && (
+            {available && showMore && (
                 <button
                     type="button"
-                    aria-label={`More actions for ${cell.start}`}
+                    aria-label={`Hold or block ${cell.start}`}
                     onClick={onMore}
                     className="absolute right-0 top-0 inline-flex size-11 items-center justify-center rounded-xl text-evergreen/70 hover:bg-emerald/30"
                 >
@@ -103,29 +110,71 @@ function Cell({
     );
 }
 
+const MODES: { id: "book" | "manage"; label: string; hint: string; icon: React.ElementType }[] = [
+    { id: "book", label: "Add walk-in booking", hint: "Tap an open slot to book it for a customer at the counter.", icon: CalendarPlus },
+    {
+        id: "manage",
+        label: "Hold or maintenance",
+        hint: "Tap a slot to hold it or block it for maintenance. No booking is created and customers cannot book it. Tap a held or maintenance slot to release it.",
+        icon: Wrench,
+    },
+];
+
 export function DeskBoard({
     pitches,
+    mode,
+    onModeChange,
     onAvailable,
     onBooking,
     onBlock,
 }: {
     pitches: BoardPitch[];
+    mode: "book" | "manage";
+    onModeChange: (m: "book" | "manage") => void;
     onAvailable: (pitchId: string, cell: BoardCell) => void;
     onBooking: (code: string) => void;
     onBlock: (pitchId: string, cell: BoardCell) => void;
 }) {
     const [activeId, setActiveId] = useState<string>(pitches[0]?.id ?? "");
     const active = pitches.find((p) => p.id === activeId) ?? pitches[0];
+    const current = MODES.find((m) => m.id === mode) ?? MODES[0];
 
     if (!active) return null;
 
     return (
         <div className="space-y-4">
+            {/* What does a tap do? */}
+            <div className="space-y-2">
+                <p className="text-sm font-semibold">Tap a slot to:</p>
+                <div role="radiogroup" aria-label="Tap a slot to" className="grid gap-2 sm:grid-cols-2">
+                    {MODES.map((m) => {
+                        const on = m.id === mode;
+                        const Icon = m.icon;
+                        return (
+                            <button
+                                key={m.id}
+                                type="button"
+                                role="radio"
+                                aria-checked={on}
+                                onClick={() => onModeChange(m.id)}
+                                className={cn(
+                                    "flex min-h-12 items-center gap-2 rounded-xl border-2 px-4 text-left font-heading text-sm font-bold transition-colors",
+                                    on ? "border-teal bg-teal text-white shadow-md" : "border-evergreen/15 bg-surface text-evergreen hover:border-teal"
+                                )}
+                            >
+                                <Icon size={18} aria-hidden /> {m.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-xs text-evergreen/70" aria-live="polite">{current.hint}</p>
+            </div>
+
             {/* Legend */}
             <ul className="flex flex-wrap gap-2 text-xs font-semibold" aria-label="Board legend">
                 {[
-                    ["Available: tap to add a walk-in", "border-emerald bg-emerald/15"],
-                    ["Held (unpaid online or staff hold)", "border-held/40 bg-held-soft text-held"],
+                    [mode === "manage" ? "Available: tap to hold or block" : "Available: tap to add a walk-in", "border-emerald bg-emerald/15"],
+                    ["Held (by staff, or a customer paying online)", "border-held/40 bg-held-soft text-held"],
                     ["Booked", "border-booked/40 bg-booked-soft text-booked"],
                     ["Checked in", "border-teal/40 bg-mint text-teal"],
                     ["Maintenance", "border-maint/40 bg-maint-soft text-maint"],
@@ -197,10 +246,13 @@ export function DeskBoard({
                             <Cell
                                 key={c.cellStart}
                                 cell={c}
+                                showMore={mode === "book"}
                                 onOpen={() => {
-                                    if (c.status === "AVAILABLE") onAvailable(active.id, c);
-                                    else if (c.booking) onBooking(c.booking.code);
-                                    else if (c.status === "MAINTENANCE" || (c.status === "HELD" && !c.booking)) onBlock(active.id, c);
+                                    // A customer's booking or online hold always opens the booking: staff
+                                    // slot management never touches customer bookings.
+                                    if (c.booking) onBooking(c.booking.code);
+                                    else if (c.status === "AVAILABLE") (mode === "manage" ? onBlock : onAvailable)(active.id, c);
+                                    else if (c.status === "MAINTENANCE" || c.status === "HELD") onBlock(active.id, c);
                                 }}
                                 onMore={() => onBlock(active.id, c)}
                             />

@@ -1,4 +1,4 @@
-import type { PricingRule } from "@/types";
+import type { PriceAdjustment, PricingRule } from "@/types";
 import { shared } from "@/lib/shared";
 
 const WEEKDAY = [0, 1, 2, 3, 4]; // Sun-Thu
@@ -66,3 +66,5 @@ export const pricingRules: PricingRule[] = shared<PricingRule[]>("pricingRules",
     ...rates("bogura-b", { offWd: 1600, peakWd: 2200, offWe: 1900, peakWe: 2500 }),
     ...rates("bogura-c", { offWd: 1800, peakWd: 2400, offWe: 2000, peakWe: 2700 }),
 ]);
+// Date-range price adjustments (Admin → Setup → Slots → Seasonal pricing). Empty by default.
+export const priceAdjustments: PriceAdjustment[] = shared<PriceAdjustment[]>("priceAdjustments", []);

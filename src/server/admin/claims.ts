@@ -4,6 +4,7 @@ import "server-only";
 import { SlotClaimModel } from "@/models";
 import { AppError } from "@/server/http";
 import { connectDb } from "@/server/db/connect";
+import { invalidateAvailability } from "@/server/availability";
 import type { SlotClaim } from "@/types";
 
 /**
@@ -88,4 +89,5 @@ export async function claimCells(
     } finally {
         await session.endSession();
     }
+    invalidateAvailability(pitchId);
 }

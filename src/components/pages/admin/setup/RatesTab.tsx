@@ -1,72 +1,114 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Calendar, CalendarRange, Clock, Pencil, Plus, Tag } from "lucide-react";
+import { AlertTriangle, Banknote, Calendar, Clock, History, Pencil, Plus, TrendingDown, TrendingUp, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
+import { cn } from "@/lib/cn";
 import { formatBDT, formatTime12 } from "@/lib/format";
-import { DAY_NAMES, daysLabel, gridBoundaries } from "@/lib/grid";
+import { daysLabel, gridBoundaries } from "@/lib/grid";
+import { applyDiscount, applyPriceAdjustment } from "@/lib/pricing";
 import { toMinutes } from "@/lib/time";
 import { rateDeleteSchema, rateSchema, rateUpdateSchema } from "@/schemas/setup";
+import type { PriceAdjustment } from "@/types";
 import type { SetupPitch, SetupRate } from "@/types/setup";
-import { Check, FormActions, num } from "./ui";
-import { useSave } from "./useSave";
 import { SheetSection } from "../SheetSection";
-import { applyDiscount } from "@/lib/pricing";
+import { DayPicker, Summary, TimePicker, onGrid, slotsIn } from "./pricingUi";
+import { TEMP_COPY, TemporaryPriceForm, TemporaryPriceList, tempCovers, tempTouches, type Direction } from "./SeasonalPricing";
+import { FormActions, num } from "./ui";
+import { useSave } from "./useSave";
 
-const TIME_PHASES: { label: string; from: string; until: string }[] = [
-    { label: "Late Night · 12 AM – 6 AM", from: "00:00", until: "06:00" },
-    { label: "Morning · 6 AM – 12 PM", from: "06:00", until: "12:00" },
-    { label: "Noon · 12 PM – 5 PM", from: "12:00", until: "17:00" },
-    { label: "Evening · 5 PM – 9 PM", from: "17:00", until: "21:00" },
-    { label: "Night · 9 PM – 12 AM", from: "21:00", until: "24:00" },
-];
+type Editing =
+    | { kind: "regular"; rate: SetupRate | null }
+    | { kind: "temporary"; direction: Direction; adjustment: PriceAdjustment | null };
+
+const isDated = (r: SetupRate) => !!(r.effectiveFrom || r.effectiveTo);
+const hasOwnAdjustment = (r: SetupRate) => !!(r.discountType && r.discountValue);
 
 export function RatesTab({
     rates,
     pitches,
     coverage,
+    adjustments,
+    today,
 }: {
     rates: SetupRate[];
     pitches: SetupPitch[];
     coverage: Record<string, string[]>;
+    adjustments: PriceAdjustment[];
+    today: string;
 }) {
     const router = useRouter();
-    const [editing, setEditing] = useState<SetupRate | "new" | null>(null);
+    const [editing, setEditing] = useState<Editing | null>(null);
 
-    const sports = Array.from(new Set(pitches.map(p => p.sport)));
+    const sports = Array.from(new Set(pitches.map((p) => p.sport)));
     const [sportFilter, setSportFilter] = useState(sports[0] ?? "");
-    const sportPitches = pitches.filter(p => p.sport === sportFilter);
-
+    const sportPitches = pitches.filter((p) => p.sport === sportFilter);
     const [pitchId, setPitchId] = useState(sportPitches[0]?.id ?? "");
-
-    const effectivePitchId = sportPitches.some(p => p.id === pitchId)
-        ? pitchId
-        : sportPitches[0]?.id ?? "";
+    const effectivePitchId = sportPitches.some((p) => p.id === pitchId) ? pitchId : sportPitches[0]?.id ?? "";
 
     function changeSport(s: string) {
         setSportFilter(s);
-        const firstPitch = pitches.find(p => p.sport === s);
-        setPitchId(firstPitch?.id ?? "");
+        setPitchId(pitches.find((p) => p.sport === s)?.id ?? "");
     }
 
-    const pitch = pitches.find(p => p.id === effectivePitchId);
-
+    const pitch = pitches.find((p) => p.id === effectivePitchId);
     if (pitches.length === 0 || !pitch) {
         return <Card><p className="font-semibold">Add a field first, then set its slot prices.</p></Card>;
     }
 
     const mine = rates
-        .filter(r => r.pitchId === pitch.id)
-        .sort((a, b) => a.days[0] - b.days[0] || toMinutes(a.startTime) - toMinutes(b.startTime));
+        .filter((r) => r.pitchId === pitch.id)
+        .sort((a, b) => Number(isDated(a)) - Number(isDated(b)) || a.days[0] - b.days[0] || toMinutes(a.startTime) - toMinutes(b.startTime));
     const gaps = coverage[pitch.id] ?? [];
+    const slotMinutes = pitch.slotMinutes ?? 90;
+    const done = () => {
+        setEditing(null);
+        router.refresh();
+    };
+
+    const OPTIONS: { key: string; icon: React.ElementType; title: string; body: string; example: string; cls: string; open: () => void }[] = [
+        {
+            key: "regular",
+            icon: Banknote,
+            title: "Regular price",
+            body: "The normal price for chosen days and times. Applies every day unless a temporary price is running.",
+            example: "e.g. Sun–Thu evenings ৳2,000",
+            cls: "text-evergreen",
+            open: () => setEditing({ kind: "regular", rate: null }),
+        },
+        {
+            key: "up",
+            icon: TrendingUp,
+            title: TEMP_COPY.SURCHARGE.title,
+            body: "Vacations, Eid, holidays, tournaments, busy seasons. Pick a start and end date.",
+            example: "e.g. ৳2,000 → ৳2,500",
+            cls: "text-held",
+            open: () => setEditing({ kind: "temporary", direction: "SURCHARGE", adjustment: null }),
+        },
+        {
+            key: "down",
+            icon: TrendingDown,
+            title: TEMP_COPY.DISCOUNT.title,
+            body: "Ramadan, exam periods, promotions, slow seasons. Pick a start and end date.",
+            example: "e.g. ৳2,000 → ৳1,500",
+            cls: "text-teal",
+            open: () => setEditing({ kind: "temporary", direction: "DISCOUNT", adjustment: null }),
+        },
+    ];
+
+    const sheetTitle = !editing
+        ? ""
+        : editing.kind === "regular"
+            ? editing.rate ? "Edit regular price" : "Add regular price"
+            : `${editing.adjustment ? "Edit" : "Add"} ${TEMP_COPY[editing.direction].title.toLowerCase()}`;
 
     return (
-        <div className="space-y-5">
-            {/* TWO separate selectors: Sport first, then Field */}
+        <div className="space-y-6">
             <div className="grid gap-3 sm:grid-cols-2">
                 <Select label="Sport" value={sportFilter} onChange={(e) => changeSport(e.target.value)}>
                     {sports.length === 0 && <option value="">No sports yet</option>}
@@ -82,23 +124,47 @@ export function RatesTab({
                 </Select>
             </div>
 
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <p className="text-sm text-evergreen/80">
-                    Price per {pitch.slotMinutes ?? 90}-minute slot for <strong>{pitch.name}</strong> ({pitch.sport}).
+            {/* What do you want to set? — one clear choice per pricing type */}
+            <section aria-labelledby="add-price-heading" className="space-y-2">
+                <h3 id="add-price-heading" className="text-sm font-semibold text-evergreen/80">
+                    Add a price for <strong>{pitch.name}</strong> (per {slotMinutes}-minute slot)
+                </h3>
+                <ul className="grid gap-3 md:grid-cols-3">
+                    {OPTIONS.map((o) => {
+                        const Icon = o.icon;
+                        return (
+                            <li key={o.key}>
+                                <button
+                                    type="button"
+                                    onClick={o.open}
+                                    className="flex h-full w-full flex-col gap-1.5 rounded-2xl border-2 border-evergreen/15 bg-surface p-4 text-left shadow-sm transition-colors hover:border-teal hover:bg-mint/30"
+                                >
+                                    <span className={cn("flex items-center gap-2 font-heading font-bold", o.cls)}>
+                                        <Icon size={18} aria-hidden /> {o.title}
+                                    </span>
+                                    <span className="text-sm text-evergreen/80">{o.body}</span>
+                                    <span className="text-xs text-evergreen/60">{o.example}</span>
+                                    <span className="mt-auto inline-flex items-center gap-1 pt-1 text-sm font-semibold text-teal">
+                                        <Plus size={16} aria-hidden /> Add
+                                    </span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+                <p className="flex items-start gap-2 text-xs text-evergreen/70">
+                    <Wrench size={14} aria-hidden className="mt-0.5 shrink-0" />
+                    <span>
+                        Need to block one slot on a specific day (hold it or mark it for maintenance)? Use{" "}
+                        <Link href="/admin?manage=1" className="font-semibold text-teal underline">Desk → Manage slots</Link>.
+                    </span>
                 </p>
-                <Button onClick={() => setEditing("new")}>
-                    <Plus size={18} aria-hidden /> Add slot price
-                </Button>
-            </div>
-
-            <p className="text-sm text-evergreen/80">
-                Price per {pitch.slotMinutes ?? 90}-minute slot. Changes apply to new bookings only; existing bookings keep their saved price.
-            </p>
+            </section>
 
             {gaps.length > 0 && (
                 <div role="alert" className="rounded-xl bg-held-soft p-3 text-sm text-held">
                     <p className="flex items-center gap-2 font-bold">
-                        <AlertTriangle size={18} aria-hidden /> Price gaps — these slots cannot be booked until priced
+                        <AlertTriangle size={18} aria-hidden /> These slots have no regular price, so customers cannot book them
                     </p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-6">
                         {gaps.map((g) => (
@@ -108,89 +174,114 @@ export function RatesTab({
                 </div>
             )}
 
-            {mine.length === 0 ? (
-                <Card className="space-y-2">
-                    <p className="font-semibold">No slot prices yet for this field.</p>
-                    <p className="text-sm text-evergreen/70">
-                        Customers cannot book this field until you add at least one price.
-                        Click <strong>&quot;Add slot price&quot;</strong> to set the price for a day range and time window.
-                    </p>
-                </Card>
-            ) : (
-                <ul className="grid gap-3 md:grid-cols-2">
-                    {mine.map((r) => {
-                        const priced = applyDiscount(
-                            r.pricePerSlot,
-                            r.discountType,
-                            r.discountValue,
-                            r.discountDirection ?? "DISCOUNT"
-                        );
-                        return (
-                            <li key={r.id}>
-                                <Card className="space-y-2">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-baseline gap-2">
-                                            {priced.hasAdjustment ? (
-                                                <>
+            <section aria-labelledby="regular-heading" className="space-y-3">
+                <div>
+                    <h3 id="regular-heading" className="text-lg font-bold">Regular prices</h3>
+                    <p className="text-sm text-evergreen/70">Changes apply to new bookings only; existing bookings keep their saved price.</p>
+                </div>
+                {mine.length === 0 ? (
+                    <Card>
+                        <p className="text-sm text-evergreen/70">No regular prices yet. Customers cannot book {pitch.name} until you add one.</p>
+                    </Card>
+                ) : (
+                    <ul className="grid gap-3 md:grid-cols-2">
+                        {mine.map((r) => {
+                            const priced = applyDiscount(r.pricePerSlot, r.discountType, r.discountValue, r.discountDirection ?? "DISCOUNT");
+                            return (
+                                <li key={r.id}>
+                                    <Card className="space-y-2">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-baseline gap-2">
+                                                {priced.hasAdjustment && (
                                                     <span className="font-heading text-sm text-evergreen/50 line-through">{formatBDT(priced.original)}</span>
-                                                    <p className={`font-heading text-lg font-bold ${priced.hasSurcharge ? "text-held" : "text-teal"}`}>{formatBDT(priced.discounted)}</p>
-                                                </>
-                                            ) : (
-                                                <p className="font-heading text-lg font-bold">{formatBDT(priced.discounted)}</p>
-                                            )}
+                                                )}
+                                                <p className={cn("font-heading text-lg font-bold", priced.hasAdjustment && (priced.hasSurcharge ? "text-held" : "text-teal"))}>
+                                                    {formatBDT(priced.discounted)}
+                                                </p>
+                                            </div>
+                                            {(isDated(r) || hasOwnAdjustment(r)) && <Badge tone="info">Older setting</Badge>}
                                         </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            {priced.hasAdjustment && (
-                                                <Badge tone={priced.hasSurcharge ? "held" : "success"}>
-                                                    {r.discountType === "PERCENT"
-                                                        ? `${r.discountDirection === "SURCHARGE" ? "+" : "−"}${r.discountValue}%`
-                                                        : `${r.discountDirection === "SURCHARGE" ? "+" : "−"}${formatBDT(r.discountValue!)}`}
-                                                    {priced.hasSurcharge ? " increase" : " off"}
-                                                </Badge>
-                                            )}
+                                        <p className="text-sm">
+                                            {daysLabel(r.days)} · {formatTime12(r.startTime)}–{formatTime12(r.endTime)}
+                                        </p>
+                                        {hasOwnAdjustment(r) && (
+                                            <p className="text-xs text-evergreen/70">
+                                                Built-in {r.discountDirection === "SURCHARGE" ? "increase" : "discount"}:{" "}
+                                                {r.discountDirection === "SURCHARGE" ? "+" : "−"}
+                                                {r.discountType === "PERCENT" ? `${r.discountValue}%` : formatBDT(r.discountValue!)}
+                                            </p>
+                                        )}
+                                        {isDated(r) && (
+                                            <p className="text-xs text-evergreen/70">Only {r.effectiveFrom || "…"} to {r.effectiveTo || "…"}</p>
+                                        )}
+                                        {(() => {
+                                            // A temporary price running today replaces this price for its slots.
+                                            const now = adjustments.find(
+                                                (a) => today >= a.effectiveFrom && today <= a.effectiveTo && tempTouches(a, r)
+                                            );
+                                            if (!now) return null;
+                                            const p = applyPriceAdjustment(r.pricePerSlot, now).discounted;
+                                            return (
+                                                <p className={cn("text-xs font-semibold", now.direction === "SURCHARGE" ? "text-held" : "text-teal")}>
+                                                    {tempCovers(now, r) ? "Today" : "Some slots today"}: {formatBDT(p)} ({now.label}, until {now.effectiveTo}).
+                                                    Regular {formatBDT(r.pricePerSlot)} returns after.
+                                                </p>
+                                            );
+                                        })()}
+                                        {!r.aligned && (
+                                            <p className="flex items-start gap-1.5 text-xs font-semibold text-held">
+                                                <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field&apos;s current slot times. Edit this price.
+                                            </p>
+                                        )}
+                                        <div className="border-t border-evergreen/10 pt-2">
+                                            <Button variant="outline" onClick={() => setEditing({ kind: "regular", rate: r })}>
+                                                <Pencil size={16} aria-hidden /> Edit
+                                            </Button>
                                         </div>
-                                    </div>
-                                    <p className="text-sm">
-                                        {daysLabel(r.days)} · {formatTime12(r.startTime)}–{formatTime12(r.endTime)}
-                                    </p>
-                                    {(r.effectiveFrom || r.effectiveTo) && (
-                                        <p className="text-xs text-evergreen/70">
-                                            Effective {r.effectiveFrom || "always"} to {r.effectiveTo || "ongoing"}
-                                        </p>
-                                    )}
-                                    {!r.aligned && (
-                                        <p className="flex items-start gap-1.5 text-xs font-semibold text-held">
-                                            <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" /> Not aligned to the field&apos;s current schedule. Edit this window.
-                                        </p>
-                                    )}
-                                    <div className="border-t border-evergreen/10 pt-2">
-                                        <Button variant="outline" onClick={() => setEditing(r)}>
-                                            <Pencil size={16} aria-hidden /> Edit
-                                        </Button>
-                                    </div>
-                                </Card>
-                            </li>
-                        );
-                    })}
-                </ul>
-            )}
+                                    </Card>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </section>
+
+            <section aria-labelledby="temporary-heading" className="space-y-3">
+                <div>
+                    <h3 id="temporary-heading" className="text-lg font-bold">Temporary prices</h3>
+                    <p className="text-sm text-evergreen/70">
+                        Increases and reductions for a date range. They change the regular price only on those dates, then switch off by themselves.
+                    </p>
+                </div>
+                <TemporaryPriceList
+                    pitch={pitch}
+                    rates={rates}
+                    adjustments={adjustments}
+                    today={today}
+                    onEdit={(a) => setEditing({ kind: "temporary", direction: a.direction, adjustment: a })}
+                />
+            </section>
 
             <SideSheet
                 open={!!editing}
                 onClose={() => setEditing(null)}
-                title={editing === "new" ? "Add slot price" : "Edit slot price"}
-                description={editing === "new" ? "Set a price for a day range and time window." : "Update this price window."}
-                icon={Banknote}
+                title={sheetTitle}
+                description={editing?.kind === "regular" ? "The normal price customers pay." : "A price change for a date range."}
+                icon={editing?.kind === "temporary" ? (editing.direction === "SURCHARGE" ? TrendingUp : TrendingDown) : Banknote}
             >
-                {editing && (
-                    <RateForm
-                        key={editing === "new" ? "new" : editing.id}
+                {editing?.kind === "regular" && (
+                    <RegularPriceForm key={editing.rate?.id ?? "new"} pitch={pitch} rate={editing.rate} onDone={done} />
+                )}
+                {editing?.kind === "temporary" && (
+                    <TemporaryPriceForm
+                        key={editing.adjustment?.id ?? `new-${editing.direction}`}
+                        direction={editing.direction}
                         pitch={pitch}
-                        rate={editing === "new" ? null : editing}
-                        onDone={() => {
-                            setEditing(null);
-                            router.refresh();
-                        }}
+                        pitches={pitches}
+                        rates={rates}
+                        today={today}
+                        adjustment={editing.adjustment}
+                        onDone={done}
                     />
                 )}
             </SideSheet>
@@ -203,6 +294,7 @@ interface FormState {
     startTime: string;
     endTime: string;
     price: string;
+    // Older settings: only shown when editing a price that already has them.
     effectiveFrom: string;
     effectiveTo: string;
     discountType: "PERCENT" | "FIXED" | "";
@@ -210,14 +302,11 @@ interface FormState {
     discountValue: string;
 }
 
-function RateForm({ pitch, rate, onDone }: {
-    pitch: SetupPitch;
-    rate: SetupRate | null;
-    onDone: () => void;
-}) {
+function RegularPriceForm({ pitch, rate, onDone }: { pitch: SetupPitch; rate: SetupRate | null; onDone: () => void }) {
     const isNew = !rate;
     const slotMinutes = pitch.slotMinutes ?? 90;
     const times = gridBoundaries(pitch.openTime, pitch.closeTime, slotMinutes);
+    const legacy = !!rate && (isDated(rate) || hasOwnAdjustment(rate));
     const [f, setF] = useState<FormState>({
         days: rate?.days ?? [],
         startTime: rate?.startTime ?? times[0] ?? "",
@@ -229,20 +318,17 @@ function RateForm({ pitch, rate, onDone }: {
         discountDirection: rate?.discountDirection ?? "DISCOUNT",
         discountValue: rate?.discountValue ? String(rate.discountValue) : "",
     });
-
     const [confirmDelete, setConfirmDelete] = useState(false);
     const { busy, error, fields, save } = useSave();
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
 
-    const slotsCovered = (() => {
-        if (!f.startTime || !f.endTime) return 0;
-        const spanMin = toMinutes(f.endTime) - toMinutes(f.startTime);
-        if (spanMin <= 0) return 0;
-        return Math.round(spanMin / slotMinutes) * f.days.length;
-    })();
+    const perDay = slotsIn(onGrid(times), f.startTime, f.endTime).length; // real individual slots
+    const price = Number(f.price) || 0;
+    const final = applyDiscount(price, f.discountType || null, Number(f.discountValue) || null, (f.discountDirection || "DISCOUNT") as "DISCOUNT" | "SURCHARGE");
 
-    const toggleDay = (d: number) =>
-        set("days", f.days.includes(d) ? f.days.filter((x) => x !== d) : [...f.days, d].sort((a, b) => a - b));
+    function clearOlderSettings() {
+        setF((s) => ({ ...s, effectiveFrom: "", effectiveTo: "", discountType: "", discountValue: "" }));
+    }
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
@@ -256,237 +342,111 @@ function RateForm({ pitch, rate, onDone }: {
             effectiveFrom: f.effectiveFrom,
             effectiveTo: f.effectiveTo,
             discountType: f.discountType || null,
-            discountDirection: f.discountType ? (f.discountDirection || "DISCOUNT") : null,
+            discountDirection: f.discountType ? f.discountDirection || "DISCOUNT" : null,
             discountValue: f.discountType && f.discountValue ? num(f.discountValue) : null,
         };
         save(isNew ? rateSchema : rateUpdateSchema, isNew ? body : { ...body, id: rate.id }, "/admin/setup/rates", isNew ? "POST" : "PATCH", onDone);
     }
 
     return (
-        <form onSubmit={submit} noValidate className="space-y-6" aria-label={isNew ? "Add slot price" : "Edit slot price"}>
-            <div className="rounded-xl bg-mint/40 p-4 text-sm">
-                <p className="font-semibold text-evergreen">
-                    {isNew ? "Set a price for one or more time slots" : "Update this price window"}
-                </p>
-                <p className="mt-1 text-evergreen/70">
-                    You are setting the price customers pay <strong>per {slotMinutes}-minute slot</strong>.
-                    Pick the days, a time range, and the price. One rule can cover many slots at once.
-                </p>
-                <p className="mt-2 text-evergreen/70">
-                    <span className="text-evergreen/70">Field:</span>{" "}
-                    <strong>{pitch.name}</strong>{" "}
-                    <span className="text-evergreen/70">· open {formatTime12(pitch.openTime)}–{formatTime12(pitch.closeTime)}</span>
-                </p>
+        <form onSubmit={submit} noValidate className="space-y-6" aria-label={isNew ? "Add regular price" : "Edit regular price"}>
+            <div className="flex gap-3 rounded-xl bg-mint/40 p-4 text-sm">
+                <Banknote size={20} aria-hidden className="shrink-0 text-teal" />
+                <div>
+                    <p className="font-bold">Regular price</p>
+                    <p className="mt-0.5 text-evergreen/80">
+                        The normal price per {slotMinutes}-minute slot on <strong>{pitch.name}</strong>. For a holiday or Ramadan price, use a{" "}
+                        <strong>temporary price</strong> instead. It switches itself off after its end date.
+                    </p>
+                </div>
             </div>
 
-            <SheetSection icon={Calendar} title="Days" description="Which weekdays this price applies to.">
-                <fieldset>
-                    <legend className="mb-1.5 text-sm font-semibold">Days</legend>
-                    <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
-                        {DAY_NAMES.map((name, d) => (
-                            <Check key={name} label={name} checked={f.days.includes(d)} onChange={() => toggleDay(d)} />
-                        ))}
-                    </div>
-                    {fields.days && <p role="alert" className="text-sm font-medium text-booked">{fields.days}</p>}
-                </fieldset>
+            <SheetSection icon={Calendar} title="1. Days" description="Which days of the week this price is for.">
+                <DayPicker value={f.days} onChange={(d) => set("days", d)} error={fields.days} />
             </SheetSection>
 
-            <SheetSection icon={Clock} title="Time window" description="Must align to the field's slot grid.">
-                {/* Quick-pick time phases */}
-                <div className="flex flex-wrap gap-2">
-                    <p className="w-full text-xs text-evergreen/60">Quick pick:</p>
-                    {TIME_PHASES.map((phase) => {
-                        const active = f.startTime === phase.from && f.endTime === phase.until;
-                        const available = times.includes(phase.from) && times.includes(phase.until);
-                        return (
-                            <button
-                                key={phase.label}
-                                type="button"
-                                aria-pressed={active}
-                                disabled={!available}
-                                title={available ? undefined : "Outside this field's opening hours"}
-                                onClick={() => { set("startTime", phase.from); set("endTime", phase.until); }}
-                                className={`min-h-9 rounded-lg border px-3 text-xs font-semibold transition-colors ${active
-                                    ? "border-teal bg-teal text-white"
-                                    : available
-                                        ? "border-evergreen/15 bg-surface text-evergreen hover:border-teal hover:bg-mint/40"
-                                        : "border-evergreen/10 bg-surface text-evergreen/30 cursor-not-allowed"
-                                    }`}
-                            >
-                                {phase.label}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <Select label="From" value={f.startTime} error={fields.startTime} onChange={(e) => set("startTime", e.target.value)}>
-                        {times.slice(0, -1).map((t) => (
-                            <option key={t} value={t}>{formatTime12(t)}</option>
-                        ))}
-                    </Select>
-                    <Select label="Until" value={f.endTime} error={fields.endTime} onChange={(e) => set("endTime", e.target.value)}>
-                        {times.slice(1).map((t) => (
-                            <option key={t} value={t}>{formatTime12(t)}</option>
-                        ))}
-                    </Select>
-                </div>
-                <p className="-mt-2 text-xs text-evergreen/70">
-                    Times must align to the field&apos;s {slotMinutes}-minute slot grid.
-                </p>
-                {/* Live preview — shows how many bookable slots this rule prices */}
-                {f.startTime && f.endTime && f.days.length > 0 && (
-                    <div className="rounded-lg border border-teal/30 bg-mint/50 p-3 text-sm" aria-live="polite">
-                        <p className="font-semibold text-teal">
-                            {slotsCovered > 0
-                                ? `This will price ${slotsCovered} slot${slotsCovered === 1 ? "" : "s"}`
-                                : "Pick a valid time range"}
-                        </p>
-                        <p className="mt-0.5 text-xs text-evergreen/70">
-                            {f.days.length} day{f.days.length === 1 ? "" : "s"} ×{" "}
-                            {f.startTime && f.endTime
-                                ? Math.max(0, Math.round((toMinutes(f.endTime) - toMinutes(f.startTime)) / slotMinutes))
-                                : 0}{" "}
-                            time slot{f.startTime && f.endTime && Math.round((toMinutes(f.endTime) - toMinutes(f.startTime)) / slotMinutes) === 1 ? "" : "s"} per day
-                        </p>
-                    </div>
-                )}
+            <SheetSection icon={Clock} title="2. Time slots" description={`Slots are ${slotMinutes} minutes long, so times follow the field's slot times.`}>
+                <TimePicker
+                    times={times}
+                    start={f.startTime}
+                    end={f.endTime}
+                    onChange={(s, en) => setF((x) => ({ ...x, startTime: s, endTime: en }))}
+                    error={fields.startTime ?? fields.endTime}
+                />
             </SheetSection>
 
-            <SheetSection icon={Banknote} title="Price" description="Whole taka only. 100–100,000.">
+            <SheetSection icon={Banknote} title="3. Price" description="What a customer pays for one slot.">
                 <Input
-                    label={`Price per ${slotMinutes}-minute slot (৳)`}
+                    label="Price per slot (৳)"
                     type="number"
                     inputMode="numeric"
                     value={f.price}
-                    placeholder="e.g. 2400"
-                    hint="Whole taka only. 100–100,000."
+                    placeholder="e.g. 2000"
+                    hint="Whole taka, ৳100–৳100,000."
                     error={fields.pricePerSlot}
                     onChange={(e) => set("price", e.target.value)}
                 />
             </SheetSection>
 
-            <SheetSection
-                icon={Tag}
-                title="Price adjustment (optional)"
-                description="Decrease for promotions, Ramadan or slow seasons; increase for holidays, Eid week or events. Works on its own, or combined with a date range below."
-            >
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <Select
-                        label="Adjustment type"
-                        value={f.discountType}
-                        onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}
-                    >
-                        <option value="">None (regular price)</option>
-                        <option value="PERCENT">Percentage (%)</option>
-                        <option value="FIXED">Fixed amount (৳)</option>
-                    </Select>
-
-                    {f.discountType && (
-                        <Select
-                            label="Direction"
-                            value={f.discountDirection || "DISCOUNT"}
-                            onChange={(e) => set("discountDirection", e.target.value as FormState["discountDirection"])}
-                        >
-                            <option value="DISCOUNT">Decrease price</option>
-                            <option value="SURCHARGE">Increase price</option>
+            {legacy && (
+                <SheetSection
+                    icon={History}
+                    title="Older settings on this price"
+                    description="This price was set up with options that now live under Temporary prices. You can keep them, change them, or clear them."
+                >
+                    <div className="grid gap-4 sm:grid-cols-3">
+                        <Select label="Built-in change" value={f.discountType} onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}>
+                            <option value="">None</option>
+                            <option value="PERCENT">Percentage (%)</option>
+                            <option value="FIXED">Amount (৳)</option>
                         </Select>
-                    )}
-                </div>
+                        {f.discountType && (
+                            <>
+                                <Select label="Direction" value={f.discountDirection || "DISCOUNT"} onChange={(e) => set("discountDirection", e.target.value as FormState["discountDirection"])}>
+                                    <option value="DISCOUNT">Lower the price</option>
+                                    <option value="SURCHARGE">Raise the price</option>
+                                </Select>
+                                <Input label="Value" type="number" inputMode="numeric" value={f.discountValue} error={fields.discountValue} onChange={(e) => set("discountValue", e.target.value)} />
+                            </>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input label="Only from" type="date" value={f.effectiveFrom} error={fields.effectiveFrom} onChange={(e) => set("effectiveFrom", e.target.value)} />
+                        <Input label="Only until" type="date" value={f.effectiveTo} error={fields.effectiveTo} onChange={(e) => set("effectiveTo", e.target.value)} />
+                    </div>
+                    <Button variant="outline" onClick={clearOlderSettings}>Clear older settings</Button>
+                </SheetSection>
+            )}
 
-                {f.discountType && (
-                    <Input
-                        label={
-                            f.discountType === "PERCENT"
-                                ? `Percentage (${f.discountDirection === "SURCHARGE" ? "increase" : "discount"} %)`
-                                : `Amount (${f.discountDirection === "SURCHARGE" ? "increase" : "discount"} ৳)`
-                        }
-                        type="number"
-                        inputMode="numeric"
-                        value={f.discountValue}
-                        placeholder={f.discountType === "PERCENT" ? "e.g. 20" : "e.g. 200"}
-                        hint={
-                            f.discountType === "PERCENT"
-                                ? "1–100. E.g. 20 = 20% off."
-                                : f.discountDirection === "SURCHARGE"
-                                    ? "Whole taka added on top of the slot price."
-                                    : "Whole taka. Must be less than the slot price."
-                        }
-                        error={fields.discountValue}
-                        onChange={(e) => set("discountValue", e.target.value)}
-                    />
-                )}
+            <Summary
+                title="Check before saving"
+                rows={[
+                    ["Type", "Regular price"],
+                    ["Days", f.days.length === 7 ? "Every day" : f.days.length ? daysLabel(f.days) : "None selected"],
+                    ["Time slots", f.startTime && f.endTime ? `${formatTime12(f.startTime)}–${formatTime12(f.endTime)} (${perDay} slot${perDay === 1 ? "" : "s"} a day)` : "Pick a time range"],
+                    ...(f.effectiveFrom || f.effectiveTo ? [["Dates", `${f.effectiveFrom || "…"} to ${f.effectiveTo || "…"}`] as [string, string]] : []),
+                    ["Normal price", price ? formatBDT(price) : "Enter a price"],
+                    ...(final.hasAdjustment ? [["Customers pay", formatBDT(final.discounted)] as [string, string]] : []),
+                ]}
+            />
 
-                {f.discountType && f.discountValue && f.price && (
-                    (() => {
-                        const direction = (f.discountDirection || "DISCOUNT") as "DISCOUNT" | "SURCHARGE";
-                        const priced = applyDiscount(Number(f.price) || 0, f.discountType, Number(f.discountValue) || 0, direction);
-                        return priced.hasAdjustment ? (
-                            <div className="rounded-lg border border-teal/30 bg-mint/50 p-3 text-sm" aria-live="polite">
-                                <p className="text-evergreen/70">
-                                    Regular price: <span className="line-through">{formatBDT(priced.original)}</span>
-                                </p>
-                                <p className={`font-semibold ${priced.hasSurcharge ? "text-held" : "text-teal"}`}>
-                                    {priced.hasSurcharge ? "After increase" : "After discount"}: {formatBDT(priced.discounted)}
-                                </p>
-                                <p className="text-xs text-evergreen/60">
-                                    {priced.hasSurcharge
-                                        ? `Customers pay ${formatBDT(priced.discounted - priced.original)} more per slot`
-                                        : `Customers save ${formatBDT(priced.original - priced.discounted)} per slot`}
-                                </p>
-                            </div>
-                        ) : null;
-                    })()
-                )}
-            </SheetSection>
+            <FormActions busy={busy} error={error} label={isNew ? "Save regular price" : "Save changes"} onCancel={onDone} />
 
-            <SheetSection icon={CalendarRange} title="Date range (optional)" description={'Leave both empty for "always". A dated rule overrides the regular price for those days only — perfect for Ramadan/Eid offers or vacation rates of 1, 2, 20 or any number of days.'}>
-                <div className="grid grid-cols-2 gap-4">
-                    <Input
-                        label="Effective from (optional)"
-                        type="date"
-                        value={f.effectiveFrom}
-                        error={fields.effectiveFrom}
-                        onChange={(e) => set("effectiveFrom", e.target.value)}
-                    />
-                    <Input
-                        label="Effective until (optional)"
-                        type="date"
-                        value={f.effectiveTo}
-                        error={fields.effectiveTo}
-                        onChange={(e) => set("effectiveTo", e.target.value)}
-                    />
-                </div>
-            </SheetSection>
-
-            <FormActions busy={busy} error={error} label={isNew ? "Add slot price" : "Save changes"} onCancel={onDone} />
-
-            {!isNew && (
-                confirmDelete ? (
+            {!isNew &&
+                (confirmDelete ? (
                     <div className="space-y-2 rounded-xl bg-booked-soft p-3 text-sm">
                         <p className="font-medium text-booked">
-                            Delete this slot price? Existing bookings keep their saved prices, but unpriced slots cannot be booked.
+                            Delete this price? Existing bookings keep their saved price, but slots without a price cannot be booked.
                         </p>
-                        <Button
-                            variant="danger" disabled={busy} onClick={() =>
-                                save(
-                                    rateDeleteSchema,
-                                    { id: rate.id },
-                                    "/admin/setup/rates",
-                                    "DELETE",
-                                    onDone
-                                )
-                            }
-                        >
+                        <Button variant="danger" disabled={busy} onClick={() => save(rateDeleteSchema, { id: rate.id }, "/admin/setup/rates", "DELETE", onDone)}>
                             Yes, delete
                         </Button>
                     </div>
                 ) : (
                     <Button variant="ghost" className="text-booked" onClick={() => setConfirmDelete(true)}>
-                        Delete this slot price
+                        Delete this price
                     </Button>
-                )
-            )}
-        </form >
+                ))}
+        </form>
     );
 }

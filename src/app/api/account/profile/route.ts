@@ -10,7 +10,8 @@ export async function PATCH(req: NextRequest) {
         assertSameOrigin(req);
         const user = await requireUser();
         const input = profileSchema.parse(await readJson(req));
-        return ok({ profile: updateProfile(user.id, input) });
+        // Await: otherwise a failed save (e.g. phone already used) was reported as success.
+        return ok({ profile: await updateProfile(user.id, input) });
     } catch (e) {
         return handleError(e);
     }

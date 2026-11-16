@@ -64,6 +64,26 @@ export interface PricingRule {
   discountValue: number | null;
 }
 
+/**
+ * Date-range price adjustment (vacation-season increase, exam/Ramadan reduction).
+ * Applied on top of the regular slot price for matching cells only; when the
+ * range ends the regular price applies again automatically. At most one
+ * adjustment can match a cell, and it never stacks with a dated slot price.
+ */
+export interface PriceAdjustment {
+  id: string;
+  label: string;
+  pitchIds: string[];
+  effectiveFrom: string; // YYYY-MM-DD, inclusive (Dhaka)
+  effectiveTo: string;   // YYYY-MM-DD, inclusive (Dhaka)
+  days: number[];        // weekdays 0–6 it applies to
+  startTime: string;     // slots STARTING in [startTime, endTime)
+  endTime: string;
+  direction: "DISCOUNT" | "SURCHARGE";
+  type: "PERCENT" | "FIXED" | "PRICE"; // PRICE = set the slot price to `value`
+  value: number;
+}
+
 export type ClaimState = "HELD" | "BOOKED" | "MAINTENANCE";
 
 export interface SlotClaim {

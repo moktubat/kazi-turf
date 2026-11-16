@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AlertTriangle, Banknote, ChevronLeft, ChevronRight, Inbox, LogIn, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -67,6 +68,10 @@ export function StaffDesk({
 }) {
     const venueId = venue.id;
     const [date, setDate] = useState(today);
+    // "book": tapping an open slot starts a walk-in. "manage": tapping a slot
+    // opens Hold / Maintenance (no booking is created). ?manage=1 opens in manage mode.
+    const searchParams = useSearchParams();
+    const [mode, setMode] = useState<"book" | "manage">(searchParams.get("manage") === "1" ? "manage" : "book");
 
     const [board, setBoard] = useState<BoardResponse | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -126,7 +131,7 @@ export function StaffDesk({
         drawer && drawer.kind !== "booking" ? pitch?.cells.find((c) => c.cellStart === drawer.cellStart) : undefined;
 
     const title =
-        drawer?.kind === "walkin" ? "Walk-in booking" : drawer?.kind === "block" ? "Maintenance" : "Booking";
+        drawer?.kind === "walkin" ? "Walk-in booking" : drawer?.kind === "block" ? "Hold or maintenance" : "Booking";
 
     return (
         <div className="mx-auto max-w-main space-y-5 px-4 py-5 pb-24">
@@ -195,6 +200,8 @@ export function StaffDesk({
             {board && board.pitches.length > 0 && (
                 <DeskBoard
                     pitches={board.pitches}
+                    mode={mode}
+                    onModeChange={setMode}
                     onAvailable={(pitchId, c) => setDrawer({ kind: "walkin", pitchId, cellStart: c.cellStart })}
                     onBlock={(pitchId, c) => setDrawer({ kind: "block", pitchId, cellStart: c.cellStart })}
                     onBooking={(code) => setDrawer({ kind: "booking", code })}
@@ -209,6 +216,7 @@ export function StaffDesk({
                         date={date}
                         onCreated={() => load(true)}
                         onClose={() => setDrawer(null)}
+                        onHoldInstead={() => setDrawer({ kind: "block", pitchId: drawer.pitchId, cellStart: drawer.cellStart })}
                     />
                 )}
                 {drawer?.kind === "block" && pitch && cell && (

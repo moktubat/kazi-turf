@@ -1,4 +1,4 @@
-import type { Branch, Pitch, } from "@/types";
+import type { Branch, Pitch, PriceAdjustment } from "@/types";
 
 export type SetupTab = "venue" | "pitches" | "rates" | "staff" | "policies";
 
@@ -57,6 +57,10 @@ export interface SetupData {
     venue: Branch | null;
     pitches: SetupPitch[];
     rates: SetupRate[];
+    /** Seasonal (date-range) price adjustments touching this venue's fields. */
+    adjustments: PriceAdjustment[];
+    /** Today's date in Dhaka (YYYY-MM-DD), for Active / Upcoming / Ended labels. */
+    today: string;
     coverage: Record<string, string[]>;
     staff: SetupStaff[];
     slotMinutes: number;

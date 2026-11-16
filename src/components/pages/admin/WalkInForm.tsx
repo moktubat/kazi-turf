@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Field";
 import { policies } from "@/data/site";
 import { ApiError, api, isAbort } from "@/lib/api";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
+import { slotLengthMinutes } from "@/lib/time";
 import { isBdPhone, normalizePhone } from "@/lib/phone";
 import { printReceipt } from "@/lib/printReceipt";
 import type { Quote } from "@/server/pricing";
@@ -17,12 +18,15 @@ export function WalkInForm({
     date,
     onCreated,
     onClose,
+    onHoldInstead,
 }: {
     pitch: BoardPitch;
     cellStart: string;
     date: string;
     onCreated: () => void;
     onClose: () => void;
+    /** Opens the Hold / Maintenance panel for this slot (no booking is created). */
+    onHoldInstead?: () => void;
 }) {
     const startIdx = pitch.cells.findIndex((c) => c.cellStart === cellStart);
 
@@ -51,6 +55,9 @@ export function WalkInForm({
         [pitch.cells, startIdx, count]
     );
     const picked = pitch.cells.slice(startIdx, startIdx + count);
+    // This field's own slot length (fields can differ: 60, 90, 120 min…).
+    const tapped = pitch.cells[startIdx];
+    const slotLen = tapped ? slotLengthMinutes(tapped.start, tapped.end) : policies.slotMinutes;
 
     // Server-calculated price. Staff never type a price.
     useEffect(() => {
@@ -181,7 +188,7 @@ export function WalkInForm({
                                 className={`min-h-11 flex-1 rounded-xl border-2 font-heading font-semibold ${count === n ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-surface"
                                     }`}
                             >
-                                {n} × {policies.slotMinutes} min
+                                {n} × {slotLen} min
                             </button>
                         ))}
                     </div>
@@ -265,6 +272,11 @@ export function WalkInForm({
             <Button type="submit" size="lg" className="w-full" disabled={saving || !quote}>
                 {saving ? "Creating…" : "Create booking"}
             </Button>
+            {onHoldInstead && (
+                <Button variant="ghost" className="w-full" onClick={onHoldInstead} disabled={saving}>
+                    Hold or block this slot instead (no booking)
+                </Button>
+            )}
         </form>
     );
 }

@@ -21,7 +21,12 @@ const TABS: { id: SetupTab; label: string; icon: React.ElementType }[] = [
 export function SetupView({ data, initialTab = "venue" }: { data: SetupData; initialTab?: SetupTab }) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const currentTab = (searchParams.get("tab") as SetupTab) ?? initialTab;
+    // Only the tabs the server says this user may use (Staff with pitches.edit:
+    // Fields + Slots). Venue / Staff / Policies save through Super-Admin-only
+    // routes, so showing them to Staff only led to "Only a Super Admin" errors.
+    const allowed = data.tabs;
+    const requested = (searchParams.get("tab") as SetupTab) ?? initialTab;
+    const currentTab: SetupTab = allowed.includes(requested) ? requested : allowed[0] ?? "pitches";
     const prevTab = useRef<SetupTab>(currentTab);
     const navRef = useRef<HTMLElement>(null);
 
@@ -41,7 +46,7 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
 
     function changeTab(tab: SetupTab) {
         const params = new URLSearchParams(searchParams.toString());
-        if (tab === "venue") params.delete("tab");
+        if (tab === allowed[0]) params.delete("tab");
         else params.set("tab", tab);
         const qs = params.toString();
         router.replace(qs ? `/admin/setup?${qs}` : "/admin/setup", { scroll: false });
@@ -58,7 +63,7 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
                 className="scrollbar-visible sticky top-16 z-20 -mx-4 flex snap-x snap-mandatory overflow-x-auto scroll-px-4 border-b border-evergreen/10 bg-canvas/95 px-4 py-2.5 backdrop-blur-md lg:hidden"
             >
                 <ul className="flex w-max gap-2">
-                    {TABS.map(({ id, label, icon: Icon }) => {
+                    {TABS.filter(({ id }) => allowed.includes(id)).map(({ id, label, icon: Icon }) => {
                         const active = tab === id;
                         return (
                             <li key={id} className="shrink-0 snap-center">
@@ -92,6 +97,8 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
                         rates={data.rates}
                         pitches={data.pitches}
                         coverage={data.coverage}
+                        adjustments={data.adjustments}
+                        today={data.today}
                     />
                 )}
                 {tab === "staff" && <StaffTab staff={data.staff} />}

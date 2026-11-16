@@ -7,6 +7,12 @@ export function toMinutes(hhmm: string): number {
     return h * 60 + m;
 }
 
+/** Length of a slot from its "HH:MM" start/end. Wrap-safe: the day's last slot ends "00:00". */
+export function slotLengthMinutes(start: string, end: string): number {
+    const d = (toMinutes(end) - toMinutes(start) + 1440) % 1440;
+    return d === 0 ? 1440 : d;
+}
+
 export function toHHMM(minutes: number): string {
     const h = Math.floor(minutes / 60) % 24;
     const m = minutes % 60;

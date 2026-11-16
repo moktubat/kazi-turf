@@ -1,9 +1,9 @@
-import { pricingRules } from "@/data/pricing";
+import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
-import { applyDiscount } from "@/lib/pricing";
+import { adjustmentCovers, applyDiscount, applyPriceAdjustment } from "@/lib/pricing";
 import { dhakaParts, toMinutes } from "@/lib/time";
 import { AppError } from "@/server/http";
-import type { PricingRule } from "@/types";
+import type { PriceAdjustment, PricingRule } from "@/types";
 
 // Which price applies to one cell: a rule matches by pitch, weekday and time
 // window, and may be scoped to a date range. A date-scoped rule (Ramadan /
@@ -26,15 +26,33 @@ export function ruleFor(pitchId: string, cellStart: Date): PricingRule | null {
     return base;
 }
 
+/** The date-range adjustment (Seasonal pricing) covering this cell, if any. */
+export function adjustmentFor(pitchId: string, cellStart: Date): PriceAdjustment | null {
+    const { dow, minutes, date } = dhakaParts(cellStart);
+    return priceAdjustments.find((a) => adjustmentCovers(a, pitchId, date, dow, minutes)) ?? null;
+}
+
+// Order of precedence for one cell — exactly ONE adjustment is ever applied:
+//   1. A dated slot price (rule with effectiveFrom/To) is a hand-set price for
+//      that period: it is used as-is and seasonal adjustments are ignored.
+//   2. Otherwise a seasonal adjustment, if one covers the cell, is applied to
+//      the regular base price and REPLACES the rule's own standing adjustment
+//      (no stacking: "−10% promo" + "−20% Ramadan" = −20%, not −28%).
+//   3. Otherwise the rule's own adjustment, as before.
+// When the seasonal range ends, step 2 stops matching and step 3 applies again.
 export function priceForCell(pitchId: string, cellStart: Date) {
     const rule = ruleFor(pitchId, cellStart);
     if (!rule) return null;
-    const priced = applyDiscount(
-        rule.pricePerSlot,
-        rule.discountType,
-        rule.discountValue,
-        rule.discountDirection ?? "DISCOUNT"
-    );
+    const dated = !!(rule.effectiveFrom || rule.effectiveTo);
+    const seasonal = dated ? null : adjustmentFor(pitchId, cellStart);
+    const priced = seasonal
+        ? applyPriceAdjustment(rule.pricePerSlot, seasonal)
+        : applyDiscount(
+            rule.pricePerSlot,
+            rule.discountType,
+            rule.discountValue,
+            rule.discountDirection ?? "DISCOUNT"
+        );
     return {
         price: priced.discounted,
         originalPrice: priced.original,

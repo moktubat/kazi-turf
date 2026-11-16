@@ -25,10 +25,11 @@ export function PitchDetails({
     const cell = (r?: { price: number; originalPrice: number; hasDiscount: boolean; window: string } | null) =>
         r ? (
             <>
-                {r.hasDiscount ? (
+                {/* Any change from the regular price: a reduction (teal) or a temporary increase (held colour). */}
+                {r.price !== r.originalPrice ? (
                     <span className="font-semibold">
                         <span className="text-evergreen/50 line-through">{formatBDT(r.originalPrice)}</span>{" "}
-                        <span className="text-teal">{formatBDT(r.price)}</span>
+                        <span className={r.price > r.originalPrice ? "text-held" : "text-teal"}>{formatBDT(r.price)}</span>
                     </span>
                 ) : (
                     <span className="font-semibold">{formatBDT(r.price)}</span>

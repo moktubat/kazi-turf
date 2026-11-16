@@ -3,16 +3,18 @@ import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { legalStatus, refundConfig } from "@/data/legal";
 import { pitches } from "@/data/pitches";
-import { pricingRules } from "@/data/pricing";
+import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
 import { daysLabel } from "@/lib/grid";
 import { slugify } from "@/lib/slug";
-import { dhakaParts, toHHMM, toMinutes } from "@/lib/time";
+import { toHHMM, toMinutes } from "@/lib/time";
 import { BookingModel, SlotClaimModel, UserModel } from "@/models";
 import type {
+    AdjustmentInput, AdjustmentUpdateInput,
     BranchUpdateInput, PitchInput, PitchUpdateInput, PolicyInput,
     RateInput, RateUpdateInput, StaffCreateInput, StaffUpdateInput,
 } from "@/schemas/setup";
+import { invalidateAvailability } from "@/server/availability";
 import { logAudit } from "@/server/audit";
 import { canAccessBranch } from "@/server/auth/guards";
 import { hashPassword } from "@/server/auth/password";
@@ -24,7 +26,7 @@ import { deleteImage, publicIdFromImage } from "@/server/cloudinary";
 import { ensureConfig, persistConfig, withConfigRetry } from "@/server/config";
 import { connectDb } from "@/server/db/connect";
 import { AppError } from "@/server/http";
-import type { Branch, Pitch, PricingRule, SportConfig } from "@/types";
+import type { Branch, Pitch, PriceAdjustment, PricingRule, SportConfig } from "@/types";
 import type { AuditMeta } from "@/types/ops";
 import type { PolicyForm, SetupData, SetupRate, SetupStaff, SetupTab } from "@/types/setup";
 import type { User } from "@/types/user";
@@ -179,31 +181,31 @@ function assertPitchRules(branch: Branch, input: { name: string; sport: string }
     if (clash) throw new AppError("NAME_TAKEN", "Another pitch here already has this name.", 409, { name: "Already used" });
 }
 
-/** New hours must still fit every upcoming booking, hold and block. */
-async function assertScheduleSafe(pitchId: string, openTime: string, closeTime: string, now: Date) {
-    const pitch = pitches.find((p) => p.id === pitchId);
-    const step = pitch?.slotMinutes ?? policies.slotMinutes;
-    const open = toMinutes(openTime);
-    const close = toMinutes(closeTime);
-    const since = new Date(now.getTime() - step * 60_000).toISOString();
-
+/**
+ * A new slot length moves every slot, so an upcoming booking, live online hold,
+ * staff hold or maintenance block (each made for the OLD length) would cover the
+ * wrong time: a 90-min booking at 1:30 becomes a 60-min slot, and 2:30–3:00
+ * could be sold again. (The old check validated claims against the old grid, so
+ * it could never fail.) Only allow the change when nothing is upcoming.
+ */
+async function assertSlotLengthChangeSafe(pitch: Pitch, now: Date) {
+    const oldStep = pitch.slotMinutes ?? policies.slotMinutes;
     const claims = await SlotClaimModel.find({
-        pitchId,
-        cellStart: { $gte: since },
+        pitchId: pitch.id,
+        cellStart: { $gte: new Date(now.getTime() - oldStep * 60_000).toISOString() },
     }).lean<Array<{ cellStart: string; state: string; expiresAt?: string }>>();
-    for (const c of claims) {
-        const t = new Date(c.cellStart);
-        if (t.getTime() + step * 60_000 <= now.getTime()) continue;
-        if (c.state === "HELD" && c.expiresAt && new Date(c.expiresAt) <= now) continue;
-        const { minutes } = dhakaParts(t);
-        if (!(minutes >= open && minutes + step <= close && (minutes - open) % step === 0)) {
-            throw new AppError(
-                "SCHEDULE_CONFLICT",
-                "Upcoming bookings or blocks would fall outside the new hours. Move or cancel them first.",
-                409,
-                { openTime: "Conflicts with upcoming bookings", closeTime: "Conflicts with upcoming bookings" }
-            );
-        }
+    const live = claims.filter(
+        (c) =>
+            new Date(c.cellStart).getTime() + oldStep * 60_000 > now.getTime() && // not over yet
+            !(c.state === "HELD" && c.expiresAt && new Date(c.expiresAt) <= now)   // expired online hold
+    );
+    if (live.length > 0) {
+        throw new AppError(
+            "SCHEDULE_CONFLICT",
+            `${pitch.name} has ${live.length} upcoming booked, held or maintenance slot${live.length === 1 ? "" : "s"} made for ${oldStep}-minute slots. Change the slot length after they have passed, or cancel or release them first.`,
+            409,
+            { slotMinutes: `${live.length} upcoming slot${live.length === 1 ? "" : "s"} use the current ${oldStep}-minute length` }
+        );
     }
 }
 
@@ -263,7 +265,7 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
         // But changing slotMinutes can shift the grid, so still check that no upcoming
         // booking falls off the new grid.
         if (p.slotMinutes !== input.slotMinutes) {
-            await assertScheduleSafe(p.id, "00:00", "24:00", now);
+            await assertSlotLengthChangeSafe(p, now);
         }
 
         // [CLOUDINARY] Capture the old image URL BEFORE we overwrite the pitch.
@@ -286,6 +288,7 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
         const changes = diff(p as unknown as Record<string, unknown>, next);
         Object.assign(p, next);
         await persistConfig("pitches");
+        invalidateAvailability(p.id);
 
         // [CLOUDINARY] If the image URL changed, delete the old Cloudinary asset.
         if (oldImage && oldImage !== next.image) {
@@ -342,7 +345,9 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
         if (pricingRules[i].pitchId === id) pricingRules.splice(i, 1);
     }
     pitches.splice(idx, 1);
-    await persistConfig("pitches", "pricingRules");
+    const adjustmentsChanged = detachAdjustments([id]);
+    await persistConfig("pitches", "pricingRules", ...(adjustmentsChanged ? (["priceAdjustments"] as const) : []));
+    invalidateAvailability(id);
 
     // Best-effort Cloudinary cleanup.
     if (cloudinaryPublicId) {
@@ -440,7 +445,10 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
     branch.sportConfigs = (branch.sportConfigs ?? []).filter((s) => s.id !== sportId);
     branch.sports = branch.sports.filter((s) => s !== sportName);
 
-    await persistConfig("pitches", "pricingRules", "branches");
+    // Seasonal prices lose the removed fields; ones left with no field are removed.
+    const adjustmentsChanged = detachAdjustments(pitchIds);
+    await persistConfig("pitches", "pricingRules", "branches", ...(adjustmentsChanged ? (["priceAdjustments"] as const) : []));
+    invalidateAvailability();
 
     // Bust cached public pages so the homepage / book page reflect the removed sport.
     revalidatePath("/");
@@ -511,6 +519,257 @@ function assertRule(pitch: Pitch, input: RateInput, selfId?: string) {
             startTime: "Overlaps another rate",
         });
     }
+
+    // A dated slot price and a seasonal adjustment on the same slots would be two
+    // adjustments for one period. Refuse so the price is never ambiguous.
+    if (inputScoped) {
+        const clash = priceAdjustments.find((a) =>
+            windowsMeet(a, { pitchIds: [pitch.id], days: input.days, startTime: input.startTime, endTime: input.endTime, effectiveFrom: from, effectiveTo: to })
+        );
+        if (clash) {
+            throw new AppError(
+                "RATE_OVERLAP",
+                `These dates overlap the temporary price "${clash.label}" (${clash.effectiveFrom} to ${clash.effectiveTo}). Change or remove that one first.`,
+                409,
+                { effectiveFrom: "Overlaps a temporary price" }
+            );
+        }
+    }
+}
+
+/* ---------- seasonal pricing (date-range adjustments) ---------- */
+type Window = Pick<PriceAdjustment, "pitchIds" | "days" | "startTime" | "endTime" | "effectiveFrom" | "effectiveTo">;
+
+/** Do two windows share at least one pitch, date, weekday and minute? */
+function windowsMeet(a: Window, b: Window): boolean {
+    if (!a.pitchIds.some((p) => b.pitchIds.includes(p))) return false;
+    if (a.effectiveFrom > b.effectiveTo || b.effectiveFrom > a.effectiveTo) return false;
+    if (!a.days.some((d) => b.days.includes(d))) return false;
+    return toMinutes(a.startTime) < toMinutes(b.endTime) && toMinutes(b.startTime) < toMinutes(a.endTime);
+}
+
+const describeAdjustment = (a: Pick<PriceAdjustment, "label" | "direction" | "type" | "value" | "effectiveFrom" | "effectiveTo">) =>
+    `${a.label}: ${a.type === "PRICE" ? `${a.direction === "SURCHARGE" ? "increase" : "reduction"} to ৳${a.value}` : `${a.direction === "SURCHARGE" ? "+" : "−"}${a.type === "PERCENT" ? `${a.value}%` : `৳${a.value}`}`} ${a.effectiveFrom}→${a.effectiveTo}`;
+
+function assertAdjustment(user: ServerUser, input: AdjustmentInput, today: string, selfId?: string, wasTo?: string) {
+    const ids = [...new Set(input.pitchIds)];
+    for (const id of ids) {
+        const p = pitches.find((x) => x.id === id);
+        if (!p) throw new AppError("NOT_FOUND", "One of the selected fields no longer exists. Reload and try again.", 404);
+        assertPitchEditor(user, p.branchId);
+    }
+    // New ranges must still have a day to run. Editing an old one is fine as long
+    // as its end date is not moved into the past.
+    if (input.effectiveTo < today && (!selfId || input.effectiveTo !== wasTo)) {
+        throw new AppError("IN_PAST", "The end date is already over. Pick a date from today on.", 400, {
+            effectiveTo: "Already over",
+        });
+    }
+    const me: Window = { ...input, pitchIds: ids };
+
+    for (const a of priceAdjustments) {
+        if (a.id === selfId || !windowsMeet(a, me)) continue;
+        throw new AppError(
+            "ADJUSTMENT_OVERLAP",
+            `This overlaps the temporary price "${a.label}" (${a.effectiveFrom} to ${a.effectiveTo}). Only one temporary price can apply to a slot. Change the dates, days or times.`,
+            409,
+            { effectiveFrom: "Overlaps another temporary price" }
+        );
+    }
+
+    for (const r of pricingRules) {
+        if (!ids.includes(r.pitchId)) continue;
+        const covered = {
+            pitchIds: [r.pitchId],
+            days: r.days,
+            startTime: r.startTime,
+            endTime: r.endTime,
+            effectiveFrom: r.effectiveFrom || "0000-00-00",
+            effectiveTo: r.effectiveTo || "9999-99-99",
+        };
+        if (!windowsMeet(covered, me)) continue;
+        const pitchName = pitches.find((p) => p.id === r.pitchId)?.name ?? r.pitchId;
+        if (r.effectiveFrom || r.effectiveTo) {
+            throw new AppError(
+                "ADJUSTMENT_OVERLAP",
+                `${pitchName} has an older dated price for these dates (${describeRule(r)}, ${r.effectiveFrom || "…"} to ${r.effectiveTo || "…"}). Edit that regular price and clear its older settings first.`,
+                409,
+                { effectiveFrom: "Overlaps an older dated price" }
+            );
+        }
+        const problem = tempPriceProblem(input, r.pricePerSlot);
+        // A fixed reduction must leave every affected slot with a real price.
+        if (problem === "free") {
+            throw new AppError(
+                "ADJUSTMENT_TOO_LARGE",
+                `A ৳${input.value} reduction would make ${pitchName} ${describeRule(r)} (৳${r.pricePerSlot}) free. Use a smaller amount or a percentage.`,
+                400,
+                { value: "Larger than a slot price" }
+            );
+        }
+        // A new price must actually go the chosen way for every affected regular price.
+        if (problem === "wrong-way") {
+            const up = input.direction === "SURCHARGE";
+            throw new AppError(
+                "ADJUSTMENT_WRONG_WAY",
+                `${pitchName} ${describeRule(r)} normally costs ৳${r.pricePerSlot}, so ৳${input.value} is not ${up ? "an increase" : "a reduction"}. ${up ? "Enter a higher price" : "Enter a lower price"}, or narrow the days/times.`,
+                400,
+                { value: up ? "Must be higher than the normal price" : "Must be lower than the normal price" }
+            );
+        }
+    }
+}
+
+/**
+ * Would this temporary price give a wrong result on a regular price?
+ * "free": a fixed ৳ reduction ≥ the slot price. "wrong-way": a "set a new price"
+ * increase that is not higher (or reduction that is not lower) than the regular price.
+ */
+function tempPriceProblem(
+    a: Pick<PriceAdjustment, "direction" | "type" | "value">,
+    regularPrice: number
+): "free" | "wrong-way" | null {
+    if (a.direction === "DISCOUNT" && a.type === "FIXED" && a.value >= regularPrice) return "free";
+    if (a.type === "PRICE" && (a.direction === "SURCHARGE" ? a.value <= regularPrice : a.value >= regularPrice)) return "wrong-way";
+    return null;
+}
+
+/**
+ * The reverse check, for regular price saves: a regular price must not make a
+ * running or upcoming temporary price wrong (e.g. raising ৳2,200 to ৳3,000 while
+ * "Vacation: new price ৳2,700" exists would turn the increase into a cut).
+ * Temporary prices that have already ended are ignored.
+ */
+function assertTempPricesStillValid(pitch: Pitch, input: RateInput, today: string) {
+    if (input.effectiveFrom || input.effectiveTo) return; // dated rules never combine with temporary prices
+    const me: Window = {
+        pitchIds: [pitch.id],
+        days: input.days,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        effectiveFrom: "0000-00-00",
+        effectiveTo: "9999-99-99",
+    };
+    for (const a of priceAdjustments) {
+        if (a.effectiveTo < today || !windowsMeet(a, me)) continue;
+        const problem = tempPriceProblem(a, input.pricePerSlot);
+        if (!problem) continue;
+        const what =
+            problem === "free"
+                ? `its ৳${a.value} reduction would make these slots free`
+                : `its new price ৳${a.value} would no longer be ${a.direction === "SURCHARGE" ? "an increase" : "a reduction"} on ৳${input.pricePerSlot}`;
+        throw new AppError(
+            "TEMP_PRICE_CONFLICT",
+            `This regular price clashes with the temporary price "${a.label}" (${a.effectiveFrom} to ${a.effectiveTo}): ${what}. Edit that temporary price first, or choose a different regular price.`,
+            409,
+            { pricePerSlot: `Clashes with "${a.label}"` }
+        );
+    }
+}
+
+function adjustmentFields(input: AdjustmentInput) {
+    return {
+        label: input.label.trim(),
+        pitchIds: [...new Set(input.pitchIds)],
+        effectiveFrom: input.effectiveFrom,
+        effectiveTo: input.effectiveTo,
+        days: [...new Set(input.days)].sort((a, b) => a - b),
+        startTime: input.startTime,
+        endTime: input.endTime,
+        direction: input.direction,
+        type: input.type,
+        value: input.value,
+    };
+}
+
+const adjustmentBranch = (a: Pick<PriceAdjustment, "pitchIds">) =>
+    pitches.find((p) => a.pitchIds.includes(p.id))?.branchId ?? null;
+
+export async function createAdjustment(user: ServerUser, input: AdjustmentInput, now: Date = new Date()) {
+    await begin();
+    const today = await todayDhaka(now);
+    await withConfigRetry(async () => {
+        assertAdjustment(user, input, today);
+        const a: PriceAdjustment = { id: `adj-${randomUUID().slice(0, 8)}`, ...adjustmentFields(input) };
+        const leftover = priceAdjustments.findIndex((x) => x.id === a.id);
+        if (leftover !== -1) priceAdjustments.splice(leftover, 1);
+        priceAdjustments.push(a);
+        await persistConfig("priceAdjustments");
+        await logAudit(user, {
+            action: "PRICE_CHANGED",
+            entityType: "PRICE_ADJUSTMENT",
+            entityId: a.id,
+            branchId: adjustmentBranch(a),
+            meta: { change: "seasonal added", adjustment: describeAdjustment(a), fields: a.pitchIds.length },
+        });
+    });
+    invalidateAvailability();
+}
+
+export async function updateAdjustment(user: ServerUser, input: AdjustmentUpdateInput, now: Date = new Date()) {
+    await begin();
+    const today = await todayDhaka(now);
+    await withConfigRetry(async () => {
+        const a = priceAdjustments.find((x) => x.id === input.id);
+        if (!a) throw new AppError("NOT_FOUND", "Temporary price not found.", 404);
+        // Must be allowed to edit every field it touches now (checked here) AND after the change (assertAdjustment).
+        for (const pid of a.pitchIds) {
+            const p = pitches.find((x) => x.id === pid);
+            if (p) assertPitchEditor(user, p.branchId);
+        }
+        assertAdjustment(user, input, today, a.id, a.effectiveTo);
+        const before = describeAdjustment(a);
+        Object.assign(a, adjustmentFields(input));
+        await persistConfig("priceAdjustments");
+        await logAudit(user, {
+            action: "PRICE_CHANGED",
+            entityType: "PRICE_ADJUSTMENT",
+            entityId: a.id,
+            branchId: adjustmentBranch(a),
+            meta: { change: "seasonal updated", before, after: describeAdjustment(a) },
+        });
+    });
+    invalidateAvailability();
+}
+
+export async function deleteAdjustment(user: ServerUser, id: string) {
+    await begin();
+    await withConfigRetry(async () => {
+        const i = priceAdjustments.findIndex((x) => x.id === id);
+        const a = priceAdjustments[i];
+        if (!a) throw new AppError("NOT_FOUND", "Temporary price not found.", 404);
+        for (const pid of a.pitchIds) {
+            const p = pitches.find((x) => x.id === pid);
+            if (p) assertPitchEditor(user, p.branchId);
+        }
+        if (a.pitchIds.length === 0 || !a.pitchIds.some((pid) => pitches.some((p) => p.id === pid))) {
+            assertSetupAccess(user); // orphan (its fields were deleted): any Setup user may clean it up
+        }
+        priceAdjustments.splice(i, 1);
+        await persistConfig("priceAdjustments");
+        await logAudit(user, {
+            action: "PRICE_CHANGED",
+            entityType: "PRICE_ADJUSTMENT",
+            entityId: a.id,
+            branchId: adjustmentBranch(a),
+            meta: { change: "seasonal removed", adjustment: describeAdjustment(a) },
+        });
+    });
+    invalidateAvailability();
+}
+
+/** Cascade for pitch/sport delete: drop the pitch from every adjustment; drop adjustments left empty. Returns true if anything changed. */
+function detachAdjustments(pitchIds: string[]): boolean {
+    let changed = false;
+    for (let i = priceAdjustments.length - 1; i >= 0; i--) {
+        const a = priceAdjustments[i];
+        const kept = a.pitchIds.filter((p) => !pitchIds.includes(p));
+        if (kept.length === a.pitchIds.length) continue;
+        changed = true;
+        if (kept.length === 0) priceAdjustments.splice(i, 1);
+        else a.pitchIds = kept;
+    }
+    return changed;
 }
 
 function ruleFields(input: RateInput) {
@@ -528,8 +787,9 @@ function ruleFields(input: RateInput) {
     };
 }
 
-export async function createRate(user: ServerUser, input: RateInput) {
+export async function createRate(user: ServerUser, input: RateInput, now: Date = new Date()) {
     await begin();
+    const today = await todayDhaka(now);
     // Slots page: several admins add/change prices at the same time. Retry on
     // a version conflict with reloaded state — the overlap check re-runs on the
     // fresh rules, so nothing ambiguous is ever stored.
@@ -538,6 +798,7 @@ export async function createRate(user: ServerUser, input: RateInput) {
         if (!pitch) throw new AppError("NOT_FOUND", "Pitch not found.", 404);
         assertPitchEditor(user, pitch.branchId);
         assertRule(pitch, input);
+        assertTempPricesStillValid(pitch, input, today);
 
         const rule: PricingRule = { id: `${pitch.id}-${randomUUID().slice(0, 8)}`, pitchId: pitch.id, ...ruleFields(input) };
         // A failed attempt may have pushed the rule before losing the version
@@ -546,6 +807,7 @@ export async function createRate(user: ServerUser, input: RateInput) {
         if (leftover !== -1) pricingRules.splice(leftover, 1);
         pricingRules.push(rule);
         await persistConfig("pricingRules");
+        invalidateAvailability(pitch.id);
         await logAudit(user, {
             action: "PRICE_CHANGED",
             entityType: "PITCH",
@@ -556,8 +818,9 @@ export async function createRate(user: ServerUser, input: RateInput) {
     });
 }
 
-export async function updateRate(user: ServerUser, input: RateUpdateInput) {
+export async function updateRate(user: ServerUser, input: RateUpdateInput, now: Date = new Date()) {
     await begin();
+    const today = await todayDhaka(now);
     // Same parallel-admin protection as updateBranch: re-find the rule on every
     // attempt and re-run the overlap check against the fresh state.
     await withConfigRetry(async () => {
@@ -566,10 +829,12 @@ export async function updateRate(user: ServerUser, input: RateUpdateInput) {
         if (!rule || !pitch) throw new AppError("NOT_FOUND", "Rate not found.", 404);
         assertPitchEditor(user, pitch.branchId);
         assertRule(pitch, { ...input, pitchId: pitch.id }, rule.id);
+        assertTempPricesStillValid(pitch, { ...input, pitchId: pitch.id }, today);
 
         const before = `${describeRule(rule)} ৳${rule.pricePerSlot}`;
         Object.assign(rule, ruleFields(input));
         await persistConfig("pricingRules");
+        invalidateAvailability(pitch.id);
         await logAudit(user, {
             action: "PRICE_CHANGED",
             entityType: "PITCH",
@@ -591,6 +856,7 @@ export async function deleteRate(user: ServerUser, id: string) {
 
         pricingRules.splice(i, 1);
         await persistConfig("pricingRules");
+        invalidateAvailability(pitch.id);
         await logAudit(user, {
             action: "PRICE_CHANGED",
             entityType: "PITCH",
@@ -770,7 +1036,10 @@ function gapLines(p: Pitch, today: string): string[] {
 
 export async function getSetupData(user: ServerUser, now: Date): Promise<SetupData> {
     assertSetupAccess(user);
-    await connectDb();
+    // Always read the freshest saved config. connectDb() alone may reuse a
+    // snapshot up to 5 s old, so router.refresh() right after a save (e.g. a
+    // replaced field photo) could render the previous values on another instance.
+    await begin();
     const isAdmin = user.role === "SUPER_ADMIN";
     const step = policies.slotMinutes;
     const today = await todayDhaka(now);
@@ -852,6 +1121,11 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
             upcomingBookings: upcoming.get(p.id) ?? 0,
         })),
         rates,
+        adjustments: priceAdjustments
+            .filter((a) => a.pitchIds.some((id) => pitchById.has(id)))
+            .map((a) => ({ ...a, pitchIds: a.pitchIds.filter((id) => pitchById.has(id)), days: [...a.days] }))
+            .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom)),
+        today,
         coverage,
         staff,
         policies: isAdmin ? getPolicyForm() : null,

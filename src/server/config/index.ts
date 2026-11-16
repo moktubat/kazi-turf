@@ -5,13 +5,13 @@ import "server-only";
 import { branches } from "@/data/branches";
 import { legalStatus, refundConfig } from "@/data/legal";
 import { pitches } from "@/data/pitches";
-import { pricingRules } from "@/data/pricing";
+import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
 import { ConfigModel } from "@/models";
 import { isDup } from "@/server/db/util";
 import { AppError } from "../http";
 
-const registry = { branches, pitches, pricingRules, policies, refundConfig, legalStatus } as const;
+const registry = { branches, pitches, pricingRules, priceAdjustments, policies, refundConfig, legalStatus } as const;
 export type ConfigKey = keyof typeof registry;
 const KEYS = Object.keys(registry) as ConfigKey[];
 

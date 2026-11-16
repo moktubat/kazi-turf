@@ -107,7 +107,7 @@ export async function validateSelection(pitchId: string, cellStarts: string[], n
         throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
     }
 
-    const step = policies.slotMinutes * 60_000;
+    const step = (pitch.slotMinutes ?? policies.slotMinutes) * 60_000; // this field's own slot length
     for (let i = 1; i < picked.length; i++) {
         const gap = new Date(picked[i]!.cellStart).getTime() - new Date(picked[i - 1]!.cellStart).getTime();
         if (gap !== step) throw new AppError("NOT_CONSECUTIVE", "Pick consecutive slots only.", 400);
@@ -173,7 +173,7 @@ export async function createBooking(
     const id = randomUUID();
     const holdExpiresAt = new Date(now.getTime() + policies.holdMinutes * 60_000);
     const startStrings = v.starts.map((d) => d.toISOString());
-    const endAt = new Date(v.starts[v.starts.length - 1].getTime() + policies.slotMinutes * 60_000);
+    const endAt = new Date(v.starts[v.starts.length - 1].getTime() + (v.pitch.slotMinutes ?? policies.slotMinutes) * 60_000);
 
     const booking: Booking = {
         id,

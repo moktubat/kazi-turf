@@ -6,6 +6,7 @@ import { SlotClaimModel } from "@/models";
 import { connectDb, tx } from "@/server/db/connect";
 import { isDup } from "@/server/db/util";
 import { AppError } from "@/server/http";
+import { invalidateAvailability } from "@/server/availability";
 import type { SlotClaim } from "@/types";
 
 type Init = Pick<SlotClaim, "state" | "bookingId" | "reason" | "expiresAt">;
@@ -38,6 +39,7 @@ export async function insertClaims(
         if (isDup(e)) throw taken();
         throw e;
     }
+    invalidateAvailability(pitchId);
 }
 
 /** Staff-side claim (walk-ins, maintenance) in its own transaction. */
@@ -51,6 +53,7 @@ export async function releaseClaims(bookingIds: string | string[], session?: Cli
     const ids = Array.isArray(bookingIds) ? bookingIds : [bookingIds];
     if (ids.length === 0) return;
     await SlotClaimModel.deleteMany({ bookingId: { $in: ids } }, { session });
+    invalidateAvailability(); // pitch unknown here; the cache is small
 }
 
 /**
@@ -95,4 +98,5 @@ export async function confirmClaims(
         { $set: { state: "BOOKED" }, $unset: { expiresAt: "" } },
         { session }
     );
+    invalidateAvailability(b.pitchId);
 }

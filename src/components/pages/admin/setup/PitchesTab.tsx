@@ -177,6 +177,13 @@ export function PitchesTab({
                         key={editing === "new" ? "new" : editing.id}
                         pitch={editing === "new" ? null : editing}
                         slotMinutes={slotMinutes}
+                        onSaved={(saved) => {
+                            // Show the saved values (e.g. a replaced photo) on the card at once;
+                            // router.refresh() then brings the authoritative list.
+                            setPitches((prev) =>
+                                prev.map((p) => (p.id === saved.id ? { ...p, ...saved, image: saved.image || null } : p))
+                            );
+                        }}
                         onDone={() => {
                             setEditing(null);
                             handleChanged();
@@ -223,10 +230,13 @@ export function PitchesTab({
 
 function PitchForm({
     pitch,
+    onSaved,
     onDone,
 }: {
     pitch: SetupPitch | null;
     slotMinutes: number;
+    /** Called after a successful update with the values that were saved. */
+    onSaved?: (saved: FormState & { id: string }) => void;
     onDone: () => void;
 }) {
     const isNew = !pitch;
@@ -263,7 +273,10 @@ function PitchForm({
             body,
             "/admin/setup/pitches",
             isNew ? "POST" : "PATCH",
-            onDone
+            () => {
+                if (!isNew) onSaved?.({ ...f, id: pitch.id });
+                onDone();
+            }
         );
     }
 

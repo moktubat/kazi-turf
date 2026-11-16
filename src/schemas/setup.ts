@@ -160,6 +160,47 @@ export const rateDeleteSchema = z.object({ id: z.string().min(1).max(80) });
 export type RateInput = z.infer<typeof rateSchema>;
 export type RateUpdateInput = z.infer<typeof rateUpdateSchema>;
 
+/* ---------- Seasonal pricing (date-range adjustments) ---------- */
+const adjustmentBase = z.object({
+    label: z.string().trim().min(2, "Give it a short name").max(60, "Too long"),
+    pitchIds: z.array(z.string().min(1).max(80)).min(1, "Pick at least one field").max(50),
+    effectiveFrom: date,
+    effectiveTo: date,
+    days: z.array(z.number().int().min(0).max(6)).min(1, "Pick at least one day").max(7),
+    startTime: hhmm,
+    endTime: hhmm,
+    // SURCHARGE = price increase (vacation season), DISCOUNT = reduction (exams, Ramadan).
+    direction: z.enum(["DISCOUNT", "SURCHARGE"]),
+    // PRICE = new slot price for the period; FIXED = ৳ added/taken off; PERCENT = % added/taken off.
+    type: z.enum(["PERCENT", "FIXED", "PRICE"]),
+    value: z.number().int("Whole numbers only").min(1, "Must be at least 1").max(100000, "Too high"),
+});
+
+const adjustmentRules = (v: z.infer<typeof adjustmentBase>, ctx: z.RefinementCtx) => {
+    if (v.effectiveTo < v.effectiveFrom) {
+        ctx.addIssue({ code: "custom", path: ["effectiveTo"], message: "Must be on or after the start date" });
+    }
+    if (toMinutes(v.startTime) >= toMinutes(v.endTime)) {
+        ctx.addIssue({ code: "custom", path: ["endTime"], message: "Must be after the start" });
+    }
+    // A reduction can never make a slot free (it would become unbookable).
+    if (v.type === "PERCENT" && v.direction === "DISCOUNT" && v.value > 90) {
+        ctx.addIssue({ code: "custom", path: ["value"], message: "A reduction can be at most 90%" });
+    }
+    if (v.type === "PERCENT" && v.direction === "SURCHARGE" && v.value > 200) {
+        ctx.addIssue({ code: "custom", path: ["value"], message: "An increase can be at most 200%" });
+    }
+    if (v.type === "PRICE" && v.value < 100) {
+        ctx.addIssue({ code: "custom", path: ["value"], message: "Enter the new slot price (at least ৳100)" });
+    }
+};
+
+export const adjustmentSchema = adjustmentBase.superRefine(adjustmentRules);
+export const adjustmentUpdateSchema = adjustmentBase.extend({ id: z.string().min(1).max(80) }).superRefine(adjustmentRules);
+export const adjustmentDeleteSchema = z.object({ id: z.string().min(1).max(80) });
+export type AdjustmentInput = z.infer<typeof adjustmentSchema>;
+export type AdjustmentUpdateInput = z.infer<typeof adjustmentUpdateSchema>;
+
 /* ---------- Staff ---------- */
 const staffShape = {
     role: z.enum(["STAFF", "SUPER_ADMIN"]),

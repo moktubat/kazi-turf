@@ -51,7 +51,7 @@ const terms = (): LegalDoc => ({
         {
             heading: "Slots and holds",
             bullets: [
-                `Every slot is ${policies.slotMinutes} minutes on a fixed schedule.`,
+                "Each field has its own fixed slot length (for example 60 or 90 minutes), shown with the field and on the booking page. Slots run back to back on a fixed schedule.",
                 `When you continue to payment, your slot is held for ${policies.holdMinutes} minutes. If payment is not completed in that time, the hold is released.`,
                 "A booking is confirmed only after we verify your advance payment with bKash. Reaching a success page is not confirmation.",
             ],
