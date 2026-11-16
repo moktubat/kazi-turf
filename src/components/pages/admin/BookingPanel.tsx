@@ -168,9 +168,11 @@ export function BookingPanel({
                     <h3 className="mb-1.5 text-sm font-bold">Payments</h3>
                     <ul className="space-y-1 text-sm">
                         {b.payments.map((p) => (
-                            <li key={p.id} className="flex justify-between gap-4">
+                            <li key={p.id} className={`flex justify-between gap-4 ${p.status === "SUCCESS" ? "" : "text-evergreen/60"}`}>
                                 <span>
                                     {p.kind === "ADVANCE" ? "Advance" : "Balance"} · {p.provider === "CASH" ? "Cash" : "bKash"}
+                                    {/* Only successful payments count towards "Paid so far". */}
+                                    {p.status !== "SUCCESS" && <span className="text-xs font-semibold"> · {p.status === "PENDING" ? "Pending" : "Failed"}</span>}
                                     {p.reference && <span className="font-mono text-xs"> {p.reference}</span>}
                                     <span className="block text-xs text-evergreen/70">{formatDateTime(p.at)}</span>
                                 </span>

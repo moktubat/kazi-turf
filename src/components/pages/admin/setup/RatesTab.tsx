@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Calendar, Clock, History, Pencil, Plus, TrendingDown, TrendingUp, Wrench } from "lucide-react";
+import { AlertTriangle, Banknote, Calendar, Clock, History, Pencil, Percent, Plus, TrendingDown, TrendingUp, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -11,7 +11,7 @@ import { SideSheet } from "@/components/ui/SideSheet";
 import { cn } from "@/lib/cn";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import { daysLabel, gridBoundaries } from "@/lib/grid";
-import { applyDiscount, applyPriceAdjustment } from "@/lib/pricing";
+import { MAX_REGULAR_DISCOUNT_PERCENT, MIN_SLOT_PRICE, applyDiscount, priceWithTemporary } from "@/lib/pricing";
 import { toMinutes } from "@/lib/time";
 import { rateDeleteSchema, rateSchema, rateUpdateSchema } from "@/schemas/setup";
 import type { PriceAdjustment } from "@/types";
@@ -19,7 +19,7 @@ import type { SetupPitch, SetupRate } from "@/types/setup";
 import { SheetSection } from "../SheetSection";
 import { DayPicker, Summary, TimePicker, onGrid, slotsIn } from "./pricingUi";
 import { TEMP_COPY, TemporaryPriceForm, TemporaryPriceList, tempCovers, tempTouches, type Direction } from "./SeasonalPricing";
-import { FormActions, num } from "./ui";
+import { Check, FormActions, num } from "./ui";
 import { useSave } from "./useSave";
 
 type Editing =
@@ -28,6 +28,8 @@ type Editing =
 
 const isDated = (r: SetupRate) => !!(r.effectiveFrom || r.effectiveTo);
 const hasOwnAdjustment = (r: SetupRate) => !!(r.discountType && r.discountValue);
+/** Older built-in INCREASE on a regular price (a discount is a normal option, not "older"). */
+const hasOwnSurcharge = (r: SetupRate) => hasOwnAdjustment(r) && r.discountDirection === "SURCHARGE";
 
 export function RatesTab({
     rates,
@@ -199,16 +201,20 @@ export function RatesTab({
                                                     {formatBDT(priced.discounted)}
                                                 </p>
                                             </div>
-                                            {(isDated(r) || hasOwnAdjustment(r)) && <Badge tone="info">Older setting</Badge>}
+                                            {(isDated(r) || hasOwnSurcharge(r)) ? (
+                                                <Badge tone="info">Older setting</Badge>
+                                            ) : (
+                                                hasOwnAdjustment(r) && <Badge tone="success">Discount</Badge>
+                                            )}
                                         </div>
                                         <p className="text-sm">
                                             {daysLabel(r.days)} · {formatTime12(r.startTime)}–{formatTime12(r.endTime)}
                                         </p>
                                         {hasOwnAdjustment(r) && (
                                             <p className="text-xs text-evergreen/70">
-                                                Built-in {r.discountDirection === "SURCHARGE" ? "increase" : "discount"}:{" "}
-                                                {r.discountDirection === "SURCHARGE" ? "+" : "−"}
+                                                {hasOwnSurcharge(r) ? "Built-in increase: +" : "Discount: −"}
                                                 {r.discountType === "PERCENT" ? `${r.discountValue}%` : formatBDT(r.discountValue!)}
+                                                {!hasOwnSurcharge(r) && ` off ${formatBDT(r.pricePerSlot)}`}
                                             </p>
                                         )}
                                         {isDated(r) && (
@@ -220,11 +226,12 @@ export function RatesTab({
                                                 (a) => today >= a.effectiveFrom && today <= a.effectiveTo && tempTouches(a, r)
                                             );
                                             if (!now) return null;
-                                            const p = applyPriceAdjustment(r.pricePerSlot, now).discounted;
+                                            // Same rule as bookings: never stacked; a reduction never beats a bigger regular discount.
+                                            const p = priceWithTemporary(r, now).discounted;
                                             return (
                                                 <p className={cn("text-xs font-semibold", now.direction === "SURCHARGE" ? "text-held" : "text-teal")}>
                                                     {tempCovers(now, r) ? "Today" : "Some slots today"}: {formatBDT(p)} ({now.label}, until {now.effectiveTo}).
-                                                    Regular {formatBDT(r.pricePerSlot)} returns after.
+                                                    Regular {formatBDT(priced.discounted)} returns after.
                                                 </p>
                                             );
                                         })()}
@@ -306,7 +313,8 @@ function RegularPriceForm({ pitch, rate, onDone }: { pitch: SetupPitch; rate: Se
     const isNew = !rate;
     const slotMinutes = pitch.slotMinutes ?? 90;
     const times = gridBoundaries(pitch.openTime, pitch.closeTime, slotMinutes);
-    const legacy = !!rate && (isDated(rate) || hasOwnAdjustment(rate));
+    // Older options: date-limited prices and built-in INCREASES. A discount is a normal option now.
+    const legacy = !!rate && (isDated(rate) || hasOwnSurcharge(rate));
     const [f, setF] = useState<FormState>({
         days: rate?.days ?? [],
         startTime: rate?.startTime ?? times[0] ?? "",
@@ -325,9 +333,21 @@ function RegularPriceForm({ pitch, rate, onDone }: { pitch: SetupPitch; rate: Se
     const perDay = slotsIn(onGrid(times), f.startTime, f.endTime).length; // real individual slots
     const price = Number(f.price) || 0;
     const final = applyDiscount(price, f.discountType || null, Number(f.discountValue) || null, (f.discountDirection || "DISCOUNT") as "DISCOUNT" | "SURCHARGE");
+    const surcharge = !!f.discountType && f.discountDirection === "SURCHARGE"; // older built-in increase
+    const discountOn = !!f.discountType && !surcharge;
+    const discountAmount = discountOn ? price - final.discounted : 0;
+
+    function setDiscountOn(on: boolean) {
+        setF((s) => ({ ...s, discountType: on ? s.discountType || "PERCENT" : "", discountDirection: "DISCOUNT", discountValue: on ? s.discountValue : "" }));
+    }
 
     function clearOlderSettings() {
-        setF((s) => ({ ...s, effectiveFrom: "", effectiveTo: "", discountType: "", discountValue: "" }));
+        setF((s) => ({
+            ...s,
+            effectiveFrom: "",
+            effectiveTo: "",
+            ...(s.discountDirection === "SURCHARGE" ? { discountType: "", discountValue: "", discountDirection: "DISCOUNT" } : {}),
+        }));
     }
 
     function submit(e: React.FormEvent) {
@@ -388,28 +408,75 @@ function RegularPriceForm({ pitch, rate, onDone }: { pitch: SetupPitch; rate: Se
                 />
             </SheetSection>
 
+            <SheetSection icon={Percent} title="4. Discount (optional)" description="Take money off this price for the days and slots above.">
+                {surcharge ? (
+                    <p className="text-sm text-evergreen/70">
+                        This price has an older built-in increase (see Older settings below). Clear it to add a discount.
+                    </p>
+                ) : (
+                    <div className="space-y-4">
+                        <Check label="Give customers a discount on this price" checked={discountOn} onChange={setDiscountOn} />
+                        {discountOn && (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Select
+                                    label="Discount type"
+                                    value={f.discountType}
+                                    onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}
+                                >
+                                    <option value="PERCENT">Percentage (%)</option>
+                                    <option value="FIXED">Fixed amount (৳)</option>
+                                </Select>
+                                <Input
+                                    label={f.discountType === "PERCENT" ? "Discount (%)" : "Discount (৳ off)"}
+                                    type="number"
+                                    inputMode="numeric"
+                                    value={f.discountValue}
+                                    placeholder={f.discountType === "PERCENT" ? "e.g. 10" : "e.g. 200"}
+                                    hint={f.discountType === "PERCENT" ? `1–${MAX_REGULAR_DISCOUNT_PERCENT}%` : `Customers must still pay at least ${formatBDT(MIN_SLOT_PRICE)}.`}
+                                    error={fields.discountValue}
+                                    onChange={(e) => set("discountValue", e.target.value)}
+                                />
+                            </div>
+                        )}
+                        {discountOn && price > 0 && discountAmount > 0 && (
+                            <dl className="space-y-1 rounded-xl bg-mint/40 p-3 text-sm">
+                                <div className="flex justify-between gap-4">
+                                    <dt className="text-evergreen/70">Regular price</dt>
+                                    <dd className="font-semibold">{formatBDT(price)}</dd>
+                                </div>
+                                <div className="flex justify-between gap-4">
+                                    <dt className="text-evergreen/70">Discount</dt>
+                                    <dd className="font-semibold text-teal">−{formatBDT(discountAmount)}</dd>
+                                </div>
+                                <div className="flex justify-between gap-4 border-t border-evergreen/10 pt-1">
+                                    <dt className="font-semibold">Customers pay</dt>
+                                    <dd className="font-bold">{formatBDT(final.discounted)}</dd>
+                                </div>
+                            </dl>
+                        )}
+                        <p className="text-xs text-evergreen/70">
+                            While a temporary price increase runs, the increase is charged instead of this discount. During a temporary
+                            reduction, customers pay whichever is lower. The two are never added together.
+                        </p>
+                    </div>
+                )}
+            </SheetSection>
+
             {legacy && (
                 <SheetSection
                     icon={History}
                     title="Older settings on this price"
                     description="This price was set up with options that now live under Temporary prices. You can keep them, change them, or clear them."
                 >
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        <Select label="Built-in change" value={f.discountType} onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}>
-                            <option value="">None</option>
-                            <option value="PERCENT">Percentage (%)</option>
-                            <option value="FIXED">Amount (৳)</option>
-                        </Select>
-                        {f.discountType && (
-                            <>
-                                <Select label="Direction" value={f.discountDirection || "DISCOUNT"} onChange={(e) => set("discountDirection", e.target.value as FormState["discountDirection"])}>
-                                    <option value="DISCOUNT">Lower the price</option>
-                                    <option value="SURCHARGE">Raise the price</option>
-                                </Select>
-                                <Input label="Value" type="number" inputMode="numeric" value={f.discountValue} error={fields.discountValue} onChange={(e) => set("discountValue", e.target.value)} />
-                            </>
-                        )}
-                    </div>
+                    {surcharge && (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Select label="Built-in increase" value={f.discountType} onChange={(e) => set("discountType", e.target.value as FormState["discountType"])}>
+                                <option value="PERCENT">Percentage (%)</option>
+                                <option value="FIXED">Amount (৳)</option>
+                            </Select>
+                            <Input label="Increase" type="number" inputMode="numeric" value={f.discountValue} error={fields.discountValue} onChange={(e) => set("discountValue", e.target.value)} />
+                        </div>
+                    )}
                     <div className="grid grid-cols-2 gap-4">
                         <Input label="Only from" type="date" value={f.effectiveFrom} error={fields.effectiveFrom} onChange={(e) => set("effectiveFrom", e.target.value)} />
                         <Input label="Only until" type="date" value={f.effectiveTo} error={fields.effectiveTo} onChange={(e) => set("effectiveTo", e.target.value)} />
@@ -426,6 +493,9 @@ function RegularPriceForm({ pitch, rate, onDone }: { pitch: SetupPitch; rate: Se
                     ["Time slots", f.startTime && f.endTime ? `${formatTime12(f.startTime)}–${formatTime12(f.endTime)} (${perDay} slot${perDay === 1 ? "" : "s"} a day)` : "Pick a time range"],
                     ...(f.effectiveFrom || f.effectiveTo ? [["Dates", `${f.effectiveFrom || "…"} to ${f.effectiveTo || "…"}`] as [string, string]] : []),
                     ["Normal price", price ? formatBDT(price) : "Enter a price"],
+                    ...(discountOn && discountAmount > 0
+                        ? [["Discount", `−${formatBDT(discountAmount)}${f.discountType === "PERCENT" ? ` (${f.discountValue}%)` : ""}`] as [string, string]]
+                        : []),
                     ...(final.hasAdjustment ? [["Customers pay", formatBDT(final.discounted)] as [string, string]] : []),
                 ]}
             />

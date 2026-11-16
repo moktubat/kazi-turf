@@ -44,7 +44,7 @@ beforeAll(async () => {
         branchId: "bogura", name: "Main Field", sport: "Football", format: "5 vs 5", dimensions: "", surface: "",
         openTime: "00:00", closeTime: "24:00", slotMinutes: 60, maxConsecutiveSlots: 2, facilities: [], image: "", status: "ACTIVE",
     });
-    F = pitches[0].id;
+    F = pitches.find((p) => p.name === "Main Field")!.id; // the shared test fixtures are loaded too
     await createRate(admin, {
         pitchId: F, days: ALL, startTime: "00:00", endTime: "24:00", pricePerSlot: 2200, tier: "Off-peak",
         effectiveFrom: "", effectiveTo: "", discountType: null, discountDirection: null, discountValue: null,
@@ -77,7 +77,7 @@ describe("৳2,200 regular + ৳2,700 temporary increase on the 20th–21st", ()
     });
 
     it("Field card shows the price for that day", async () => {
-        const card = async (date: string) => (await getRateTable(F, noon(date)))[0].offPeak!;
+        const card = async (date: string) => (await getRateTable(F, noon(date)))[0].windows[0];
         expect(await card(addDays(D20, -1))).toMatchObject({ price: 2200, hasAdjustment: false });
         expect(await card(D20)).toMatchObject({ price: 2700, originalPrice: 2200, hasSurcharge: true });
         expect(await card(D21)).toMatchObject({ price: 2700 });
@@ -109,7 +109,7 @@ describe("temporary reduction behaves the same", () => {
         expect(price(D20, 12)).toBe(1700);
         expect(price(D21, 12)).toBe(1700);
         expect(price(addDays(D21, 1), 12)).toBe(2200);
-        expect((await getRateTable(F, noon(D20)))[0].offPeak).toMatchObject({ price: 1700, hasDiscount: true });
+        expect((await getRateTable(F, noon(D20)))[0].windows[0]).toMatchObject({ price: 1700, hasDiscount: true });
     });
 });
 

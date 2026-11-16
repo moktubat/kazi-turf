@@ -16,9 +16,10 @@ export async function connectDb(): Promise<typeof mongoose> {
     if (!cache.conn) {
         const uri = process.env.MONGODB_URI;
         if (!uri) {
+            console.error("[db] MONGODB_URI is not set (.env.local).");
             throw new AppError(
                 "DB_NOT_CONFIGURED",
-                "Database is not configured. Set MONGODB_URI in .env.local (a MongoDB Atlas connection string works).",
+                "The service is temporarily unavailable. Please try again shortly.",
                 500
             );
         }
@@ -31,12 +32,9 @@ export async function connectDb(): Promise<typeof mongoose> {
             })
             .catch((e) => {
                 cache.conn = null;
-                const msg = e instanceof Error ? e.message : String(e);
-                throw new AppError(
-                    "DB_UNREACHABLE",
-                    `Could not connect to the database: ${msg}. Check MONGODB_URI and your network/Atlas IP allow-list.`,
-                    500
-                );
+                // Hosts and replica-set names stay in the server log; the client gets a plain message.
+                console.error("[db] connect failed (check MONGODB_URI and the Atlas IP access list):", e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+                throw new AppError("DB_UNREACHABLE", "The service is temporarily unavailable. Please try again shortly.", 503);
             });
     }
 

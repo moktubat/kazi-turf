@@ -7,6 +7,7 @@ import { CheckCircle2, KeyRound, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Field";
+import { useCountdown } from "@/hooks/useCountdown";
 import { ApiError, api } from "@/lib/api";
 import { passwordSchema, profileSchema, type PasswordInput, type ProfileInput } from "@/schemas/account";
 
@@ -42,7 +43,18 @@ function SectionHeader({
     );
 }
 
-export function ProfileForms({ profile }: { profile: { name: string; phone: string; email: string } }) {
+export interface ProfileView {
+    name: string;
+    phone: string;
+    email: string;
+    emailVerified?: boolean;
+    /** Customers confirm a new email with a code; staff accounts keep the direct update. */
+    verifyEmail?: boolean;
+}
+
+type Pending = { email: string; sentTo: string; expiresInMinutes: number; resendInSeconds: number };
+
+export function ProfileForms({ profile }: { profile: ProfileView }) {
     return (
         <div className="grid gap-5 lg:grid-cols-2">
             <ProfileForm profile={profile} />
@@ -51,21 +63,37 @@ export function ProfileForms({ profile }: { profile: { name: string; phone: stri
     );
 }
 
-function ProfileForm({ profile }: { profile: { name: string; phone: string; email: string } }) {
+function ProfileForm({ profile }: { profile: ProfileView }) {
     const router = useRouter();
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+    const [pending, setPending] = useState<Pending | null>(null);
+    const [sending, setSending] = useState(false);
     const {
         register,
         handleSubmit,
         setError,
         formState: { errors, isSubmitting },
-    } = useForm<ProfileInput>({ resolver: zodResolver(profileSchema), defaultValues: profile });
+    } = useForm<ProfileInput>({
+        resolver: zodResolver(profileSchema),
+        defaultValues: { name: profile.name, phone: profile.phone, email: profile.email },
+    });
+
+    const emailHint = !profile.verifyEmail || !profile.email ? undefined : profile.emailVerified ? "Verified" : "Not verified yet";
 
     async function onSubmit(v: ProfileInput) {
         setMsg(null);
         try {
-            await api("/api/account/profile", { method: "PATCH", body: JSON.stringify(v) });
-            setMsg({ ok: true, text: "Profile saved." });
+            const r = await api<{ profile: { emailPending?: Pending } }>("/api/account/profile", { method: "PATCH", body: JSON.stringify(v) });
+            if (r.profile.emailPending) {
+                setPending(r.profile.emailPending);
+                setMsg({
+                    ok: true,
+                    text: `Saved. Enter the code we sent to ${r.profile.emailPending.sentTo} to switch to the new email. Until then your account keeps ${profile.email || "no email"}.`,
+                });
+            } else {
+                setPending(null);
+                setMsg({ ok: true, text: "Profile saved." });
+            }
             router.refresh();
         } catch (e) {
             if (e instanceof ApiError) {
@@ -85,13 +113,126 @@ function ProfileForm({ profile }: { profile: { name: string; phone: string; emai
                 />
                 <Input label="Name" autoComplete="name" error={errors.name?.message} {...register("name")} />
                 <Input label="Phone" type="tel" inputMode="tel" autoComplete="tel" error={errors.phone?.message} {...register("phone")} />
-                <Input label="Email (optional)" type="email" autoComplete="email" error={errors.email?.message} {...register("email")} />
+                <Input label="Email (optional)" type="email" autoComplete="email" hint={emailHint} error={errors.email?.message} {...register("email")} />
+                {profile.verifyEmail && profile.email && !profile.emailVerified && !pending && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={sending}
+                        onClick={async () => {
+                            setMsg(null);
+                            setSending(true);
+                            try {
+                                setPending(await api<Pending>("/api/account/email/code", { method: "POST", body: JSON.stringify({ email: profile.email }) }));
+                            } catch (e) {
+                                setMsg({ ok: false, text: e instanceof ApiError ? e.message : "Could not send the code. Please try again." });
+                            } finally {
+                                setSending(false);
+                            }
+                        }}
+                    >
+                        {sending ? "Sending code…" : "Verify this email"}
+                    </Button>
+                )}
                 {msg && <Notice ok={msg.ok}>{msg.text}</Notice>}
                 <Button type="submit" disabled={isSubmitting} className="w-full">
                     {isSubmitting ? "Saving…" : "Save profile"}
                 </Button>
             </form>
+            {pending && (
+                <EmailCodeForm
+                    key={pending.email}
+                    pending={pending}
+                    onResent={setPending}
+                    onCancel={() => {
+                        setPending(null);
+                        setMsg(null);
+                    }}
+                    onVerified={() => {
+                        setPending(null);
+                        setMsg({ ok: true, text: "Email verified." });
+                        router.refresh();
+                    }}
+                />
+            )}
         </Card>
+    );
+}
+
+/** Customer: confirm the emailed code. Only then does the account email change (server side). */
+function EmailCodeForm({
+    pending,
+    onResent,
+    onCancel,
+    onVerified,
+}: {
+    pending: Pending;
+    onResent: (p: Pending) => void;
+    onCancel: () => void;
+    onVerified: () => void;
+}) {
+    const [code, setCode] = useState("");
+    const [error, setErrorText] = useState<string | null>(null);
+    const [busy, setBusy] = useState<"verify" | "resend" | null>(null);
+    const [secondsLeft, startCountdown] = useCountdown(pending.resendInSeconds); // the form opens right after a send
+
+    async function verify(e: React.FormEvent) {
+        e.preventDefault();
+        if (!/^\d{6}$/.test(code)) return setErrorText("Enter the 6-digit code from your email");
+        setErrorText(null);
+        setBusy("verify");
+        try {
+            await api("/api/account/email/verify", { method: "POST", body: JSON.stringify({ email: pending.email, otpCode: code }) });
+            onVerified();
+        } catch (err) {
+            setErrorText(err instanceof ApiError ? (err.fields?.otpCode ?? err.fields?.email ?? err.message) : "Could not verify. Please try again.");
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    async function resend() {
+        setErrorText(null);
+        setBusy("resend");
+        try {
+            const p = await api<Pending>("/api/account/email/code", { method: "POST", body: JSON.stringify({ email: pending.email }) });
+            setCode("");
+            startCountdown(p.resendInSeconds);
+            onResent(p);
+        } catch (err) {
+            setErrorText(err instanceof ApiError ? err.message : "Could not send the code. Please try again.");
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    return (
+        <form onSubmit={verify} noValidate className="mt-4 space-y-3 border-t border-evergreen/10 pt-4" aria-label="Confirm new email">
+            <p className="text-sm text-evergreen/80">
+                Code sent to <strong className="font-semibold text-evergreen">{pending.sentTo}</strong>. It expires in {pending.expiresInMinutes} minutes.
+            </p>
+            <Input
+                label="Verification code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(ev) => setCode(ev.target.value.replace(/\D/g, "").slice(0, 6))}
+                hint="Not in your inbox? Check the spam folder."
+                error={error ?? undefined}
+            />
+            <Button type="submit" className="w-full" disabled={busy !== null}>
+                {busy === "verify" ? "Confirming…" : "Confirm email"}
+            </Button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <Button type="button" variant="ghost" onClick={resend} disabled={busy !== null || secondsLeft > 0}>
+                    {busy === "resend" ? "Sending…" : secondsLeft > 0 ? `Resend code in ${secondsLeft}s` : "Resend code"}
+                </Button>
+                <Button type="button" variant="ghost" onClick={onCancel} disabled={busy !== null}>
+                    Cancel
+                </Button>
+            </div>
+        </form>
     );
 }
 

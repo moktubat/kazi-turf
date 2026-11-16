@@ -45,8 +45,6 @@ export function proxy(req: NextRequest) {
 
     const res = NextResponse.next();
     res.headers.set("Content-Security-Policy", csp);
-    // Make the nonce available to Next.js via a request header so it can be applied
-    // to inline scripts rendered by the App Router.
     return apply(res);
 }
 

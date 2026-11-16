@@ -13,6 +13,7 @@ import { plainAll } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import type { BoardCell, BoardResponse } from "@/types/admin";
 import type { Booking } from "@/types/booking";
+import type { Payment } from "@/types/ops";
 import { SlotClaim } from "@/types";
 import { todayDhaka } from "@/lib/time.server";
 
@@ -47,9 +48,9 @@ export async function getBoard(
 
     const [bookingDocs, dayDocs, cashDocs, openReqs] = await Promise.all([
         BookingModel.find({ id: { $in: bookingIds } }).lean(),
-        BookingModel.find({ branchId: branch.id, date }, { bookingStatus: 1 }).lean<any[]>(),
-        PaymentModel.find({ provider: "CASH", status: "SUCCESS", verifiedAt: { $gte: from, $lt: to } }).lean<any[]>(),
-        ChangeRequestModel.find({ status: "OPEN" }, { bookingCode: 1 }).lean<any[]>(),
+        BookingModel.find({ branchId: branch.id, date }, { bookingStatus: 1 }).lean<Pick<Booking, "bookingStatus">[]>(),
+        PaymentModel.find({ provider: "CASH", status: "SUCCESS", verifiedAt: { $gte: from, $lt: to } }).lean<Payment[]>(),
+        ChangeRequestModel.find({ status: "OPEN" }, { bookingCode: 1 }).lean<{ bookingCode: string }[]>(),
     ]);
     const byId = new Map(plainAll<Booking>(bookingDocs).map((b) => [b.id, b]));
 

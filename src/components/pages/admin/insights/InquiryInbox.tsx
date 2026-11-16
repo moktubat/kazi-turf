@@ -20,7 +20,7 @@ export function InquiryInbox({ items }: { items: InquiryDto[] }) {
         setBusyId(id);
         setError(null);
         try {
-            await api("/api/admin/inquiries", { method: "POST", body: JSON.stringify({ id }) });
+            await api("/admin/inquiries", { method: "POST", body: JSON.stringify({ id }) });
             router.refresh();
         } catch (e) {
             setError(e instanceof ApiError ? e.message : "Could not update. Please try again.");

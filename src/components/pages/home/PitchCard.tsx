@@ -17,7 +17,7 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
     const sizeKnown = pitch.dimensions && !/verified/i.test(pitch.dimensions);
 
     // Build a list of all priced cells with their adjusted + original prices.
-    const allCells = rows.flatMap((r) => [r.offPeak, r.peak]).filter((c): c is NonNullable<typeof c> => !!c && c.price > 0);
+    const allCells = rows.flatMap((r) => r.windows).filter((c) => c.price > 0);
 
     // "From" = lowest effective (adjusted) price across all cells.
     const cheapest = allCells.length

@@ -68,8 +68,8 @@ export async function confirmClaims(
 ) {
     if (new Date(b.endAt) <= now) throw taken(); // the slot has already been played out
 
-    const mine = await SlotClaimModel.find({ bookingId: b.id }).session(session).lean();
-    const have = new Set(mine.map((c: any) => c.cellStart));
+    const mine = await SlotClaimModel.find({ bookingId: b.id }).session(session).lean<SlotClaim[]>();
+    const have = new Set(mine.map((c) => c.cellStart));
     const missing = b.cellStarts.filter((s) => !have.has(s));
 
     if (missing.length > 0) {

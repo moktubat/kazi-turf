@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/Field";
 import { cn } from "@/lib/cn";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import { daysLabel, gridBoundaries } from "@/lib/grid";
-import { applyPriceAdjustment } from "@/lib/pricing";
+import { applyDiscount, applyPriceAdjustment, priceWithTemporary } from "@/lib/pricing";
 import { toMinutes } from "@/lib/time";
 import { adjustmentDeleteSchema, adjustmentSchema, adjustmentUpdateSchema } from "@/schemas/setup";
 import type { PriceAdjustment } from "@/types";
@@ -23,6 +23,10 @@ import { DayPicker, Summary, TimePicker, chip } from "./pricingUi";
 
 export type Direction = PriceAdjustment["direction"];
 type Mode = PriceAdjustment["type"];
+
+/** What customers pay on a regular price today, i.e. after its own discount (if any). */
+const regularPay = (r: SetupRate) =>
+    applyDiscount(r.pricePerSlot, r.discountType, r.discountValue, r.discountDirection ?? "DISCOUNT").discounted;
 
 const COPY: Record<Direction, {
     title: string;
@@ -154,9 +158,9 @@ export function TemporaryPriceList({
                                             <li key={r.id} className="flex flex-wrap justify-between gap-x-2">
                                                 <span className="text-evergreen/70">{daysLabel(r.days)} {formatTime12(r.startTime)}–{formatTime12(r.endTime)}</span>
                                                 <span>
-                                                    <span className="text-evergreen/60">{formatBDT(r.pricePerSlot)}</span> →{" "}
+                                                    <span className="text-evergreen/60">{formatBDT(regularPay(r))}</span> →{" "}
                                                     <strong className={up ? "text-held" : "text-teal"}>
-                                                        {formatBDT(applyPriceAdjustment(r.pricePerSlot, a).discounted)}
+                                                        {formatBDT(priceWithTemporary(r, a).discounted)}
                                                     </strong>
                                                 </span>
                                             </li>
@@ -389,14 +393,20 @@ export function TemporaryPriceForm({
                         {affected.map((r) => {
                             const p = value > 0 ? applyPriceAdjustment(r.pricePerSlot, { direction, type: f.type, value }) : null;
                             const wrongWay = p && (up ? p.discounted <= p.original : p.discounted >= p.original);
+                            // What customers actually pay (same rule as bookings): a bigger regular discount stays.
+                            const pays = value > 0 ? priceWithTemporary(r, { direction, type: f.type, value }).discounted : null;
+                            const keepsDiscount = !!p && pays !== null && pays < p.discounted;
                             return (
                                 <li key={r.id} className="flex flex-wrap justify-between gap-x-3">
                                     <span className="text-evergreen/80">{daysLabel(r.days)} {formatTime12(r.startTime)}–{formatTime12(r.endTime)}</span>
                                     <span>
-                                        Normal <span className="font-semibold">{formatBDT(r.pricePerSlot)}</span>
+                                        Normal <span className="font-semibold">{formatBDT(regularPay(r))}</span>
                                         {" → "}
-                                        {p ? (
-                                            <strong className={wrongWay ? "text-booked" : up ? "text-held" : "text-teal"}>{formatBDT(p.discounted)}</strong>
+                                        {p && pays !== null ? (
+                                            <>
+                                                <strong className={wrongWay ? "text-booked" : up ? "text-held" : "text-teal"}>{formatBDT(pays)}</strong>
+                                                {keepsDiscount && <span className="text-xs text-evergreen/70"> (its regular discount is lower, so it stays)</span>}
+                                            </>
                                         ) : (
                                             <span className="text-evergreen/50">enter a value</span>
                                         )}

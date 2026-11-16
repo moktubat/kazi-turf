@@ -60,7 +60,7 @@ export function LegalTabs({
             >
                 <h2 className="text-xl font-extrabold md:text-2xl">{doc.label}</h2>
                 <p className="mt-1 text-evergreen/80">
-                    {isRefundTab ? refundIntro(refundPolicy) : doc.intro}
+                    {isRefundTab ? refundIntro() : doc.intro}
                 </p>
 
                 <div className="mt-6 space-y-6">
@@ -96,7 +96,7 @@ export function LegalTabs({
     );
 }
 
-function refundIntro(p: RefundPolicy): string {
+function refundIntro(): string {
     return "All turfs are indoor — weather is never a reason for a refund. The windows below describe what happens to your advance if you cancel.";
 }
 

@@ -99,7 +99,7 @@ export async function ensureConfig(force = false): Promise<void> {
         await run;
     } catch (e) {
         if (!populated && state.last === 0) throw e; // never loaded: fail loudly
-        console.error("[config] reload failed, using last known values");
+        console.error("[config] reload failed, using last known values:", e instanceof Error ? e.message : String(e));
         state.last = nowMs() - TTL_MS + 1_000; // retry in about a second
     }
 }

@@ -131,7 +131,7 @@ export function ConfirmStep({
                 ? "Opening bKash…"
                 : advanceReady
                     ? `Pay ${formatBDT(advance)} advance with bKash`
-                    : "Selecting slot…"}
+                    : "Preparing payment…"}
         </Button>
     ) : (
         <Button type="submit" form="confirm-form" size="lg" className="w-full" disabled={!canContinue}>

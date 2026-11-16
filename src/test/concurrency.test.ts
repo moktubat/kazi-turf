@@ -1,4 +1,5 @@
 // The core promise (spec §1.2): two customers can never confirm the same pitch and time.
+import type { SlotClaim } from "@/types";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addDays, dhakaToUtc } from "@/lib/time";
 import { BookingModel, SlotClaimModel } from "@/models";
@@ -66,7 +67,7 @@ describe("slot claims", () => {
         const dto = await book(1, [cell(12)]);
         expect(dto.holdActive).toBe(true);
 
-        const claims = await SlotClaimModel.find({}).lean<any[]>();
+        const claims = await SlotClaimModel.find({}).lean<SlotClaim[]>();
         expect(claims).toHaveLength(1);
         expect(claims[0].bookingId).not.toBe("old-booking");
     });
@@ -84,7 +85,7 @@ describe("slot claims", () => {
 
         expect(second.code).not.toBe(first.code);
         expect(await BookingModel.countDocuments({})).toBe(1);
-        const claims = await SlotClaimModel.find({}).lean<any[]>();
+        const claims = await SlotClaimModel.find({}).lean<SlotClaim[]>();
         expect(claims.map((c) => c.cellStart)).toEqual([cell(15)]);
     });
 });

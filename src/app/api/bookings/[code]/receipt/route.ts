@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     await connection();
     try {
         const user = await requireUser();
-        if (!rateLimitAsync(`receipt:${user.id}`, 30, 60_000)) {
+        if (!(await rateLimitAsync(`receipt:${user.id}`, 30, 60_000))) {
             throw new AppError("RATE_LIMITED", "Too many requests. Please wait a moment.", 429);
         }
 

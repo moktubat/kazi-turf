@@ -17,8 +17,15 @@ const lockoutSchema = new Schema(
     { versionKey: false }
 );
 
-const LockoutModel: Model<any> =
-    (mongoose.models.Lockout as Model<any>) ?? mongoose.model("Lockout", lockoutSchema);
+interface LockoutDoc {
+    identifier: string;
+    failures: number;
+    lockedUntil: Date | null;
+    lastFailedAt: Date | null;
+}
+
+const LockoutModel: Model<LockoutDoc> =
+    (mongoose.models.Lockout as Model<LockoutDoc>) ?? mongoose.model<LockoutDoc>("Lockout", lockoutSchema);
 
 const MAX_FAILURES = 5;
 const BASE_LOCK_MS = 5 * 60_000; // 5 minutes

@@ -2,9 +2,7 @@ import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import path from "path";
 
-// FIX: Configure the Cloudinary SDK with env vars.
-// Without this, the SDK doesn't know your credentials even though
-// cloudinaryConfigured() returns true (it only checks env vars exist).
+// Configure the SDK from env vars (cloudinaryConfigured() only checks that they exist).
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
     cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -27,55 +25,38 @@ export interface UploadResult {
     format: string;
 }
 
+const PROD = process.env.NODE_ENV === "production";
+
 /**
- * Upload an image buffer. Falls back to local storage if Cloudinary is not
- * configured or if the Cloudinary API fails/times out.
+ * Upload an image buffer to Cloudinary. In development only, falls back to
+ * /public/uploads when Cloudinary is not configured or fails. In production a
+ * failure is an error: a local file would be lost or unservable on the host.
  */
 export async function uploadImage(
     buffer: Buffer,
     opts: { publicId: string; folder: string }
 ): Promise<UploadResult> {
-    const start = Date.now();
-    console.log("[cloudinary] uploadImage start", {
-        publicId: opts.publicId,
-        folder: opts.folder,
-        bytes: buffer.length,
-    });
-
     if (!cloudinaryConfigured()) {
-        if (process.env.NODE_ENV === "production") {
-            throw new Error("Cloudinary is not configured. Set CLOUDINARY_* env vars in production.");
-        }
-        const local = await uploadLocal(buffer, opts);
-        return local;
+        if (PROD) throw new Error("Cloudinary is not configured. Set CLOUDINARY_* env vars in production.");
+        return uploadLocal(buffer, opts);
     }
 
+    const start = Date.now();
     try {
-        console.log("[cloudinary] uploading to Cloudinary...");
-        const result = await Promise.race([
+        return await Promise.race([
             uploadToCloudinary(buffer, opts),
             new Promise<never>((_, reject) =>
-                setTimeout(
-                    () => reject(new Error("Cloudinary upload timed out after 15 seconds")),
-                    15_000
-                )
+                setTimeout(() => reject(new Error("Cloudinary upload timed out after 15 seconds")), 15_000)
             ),
         ]);
-        console.log("[cloudinary] Cloudinary upload success:", Date.now() - start, "ms");
-        return result;
     } catch (error) {
-        console.error("[cloudinary] Cloudinary upload FAILED:", Date.now() - start, "ms");
-        console.error("[cloudinary] error:", error instanceof Error ? error.message : String(error));
-        console.log("[cloudinary] falling back to local storage...");
-        const local = await uploadLocal(buffer, opts);
-        console.log("[cloudinary] local fallback done:", Date.now() - start, "ms");
-        return local;
+        console.error(`[cloudinary] upload failed after ${Date.now() - start} ms:`, error instanceof Error ? error.message : String(error));
+        if (PROD) throw new Error("Image upload failed");
+        return uploadLocal(buffer, opts); // development only
     }
 }
 
-/**
- * Upload to Cloudinary using upload_stream.
- */
+/** Upload to Cloudinary using upload_stream. Never overwrites an existing asset. */
 async function uploadToCloudinary(
     buffer: Buffer,
     opts: { publicId: string; folder: string }
@@ -86,11 +67,10 @@ async function uploadToCloudinary(
                 resource_type: "image",
                 public_id: opts.publicId,
                 folder: opts.folder,
-                overwrite: true,
+                overwrite: false,
             },
             (error, result) => {
                 if (error) {
-                    console.error("[cloudinary] API error:", error.message);
                     reject(error);
                     return;
                 }
@@ -112,9 +92,7 @@ async function uploadToCloudinary(
     });
 }
 
-/**
- * Local fallback: save the image to /public/uploads/ and return a URL.
- */
+/** Development fallback: save the image to /public/uploads/ and return its URL. */
 async function uploadLocal(
     buffer: Buffer,
     opts: { publicId: string; folder: string }
@@ -124,15 +102,10 @@ async function uploadLocal(
 
     const safeName = opts.publicId.replace(/[^a-z0-9-]/gi, "-").slice(0, 60);
     const filename = `${Date.now()}-${safeName}.jpg`;
-    const filepath = path.join(uploadsDir, filename);
-
-    fs.writeFileSync(filepath, buffer);
-
-    const url = `/uploads/${filename}`;
-    console.log("[cloudinary] local file saved:", filepath);
+    fs.writeFileSync(path.join(uploadsDir, filename), buffer);
 
     return {
-        secureUrl: url,
+        secureUrl: `/uploads/${filename}`,
         publicId: opts.publicId,
         width: 0,
         height: 0,
@@ -157,16 +130,8 @@ async function uploadLocal(
 export function publicIdFromImage(url: string): string | null {
     if (!url || typeof url !== "string") return null;
 
-    // Local fallback URL — no Cloudinary public ID
-    if (url.startsWith("/uploads/")) {
-        console.log("[cloudinary] publicIdFromImage: local URL, returning null");
-        return null;
-    }
-
-    // Also handle relative URLs that aren't /uploads/
-    if (url.startsWith("/") && !url.startsWith("http")) {
-        return null;
-    }
+    // Local or other relative URLs have no Cloudinary public ID.
+    if (url.startsWith("/")) return null;
 
     try {
         const u = new URL(url);
@@ -185,8 +150,6 @@ export function publicIdFromImage(url: string): string | null {
         const fullId = relevantParts.join("/");
         const lastDot = fullId.lastIndexOf(".");
         const publicId = lastDot > 0 ? fullId.slice(0, lastDot) : fullId;
-
-        console.log("[cloudinary] publicIdFromImage:", url, "→", publicId || null);
         return publicId || null;
     } catch {
         // Not a valid URL — might be a relative path or something else
@@ -200,42 +163,27 @@ export function publicIdFromImage(url: string): string | null {
  * If Cloudinary is not configured, or the public ID is null (local fallback),
  * this is a no-op. Errors are logged but never thrown — deleting the old
  * image should not break a pitch update or save.
- *
- * For local fallback images, optionally deletes the local file too.
  */
 export async function deleteImage(publicId: string | null): Promise<void> {
-    if (!publicId) {
-        console.log("[cloudinary] deleteImage: no publicId, skipping");
-        return;
-    }
+    if (!publicId) return;
 
-    // If it looks like a local path, try to delete the local file
+    // Local fallback file (development).
     if (publicId.startsWith("/uploads/")) {
         try {
             const filepath = path.join(process.cwd(), "public", publicId);
-            if (fs.existsSync(filepath)) {
-                fs.unlinkSync(filepath);
-                console.log("[cloudinary] deleteImage: local file deleted:", filepath);
-            } else {
-                console.log("[cloudinary] deleteImage: local file not found:", filepath);
-            }
+            if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
         } catch (e) {
-            console.error("[cloudinary] deleteImage: local delete error (non-fatal):", e instanceof Error ? e.message : e);
+            console.error("[cloudinary] local delete failed (non-fatal):", e instanceof Error ? e.message : e);
         }
         return;
     }
 
-    if (!cloudinaryConfigured()) {
-        console.log("[cloudinary] deleteImage: Cloudinary not configured, skipping");
-        return;
-    }
+    if (!cloudinaryConfigured()) return;
 
     try {
-        console.log("[cloudinary] deleteImage: destroying", publicId);
-        const result = await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
-        console.log("[cloudinary] deleteImage: result:", result?.result);
+        await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
     } catch (error) {
-        // Non-fatal: don't let a failed delete break the save operation
-        console.error("[cloudinary] deleteImage error (non-fatal):", error instanceof Error ? error.message : error);
+        // Non-fatal: a failed delete must not break the save that triggered it.
+        console.error("[cloudinary] delete failed (non-fatal):", error instanceof Error ? error.message : error);
     }
 }

@@ -101,7 +101,7 @@ export async function validateSelection(pitchId: string, cellStarts: string[], n
         throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
     }
 
-    const cells = await getPitchAvailability(pitchId, date, now);
+    const cells = await getPitchAvailability(pitchId, date, now, { fresh: true });
     const picked = dates.map((d) => cells.find((c) => c.cellStart === d.toISOString()));
     if (picked.some((c) => !c)) {
         throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);

@@ -23,7 +23,7 @@ async function getConfig<T>(key: string): Promise<T | null> {
         if (msg.includes("HANGING_PROMISE_REJECTION") || msg.includes("connection()")) {
             return null;
         }
-        console.error(`[getConfig:${key}] error:`, e);
+        console.error(`[getConfig:${key}] error:`, msg);
         return null;
     }
 }

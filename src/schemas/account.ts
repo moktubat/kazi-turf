@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { phoneInput } from "./common";
 import { customerPasswordChangeSchema } from "./password";
+import { otpCodeInput, requiredEmail } from "./auth";
 
 const optionalEmail = z
     .string()
@@ -24,3 +25,6 @@ export const changeRequestSchema = z.object({
     reason: z.string().trim().min(5, "Add a short reason (5+ characters)").max(300, "Keep it under 300 characters"),
 });
 export type ChangeRequestInput = z.infer<typeof changeRequestSchema>;
+/** Customer email change: send a code to the new address / confirm it. */
+export const emailChangeCodeSchema = z.object({ email: requiredEmail });
+export const emailChangeVerifySchema = z.object({ email: requiredEmail, otpCode: otpCodeInput });

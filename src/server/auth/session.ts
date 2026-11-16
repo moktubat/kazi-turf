@@ -17,6 +17,7 @@ export interface ServerUser extends SessionUser {
     email: string | null;
     branchIds: string[];
     permissions: string[];
+    emailVerified?: boolean;
 }
 
 export function hashToken(token: string): string {
@@ -71,6 +72,7 @@ async function userForToken(token: string | undefined): Promise<ServerUser | nul
         email: u.email ?? null,
         branchIds: u.branchIds ?? [],
         permissions: u.permissions ?? [],
+        emailVerified: u.emailVerified === true,
     };
 }
 

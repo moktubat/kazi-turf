@@ -84,6 +84,7 @@ export function ImageUpload({
     function onDrop(e: React.DragEvent) {
         e.preventDefault();
         setDragOver(false);
+        if (uploading) return; // one upload at a time (the file input is disabled too)
         const file = e.dataTransfer.files?.[0];
         if (file) void uploadFile(file);
     }

@@ -25,6 +25,8 @@ export interface Cell {
 export interface AvailabilityOptions {
     /** Staff only: a slot already in progress still counts as open (walk-ins). */
     allowStarted?: boolean;
+    /** Skip the 30 s display cache. Every check that decides a write (book, walk-in, hold) uses this. */
+    fresh?: boolean;
 }
 
 // Sync lookups — reads from the in-memory `pitches` array populated by ensureConfig().
@@ -137,9 +139,12 @@ export async function getPitchAvailability(
     const pitch = getPitch(pitchId);
     if (!pitch) return [];
     const cacheKey = `${pitchId}|${date}|${opts.allowStarted ? "1" : "0"}`;
+    const [from, to] = dayRange(date);
+    // A fresh read reflects holds that just expired, claims freed by another server instance
+    // and slots that just started; the cached copy can be up to 30 s behind on all three.
+    if (opts.fresh) return buildCells(pitch, date, await loadClaims([pitchId], from, to), now, opts);
     const cached = cellCache.get(cacheKey);
     if (cached && Date.now() - cached.at < CELL_CACHE_TTL_MS) return cached.cells;
-    const [from, to] = dayRange(date);
     const cells = buildCells(pitch, date, await loadClaims([pitchId], from, to), now, opts);
     cellCache.set(cacheKey, { at: Date.now(), cells });
     if (cellCache.size > 500) {

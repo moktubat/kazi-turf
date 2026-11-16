@@ -41,6 +41,6 @@ export async function logAudit(
 /** Newest first. */
 export async function auditFor(entityType: AuditLog["entityType"], entityId: string, limit = 25): Promise<AuditEntryDto[]> {
     await connectDb();
-    const rows = await AuditLogModel.find({ entityType, entityId }).sort({ at: -1 }).limit(limit).lean();
-    return rows.map((a: any) => ({ id: a.id, action: a.action, actorName: a.actorName, at: a.at, meta: a.meta ?? {} }));
+    const rows = await AuditLogModel.find({ entityType, entityId }).sort({ at: -1 }).limit(limit).lean<AuditLog[]>();
+    return rows.map((a) => ({ id: a.id, action: a.action, actorName: a.actorName, at: a.at, meta: a.meta ?? {} }));
 }

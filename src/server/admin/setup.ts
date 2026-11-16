@@ -320,7 +320,7 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
     const upcoming = await BookingModel.countDocuments({
         pitchId: id,
         bookingStatus: { $in: ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] },
-        startAt: { $gte: now.toISOString() },
+        endAt: { $gt: now.toISOString() }, // includes a game in progress
     });
     if (upcoming > 0) {
         throw new AppError(
@@ -329,9 +329,6 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
             409
         );
     }
-
-    // Cascade: delete every slot claim AND every pricing rule (slot price) for this pitch.
-    await SlotClaimModel.deleteMany({ pitchId: id });
 
     // Capture BEFORE we mutate the arrays.
     const cloudinaryPublicId = p.image ? publicIdFromImage(p.image) : null;
@@ -347,6 +344,8 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
     pitches.splice(idx, 1);
     const adjustmentsChanged = detachAdjustments([id]);
     await persistConfig("pitches", "pricingRules", ...(adjustmentsChanged ? (["priceAdjustments"] as const) : []));
+    // Claims go only after the field is really gone: a failed save leaves its holds and blocks intact.
+    await SlotClaimModel.deleteMany({ pitchId: id });
     invalidateAvailability(id);
 
     // Best-effort Cloudinary cleanup.
@@ -399,7 +398,7 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
         const upcoming = await BookingModel.countDocuments({
             pitchId: { $in: pitchIds },
             bookingStatus: { $in: ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] },
-            startAt: { $gte: now.toISOString() },
+            endAt: { $gt: now.toISOString() }, // includes a game in progress
         });
         if (upcoming > 0) {
             throw new AppError(
@@ -408,11 +407,6 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
                 409
             );
         }
-    }
-
-    // 1. Cascade: delete slot claims for every doomed pitch.
-    if (pitchIds.length > 0) {
-        await SlotClaimModel.deleteMany({ pitchId: { $in: pitchIds } });
     }
 
     // 2. Capture Cloudinary public_ids for every pitch image BEFORE we splice.
@@ -448,6 +442,8 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
     // Seasonal prices lose the removed fields; ones left with no field are removed.
     const adjustmentsChanged = detachAdjustments(pitchIds);
     await persistConfig("pitches", "pricingRules", "branches", ...(adjustmentsChanged ? (["priceAdjustments"] as const) : []));
+    // Claims go only after the save succeeded (see deletePitch).
+    if (pitchIds.length > 0) await SlotClaimModel.deleteMany({ pitchId: { $in: pitchIds } });
     invalidateAvailability();
 
     // Bust cached public pages so the homepage / book page reflect the removed sport.
@@ -773,6 +769,8 @@ function detachAdjustments(pitchIds: string[]): boolean {
 }
 
 function ruleFields(input: RateInput) {
+    // Discount off (no type or no value) = stored as "none", so the regular price applies again.
+    const hasChange = !!(input.discountType && input.discountValue);
     return {
         days: [...new Set(input.days)].sort((a, b) => a - b),
         startTime: input.startTime,
@@ -781,9 +779,9 @@ function ruleFields(input: RateInput) {
         tier: input.tier,
         effectiveFrom: input.effectiveFrom || undefined,
         effectiveTo: input.effectiveTo || undefined,
-        discountType: input.discountType ?? null,
-        discountDirection: input.discountDirection ?? null,
-        discountValue: input.discountValue ?? null,
+        discountType: hasChange ? input.discountType : null,
+        discountDirection: hasChange ? (input.discountDirection ?? "DISCOUNT") : null,
+        discountValue: hasChange ? input.discountValue : null,
     };
 }
 

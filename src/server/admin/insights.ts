@@ -13,7 +13,11 @@ import { settleExpired } from "@/server/bookings/expire";
 import { connectDb } from "@/server/db/connect";
 import { plainAll } from "@/server/db/util";
 import { AppError } from "@/server/http";
-import type { Booking } from "@/types/booking";
+import type { Booking, Inquiry } from "@/types/booking";
+import type { SlotClaim } from "@/types";
+import type { AuditLog, Payment } from "@/types/ops";
+
+type InquiryRow = Inquiry & Partial<Record<"firstName" | "lastName" | "email" | "phone" | "sport" | "subject" | "body", string | null>>;
 import type { AttentionGroup, AttentionItem, AuditRow, InquiryDto, InsightsData } from "@/types/insights";
 import { assertSuperAdmin } from "./access";
 
@@ -63,10 +67,10 @@ export async function getInsights(
                 ...(sport ? { pitchId: { $in: [...scopePitchIds] } } : {}),
             },
             { id: 1, branchId: 1, pitchId: 1, source: 1, paymentStatus: 1, balanceAmount: 1, cellStarts: 1 }
-        ).lean<any[]>(),
-        PaymentModel.find({ status: "SUCCESS", verifiedAt: { $gte: fromIso, $lt: toIso } }).lean<any[]>(),
-        PaymentModel.find({ status: "PENDING" }).lean<any[]>(),
-        SlotClaimModel.find({ state: "MAINTENANCE", cellStart: { $gte: fromIso, $lt: toIso } }, { pitchId: 1, cellStart: 1 }).lean<any[]>(),
+        ).lean<Pick<Booking, "id" | "branchId" | "pitchId" | "source" | "paymentStatus" | "balanceAmount" | "cellStarts">[]>(),
+        PaymentModel.find({ status: "SUCCESS", verifiedAt: { $gte: fromIso, $lt: toIso } }).lean<Payment[]>(),
+        PaymentModel.find({ status: "PENDING" }).lean<Payment[]>(),
+        SlotClaimModel.find({ state: "MAINTENANCE", cellStart: { $gte: fromIso, $lt: toIso } }, { pitchId: 1, cellStart: 1 }).lean<Pick<SlotClaim, "pitchId" | "cellStart">[]>(),
     ]);
 
     // Join payments to their bookings, limited to the branches in scope.
@@ -74,14 +78,14 @@ export async function getInsights(
     const bks = await BookingModel.find(
         { id: { $in: ids }, branchId: { $in: scopeIds } },
         { id: 1, branchId: 1, paymentStatus: 1, source: 1 }
-    ).lean<any[]>();
+    ).lean<Pick<Booking, "id" | "branchId" | "paymentStatus" | "source">[]>();
     const bkById = new Map(bks.map((b) => [b.id, b]));
 
     // Collected = money actually received, by payment date. Fully refunded bookings are excluded.
     const paid = payDocs.flatMap((p) => {
         const b = bkById.get(p.bookingId);
         if (!b || b.paymentStatus === "REFUNDED") return [];
-        return [{ p, b, date: dhakaParts(new Date(p.verifiedAt)).date }];
+        return [{ p, b, date: dhakaParts(new Date(p.verifiedAt!)).date }]; // queried by verifiedAt range, so always set
     });
     const collected = paid.reduce((s, x) => s + x.p.amount, 0);
 
@@ -206,7 +210,7 @@ export async function getAttention(user: ServerUser, now: Date = new Date()): Pr
         })
             .sort({ createdAt: -1 })
             .limit(200)
-            .lean<any[]>(),
+            .lean<Payment[]>(),
         BookingModel.find({ ...scope, paymentStatus: "REFUND_PENDING" }).limit(200).lean(),
         BookingModel.find({ ...scope, bookingStatus: { $in: COUNTED }, paymentStatus: "PARTIALLY_PAID", endAt: { $lt: nowIso } })
             .limit(200)
@@ -219,7 +223,7 @@ export async function getAttention(user: ServerUser, now: Date = new Date()): Pr
     );
     const refunds = plainAll<Booking>(refundDocs);
     const received = new Map<string, number>();
-    for (const p of await PaymentModel.find({ bookingId: { $in: refunds.map((b) => b.id) }, status: "SUCCESS" }).lean<any[]>()) {
+    for (const p of await PaymentModel.find({ bookingId: { $in: refunds.map((b) => b.id) }, status: "SUCCESS" }).lean<Payment[]>()) {
         received.set(p.bookingId, (received.get(p.bookingId) ?? 0) + p.amount);
     }
 
@@ -270,7 +274,7 @@ export async function getAttention(user: ServerUser, now: Date = new Date()): Pr
 export async function listInquiries(user: ServerUser): Promise<InquiryDto[]> {
     assertSuperAdmin(user);
     await connectDb();
-    const rows = await InquiryModel.find().sort({ createdAt: -1 }).limit(100).lean<any[]>();
+    const rows = await InquiryModel.find().sort({ createdAt: -1 }).limit(100).lean<InquiryRow[]>();
     const sorted = [...rows.filter((r) => r.status === "NEW"), ...rows.filter((r) => r.status !== "NEW")];
     return sorted.slice(0, 50).map((r) => ({
         id: r.id,
@@ -316,7 +320,7 @@ export async function getAuditEntries(
     })
         .sort({ at: -1 })
         .limit(1000)
-        .lean<any[]>();
+        .lean<AuditLog[]>();
 
     return docs
         .filter((a) => {

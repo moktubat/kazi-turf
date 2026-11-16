@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
         await changePassword(user.id, input.currentPassword, input.newPassword);
 
         // Sign out every other device. This one stays signed in.
-        endOtherSessions(user.id, req.cookies.get(SESSION_COOKIE)?.value);
+        await endOtherSessions(user.id, req.cookies.get(SESSION_COOKIE)?.value);
         return ok({ changed: true });
     } catch (e) {
         return handleError(e);

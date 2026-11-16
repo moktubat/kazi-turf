@@ -7,7 +7,7 @@ import type { ServerUser } from "@/server/auth/session";
 import { connectDb } from "@/server/db/connect";
 import { plainAll } from "@/server/db/util";
 import { AppError } from "@/server/http";
-import type { AccountBookingDto, ChangeKind, ChangeRequestInfo } from "@/types/account";
+import type { AccountBookingDto, ChangeKind, ChangeRequest, ChangeRequestInfo } from "@/types/account";
 import type { Booking } from "@/types/booking";
 import type { Payment } from "@/types/ops";
 import { findBookingByCode, settle, toDto } from "./index";
@@ -20,8 +20,8 @@ export async function listAccountBookings(user: ServerUser, now: Date) {
     const codes = mine.map((b) => b.bookingCode);
     const ids = mine.map((b) => b.id);
     const [requests, pays] = await Promise.all([
-        ChangeRequestModel.find({ bookingCode: { $in: codes }, status: "OPEN" }).lean<any[]>(),
-        PaymentModel.find({ bookingId: { $in: ids }, provider: "BKASH", status: "SUCCESS" }).lean<any[]>(),
+        ChangeRequestModel.find({ bookingCode: { $in: codes }, status: "OPEN" }).lean<ChangeRequest[]>(),
+        PaymentModel.find({ bookingId: { $in: ids }, provider: "BKASH", status: "SUCCESS" }).lean<Payment[]>(),
     ]);
     const reqBy = new Map(requests.map((r) => [r.bookingCode, r]));
     const refBy = new Map((plainAll<Payment>(pays)).map((p) => [p.bookingId, p.providerTxnId ?? null]));

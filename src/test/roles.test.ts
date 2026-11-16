@@ -25,7 +25,7 @@ import { startDb, stopDb } from "./helpers";
 const mk = (id: string, role: ServerUser["role"], branchIds: string[], permissions: string[] = []): ServerUser => ({
     id, name: id, role, phone: `0171${id.length}000000`.slice(0, 11), email: null, branchIds, permissions,
 });
-// Same shapes the app creates: seed admin has ["*"]; StaffTab sends [venue.id] + optional pitches.edit.
+// Same shapes the app creates: a Super Admin may have ["*"]; StaffTab sends [venue.id] + optional pitches.edit.
 const admin = mk("admin", "SUPER_ADMIN", [], ["*"]);
 const editor = mk("editor", "STAFF", ["bogura"], ["pitches.edit"]);
 const desk = mk("desk", "STAFF", ["bogura"]);

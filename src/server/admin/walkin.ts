@@ -21,6 +21,7 @@ import type { Booking } from "@/types/booking";
 import { toAdminDto } from "./dto";
 import { todayDhaka } from "@/lib/time.server";
 import { sendEmail } from "../email";
+import { runAfterResponse } from "../background";
 import { bookingConfirmationTemplate } from "../email/templates";
 
 /** Walk-in rules: staff may book a slot already in progress; everything else matches /book. */
@@ -53,7 +54,7 @@ export async function validateWalkIn(user: ServerUser, pitchId: string, cellStar
         throw new AppError("OUT_OF_RANGE", "Choose a date inside the booking window.", 400);
     }
 
-    const cells = await getPitchAvailability(pitchId, date, now, { allowStarted: true });
+    const cells = await getPitchAvailability(pitchId, date, now, { allowStarted: true, fresh: true });
     const picked = dates.map((d) => cells.find((c) => c.cellStart === d.toISOString()));
     if (picked.some((c) => !c)) throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
 
@@ -178,44 +179,37 @@ export async function createWalkIn(
 
     // ── EMAIL ──
     if (existing?.id) {
-        void (async () => {
-            try {
-                const customer = await UserModel.findOne(
-                    { id: existing.id },
-                    { name: 1, email: 1 }
-                ).lean<{ name: string; email: string | null }>();
+        runAfterResponse("walk-in confirmation email", async () => {
+            const customer = await UserModel.findOne(
+                { id: existing.id },
+                { name: 1, email: 1 }
+            ).lean<{ name: string; email: string | null }>();
 
-                if (!customer?.email) return;
+            if (!customer?.email) return;
 
-                const start = toHHMM(dhakaParts(new Date(booking.startAt)).minutes);
-                const end = toHHMM(dhakaParts(new Date(booking.endAt)).minutes);
+            const start = toHHMM(dhakaParts(new Date(booking.startAt)).minutes);
+            const end = toHHMM(dhakaParts(new Date(booking.endAt)).minutes);
 
-                const tpl = bookingConfirmationTemplate({
-                    name: customer.name,
-                    code: booking.bookingCode,
-                    pitchName: v.pitch.name,
-                    sport: v.pitch.sport,
-                    date: v.date,
-                    start,
-                    end,
-                    total: q.total,
-                    advance: paid,
-                    balance: q.total - paid,
-                });
+            const tpl = bookingConfirmationTemplate({
+                name: customer.name,
+                code: booking.bookingCode,
+                pitchName: v.pitch.name,
+                sport: v.pitch.sport,
+                date: v.date,
+                start,
+                end,
+                total: q.total,
+                advance: paid,
+                balance: q.total - paid,
+            });
 
-                await sendEmail({
-                    to: customer.email,
-                    subject: tpl.subject,
-                    html: tpl.html,
-                    text: tpl.text,
-                });
-            } catch (e) {
-                console.error(
-                    "[email] walk-in confirmation failed:",
-                    e instanceof Error ? e.message : e
-                );
-            }
-        })();
+            await sendEmail({
+                to: customer.email,
+                subject: tpl.subject,
+                html: tpl.html,
+                text: tpl.text,
+            });
+        });
     }
 
     return toAdminDto(booking, user, now);

@@ -14,6 +14,7 @@ import { getPitch } from "../availability";
 import { dhakaParts, toHHMM } from "@/lib/time";
 import { bookingConfirmationTemplate } from "../email/templates";
 import { sendEmail } from "../email";
+import { runAfterResponse } from "../background";
 
 const SYSTEM = { id: "system", name: "System (bKash)" };
 const ABANDON_GRACE_MS = 2 * 60_000;
@@ -268,7 +269,10 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
     }
 
     if (confirmedBooking) {
-        void sendBookingConfirmationEmail(confirmedBooking);
+        // Exactly once: only the call that actually confirmed the booking gets here. After the
+        // response, without the platform freezing the function before it is sent.
+        const confirmed = confirmedBooking;
+        runAfterResponse("booking confirmation email", () => sendBookingConfirmationEmail(confirmed));
     }
 
     return after(p.id);

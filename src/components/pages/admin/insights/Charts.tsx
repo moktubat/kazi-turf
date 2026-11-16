@@ -4,8 +4,6 @@ import { Card } from "@/components/ui/Card";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import type { InsightsData } from "@/types/insights";
 
-const PALETTE = ["bg-teal", "bg-emerald", "bg-evergreen", "bg-held", "bg-maint"];
-
 function Kpi({
     icon: Icon,
     label,

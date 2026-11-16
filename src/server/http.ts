@@ -18,6 +18,17 @@ export function ok<T>(data: T, status = 200) {
     return NextResponse.json(data, { status, headers: NO_STORE });
 }
 
+/**
+ * 303 to a same-site path. The Location is RELATIVE on purpose: `req.nextUrl` is built from
+ * the server's listen address (e.g. 0.0.0.0:3000 under `next dev -H 0.0.0.0`), not the
+ * address the browser used, so an absolute URL built from it can be unreachable. The browser
+ * resolves "/" against its own current origin (localhost, LAN IP or the live domain).
+ */
+export function redirectTo(path: string, search = "") {
+    if (!path.startsWith("/") || path.startsWith("//")) throw new Error("redirectTo: same-site paths only");
+    return new NextResponse(null, { status: 303, headers: { Location: `${path}${search}`, ...NO_STORE } });
+}
+
 export function fail(code: string, message: string, status: number, fields?: Record<string, string>) {
     return NextResponse.json({ code, message, ...(fields ? { fields } : {}) }, { status, headers: NO_STORE });
 }
@@ -27,8 +38,11 @@ export function handleError(e: unknown) {
     if (e instanceof ZodError) {
         const fields: Record<string, string> = {};
         for (const issue of e.issues) {
-            const key = String(issue.path[0] ?? "form");
-            if (!fields[key]) fields[key] = issue.message;
+            // Full path ("refund.tiers.0.when") for nested forms, plus the top-level key for flat ones.
+            const full = issue.path.length ? issue.path.map(String).join(".") : "form";
+            const top = String(issue.path[0] ?? "form");
+            if (!fields[full]) fields[full] = issue.message;
+            if (!fields[top]) fields[top] = issue.message;
         }
         return fail("VALIDATION", "Please check the highlighted fields.", 400, fields);
     }

@@ -4,12 +4,6 @@ import { z } from "zod";
 const BD_PHONE = /^(?:\+?88)?01[3-9]\d{8}$/;
 const strip = (v: string) => v.replace(/[\s-]/g, "");
 
-const optionalEmail = z
-    .string()
-    .trim()
-    .max(120, "Too long")
-    .refine((v) => v === "" || z.string().email().safeParse(v).success, "Enter a valid email");
-
 export const contactSchema = z.object({
     firstName: z.string().trim().min(2, "Enter your first name").max(40, "Too long"),
     lastName: z.string().trim().min(2, "Enter your last name").max(40, "Too long"),

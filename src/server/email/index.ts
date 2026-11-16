@@ -2,6 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 
 const apiKey = process.env.RESEND_API_KEY;
+// Fallback is Resend's sandbox sender, which only delivers to the Resend account owner: dev only.
 const FROM = process.env.EMAIL_FROM || "KaziTurf <onboarding@resend.dev>";
 
 const resend = apiKey ? new Resend(apiKey) : null;
@@ -22,7 +23,7 @@ export interface EmailMessage {
  */
 export async function sendEmail(msg: EmailMessage): Promise<{ id?: string; skipped?: boolean; error?: string }> {
     if (!resend) {
-        console.warn("[email] RESEND_API_KEY not set — skipping send to", msg.to);
+        console.warn("[email] RESEND_API_KEY not set — email not sent.");
         return { skipped: true };
     }
 
@@ -37,7 +38,7 @@ export async function sendEmail(msg: EmailMessage): Promise<{ id?: string; skipp
         });
 
         if (error) {
-            console.error("[email] Resend error:", error);
+            console.error("[email] Resend rejected the email:", error.name, error.message);
             return { error: error.message };
         }
 

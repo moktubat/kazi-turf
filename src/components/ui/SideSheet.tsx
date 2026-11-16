@@ -35,7 +35,9 @@ export function SideSheet({
     const panelRef = useRef<HTMLDivElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const onCloseRef = useRef(onClose);
-    onCloseRef.current = onClose;
+    useEffect(() => {
+        onCloseRef.current = onClose; // latest handler for the key/overlay listeners, without re-binding them
+    }, [onClose]);
     const titleId = useId();
     const descId = useId();
 

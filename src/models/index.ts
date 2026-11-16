@@ -1,5 +1,5 @@
 // Mongoose models (spec §11). Ids are string UUIDs in an `id` field so existing types and DTOs stay the same.
-// Timestamps are ISO strings (UTC). No server-only import: the seed script and tests load this too.
+// Timestamps are ISO strings (UTC). No server-only import: scripts and tests load this too.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import mongoose, { Schema, type Model } from "mongoose";
 
@@ -23,6 +23,9 @@ const user = new Schema(
         status: { type: String, enum: ["ACTIVE", "DISABLED"], default: "ACTIVE" },
         createdAt: String,
         phoneVerified: { type: Boolean, default: false },
+        // True only after the CURRENT email was confirmed with a code. Older accounts have no
+        // value (= not verified) and keep logging in exactly as before.
+        emailVerified: { type: Boolean, default: false },
     },
     opts
 );
@@ -200,20 +203,30 @@ const config = new Schema(
     opts
 );
 
-const otp = new Schema(
+// Email verification codes (registration and email change). The code itself is never
+// stored: only an HMAC bound to the record id. Records are kept for a day after creation
+// (purgeAt) so the per-email and per-IP send limits survive across server instances;
+// whether a code still works is decided by expiresAt / consumedAt / supersededAt.
+const emailOtp = new Schema(
     {
         id,
-        phone: { type: String, required: true, index: true },
+        email: { type: String, required: true },
+        purpose: { type: String, enum: ["REGISTER", "EMAIL_CHANGE"], required: true },
+        userId: { type: String, default: null }, // EMAIL_CHANGE: the account asking
         codeHash: { type: String, required: true },
         attempts: { type: Number, default: 0 },
-        verified: { type: Boolean, default: false },
         expiresAt: { type: Date, required: true },
-        createdAt: Date,
+        consumedAt: { type: Date, default: null },
+        supersededAt: { type: Date, default: null },
+        ipHash: { type: String, default: null },
+        createdAt: { type: Date, required: true },
+        purgeAt: { type: Date, required: true },
     },
     opts
 );
-otp.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-otp.index({ phone: 1, createdAt: -1 });
+emailOtp.index({ purgeAt: 1 }, { expireAfterSeconds: 0 });
+emailOtp.index({ email: 1, purpose: 1, createdAt: -1 });
+emailOtp.index({ ipHash: 1, createdAt: -1 });
 
 const resetToken = new Schema(
     {
@@ -265,5 +278,5 @@ export const PitchModel = reg(
 );
 
 export const allModels = () => Object.values(mongoose.models);
-export const OtpModel = reg("Otp", otp);
+export const EmailOtpModel = reg("EmailOtp", emailOtp);
 export const ResetTokenModel = reg("ResetToken", resetToken);

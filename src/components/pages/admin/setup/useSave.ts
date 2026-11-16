@@ -40,7 +40,6 @@ export function useSave() {
             router.refresh();
             onDone();
         } catch (e) {
-            console.error("[useSave] error saving to", url, e);
             if (e instanceof ApiError) {
                 if (e.fields) setFields(e.fields);
                 setError(e.message);
@@ -53,9 +52,9 @@ export function useSave() {
                 }
             } else if (e instanceof Error) {
                 // Show the actual error message, not just "Something went wrong".
-                setError(`Error: ${e.message}. Check the terminal for [setup/...] logs.`);
+                setError(e.message || "Something went wrong. Please try again.");
             } else {
-                setError(`Unexpected error: ${String(e)}. Check the terminal.`);
+                setError("Something went wrong. Please try again.");
             }
         } finally {
             setBusy(false);

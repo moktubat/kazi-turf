@@ -37,8 +37,8 @@ describe("persistent Setup", () => {
         const before = pricingRules.length;
         await deleteRate(mk("s3", "STAFF", ["bogura"], ["pitches.edit"]), id);
 
-        const saved = await ConfigModel.findOne({ key: "pricingRules" }).lean<any>();
-        expect(saved.value).toHaveLength(before - 1);
+        const saved = await ConfigModel.findOne({ key: "pricingRules" }).lean<{ value: unknown[] }>();
+        expect(saved?.value).toHaveLength(before - 1);
         expect(await AuditLogModel.countDocuments({ action: "PRICE_CHANGED" })).toBe(1);
     });
 });

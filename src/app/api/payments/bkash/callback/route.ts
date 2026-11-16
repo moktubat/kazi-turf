@@ -1,17 +1,15 @@
 // bKash sends the customer's browser here. Nothing in the URL is trusted:
 // the payment is looked up by its bKash ID and CONFIRMED by asking bKash directly.
-import { connection, NextResponse, type NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 import { BookingModel, PaymentModel } from "@/models";
 import { connectDb } from "@/server/db/connect";
-import { clientIp } from "@/server/http";
+import { clientIp, redirectTo } from "@/server/http";
 import { settlePayment, type Hint } from "@/server/payments/settle";
 import { rateLimitAsync } from "@/server/security/rateLimit";
 
-function go(req: NextRequest, path: string, search = "") {
-    const url = req.nextUrl.clone();
-    url.pathname = path;
-    url.search = search;
-    return NextResponse.redirect(url, 303);
+// Relative redirect (see redirectTo): req.nextUrl can carry the server's listen address.
+function go(_req: NextRequest, path: string, search = "") {
+    return redirectTo(path, search);
 }
 
 export async function GET(req: NextRequest) {

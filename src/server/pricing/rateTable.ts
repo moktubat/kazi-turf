@@ -1,6 +1,6 @@
 import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { formatTime12 } from "@/lib/format";
-import { applyDiscount, applyPriceAdjustment } from "@/lib/pricing";
+import { applyDiscount, priceWithTemporary } from "@/lib/pricing";
 import { toMinutes } from "@/lib/time";
 import { todayDhaka } from "@/lib/time.server";
 import type { PricingRule } from "@/types";
@@ -11,22 +11,36 @@ function dayLabel(days: number[]): string {
     const d = [...days].sort((a, b) => a - b);
     if (d.length === 1) return DAY[d[0]];
     const contiguous = d.every((v, i) => i === 0 || v === d[i - 1] + 1);
+    if (d.length === 7) return "Every day";
     return contiguous ? `${DAY[d[0]]}–${DAY[d[d.length - 1]]}` : d.map((x) => DAY[x]).join(", ");
 }
 
+export type DayPeriod = "Night" | "Morning" | "Afternoon" | "Evening";
+
 export interface RateCell {
-    price: number;              // effective (adjusted) price
-    originalPrice: number;      // base price before adjustment
+    period: DayPeriod;          // from the window's start time (customer-friendly label)
+    start: string;              // "HH:MM", for sorting and tests
+    price: number;              // what the customer pays today (discounts / temporary prices applied)
+    originalPrice: number;      // regular price before any change
     hasDiscount: boolean;
     hasSurcharge: boolean;
     hasAdjustment: boolean;
-    window: string;
+    window: string;             // "06:00 AM–12:00 PM"
 }
 
+/** One weekday group (e.g. "Sun–Thu") with ALL its time windows, earliest first. */
 export interface RateRow {
     days: string;
-    offPeak: RateCell | null;
-    peak: RateCell | null;
+    windows: RateCell[];
+}
+
+/** 05:00–11:59 Morning, 12:00–16:59 Afternoon, 17:00–20:59 Evening, otherwise Night. */
+export function periodOf(start: string): DayPeriod {
+    const m = toMinutes(start);
+    if (m >= 5 * 60 && m < 12 * 60) return "Morning";
+    if (m >= 12 * 60 && m < 17 * 60) return "Afternoon";
+    if (m >= 17 * 60 && m < 21 * 60) return "Evening";
+    return "Night";
 }
 
 const isDated = (r: PricingRule) => !!(r.effectiveFrom || r.effectiveTo);
@@ -54,34 +68,41 @@ function seasonalFor(r: PricingRule, today: string) {
 
 export async function getRateTable(pitchId: string, now?: Date): Promise<RateRow[]> {
     const today = await todayDhaka(now);
-    const rows = new Map<string, RateRow>();
-    const active = pricingRules
-        .filter(
-            (x) =>
-                x.pitchId === pitchId &&
-                (!x.effectiveFrom || today >= x.effectiveFrom) &&
-                (!x.effectiveTo || today <= x.effectiveTo)
-        )
-        // Dated rules last, so on their dates they win over the always-on price (same as ruleFor).
-        .sort((a, b) => Number(isDated(a)) - Number(isDated(b)));
-    for (const r of active) {
-        const key = [...r.days].sort((a, b) => a - b).join(",");
-        const row = rows.get(key) ?? { days: dayLabel(r.days), offPeak: null, peak: null };
-        const seasonal = seasonalFor(r, today);
-        const priced = seasonal
-            ? applyPriceAdjustment(r.pricePerSlot, seasonal)
-            : applyDiscount(r.pricePerSlot, r.discountType, r.discountValue, r.discountDirection ?? "DISCOUNT");
-        const cell: RateCell = {
+    const active = pricingRules.filter(
+        (x) =>
+            x.pitchId === pitchId &&
+            (!x.effectiveFrom || today >= x.effectiveFrom) &&
+            (!x.effectiveTo || today <= x.effectiveTo)
+    );
+    // An older date-limited price running today wins over the always-on price it overlaps
+    // (same as ruleFor in booking), so the always-on one is not listed next to it.
+    const dated = active.filter(isDated);
+    const key = (r: PricingRule) => [...r.days].sort((a, b) => a - b).join(",");
+    const overlaps = (a: PricingRule, b: PricingRule) =>
+        toMinutes(a.startTime) < toMinutes(b.endTime) && toMinutes(b.startTime) < toMinutes(a.endTime);
+    const shown = active.filter((r) => isDated(r) || !dated.some((d) => key(d) === key(r) && overlaps(d, r)));
+
+    const groups = new Map<string, { days: number[]; row: RateRow }>();
+    for (const r of shown) {
+        const k = key(r);
+        const g = groups.get(k) ?? { days: [...r.days].sort((a, b) => a - b), row: { days: dayLabel(r.days), windows: [] } };
+        const priced = isDated(r)
+            ? applyDiscount(r.pricePerSlot, r.discountType, r.discountValue, r.discountDirection ?? "DISCOUNT")
+            : priceWithTemporary(r, seasonalFor(r, today)); // same rule as booking (lib/pricing)
+        g.row.windows.push({
+            period: periodOf(r.startTime),
+            start: r.startTime,
             price: priced.discounted,
             originalPrice: priced.original,
             hasDiscount: priced.hasDiscount,
             hasSurcharge: priced.hasSurcharge,
             hasAdjustment: priced.hasAdjustment,
             window: `${formatTime12(r.startTime)}–${formatTime12(r.endTime)}`,
-        };
-        if (r.tier === "Peak") row.peak = cell;
-        else row.offPeak = cell;
-        rows.set(key, row);
+        });
+        groups.set(k, g);
     }
-    return [...rows.values()];
+    // Weekday groups in week order (Sun–Thu before Fri–Sat), windows earliest first.
+    return [...groups.values()]
+        .sort((a, b) => a.days[0] - b.days[0] || b.days.length - a.days.length)
+        .map(({ row }) => ({ ...row, windows: row.windows.sort((a, b) => toMinutes(a.start) - toMinutes(b.start)) }));
 }

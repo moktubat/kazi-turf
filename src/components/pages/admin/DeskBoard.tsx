@@ -99,7 +99,7 @@ function Cell({
             {available && showMore && (
                 <button
                     type="button"
-                    aria-label={`Hold or block ${cell.start}`}
+                    aria-label={`Hold or block ${formatTime12(cell.start)}`}
                     onClick={onMore}
                     className="absolute right-0 top-0 inline-flex size-11 items-center justify-center rounded-xl text-evergreen/70 hover:bg-emerald/30"
                 >

@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { BookingsView } from "@/components/pages/admin/BookingsView";
 import { addDays } from "@/lib/time";
 import { todayDhaka } from "@/lib/time.server";
-import { accessibleBranches } from "@/server/admin/access";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 
 export const metadata: Metadata = {
@@ -31,7 +30,6 @@ async function BookingsContent({
     const sp = await searchParams;
 
     const user = await requireStaffPage("/admin/bookings");
-    const mine = accessibleBranches(user);
 
     const today = await todayDhaka();
 

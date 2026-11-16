@@ -32,7 +32,7 @@ const mk = (code: string, over: Partial<Booking> = {}): Booking => {
     };
 };
 const NAME = { identity: { method: "NAME" as const }, collectBalance: false };
-const now = new Date("2026-10-30T12:00:00Z");
+const now = new Date(); // a fixed date drifts out of the booking window
 const TODAY = await todayDhaka(now);
 const cell = (h: number) => dhakaToUtc(addDays(TODAY, 1), h * 60).toISOString();
 
@@ -92,7 +92,7 @@ describe("balance and walk-ins", () => {
 
         expect(r.filter((x) => x.status === "fulfilled")).toHaveLength(1);
         expect(await PaymentModel.countDocuments({ kind: "BALANCE" })).toBe(1);
-        expect((await BookingModel.findOne({ bookingCode: "KT-TEST22" }).lean<any>()).paymentStatus).toBe("PAID");
+        expect((await BookingModel.findOne({ bookingCode: "KT-TEST22" }).lean<Booking>())?.paymentStatus).toBe("PAID");
     });
 
     it("a walk-in cannot take a slot an online customer is holding, and cash must cover the advance", async () => {

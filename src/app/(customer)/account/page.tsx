@@ -82,7 +82,13 @@ async function AccountContent({ searchParams }: { searchParams: Params }) {
       <PageHeader name={user.name} isStaff={isStaff} />
       <div className="mx-auto max-w-5xl px-4 py-6 pb-28 md:py-8 md:pb-12">
         <AccountView
-          profile={{ name: user.name, phone: user.phone, email: user.email ?? "" }}
+          profile={{
+            name: user.name,
+            phone: user.phone,
+            email: user.email ?? "",
+            emailVerified: user.emailVerified === true,
+            verifyEmail: user.role === "CUSTOMER",
+          }}
           upcoming={upcoming}
           history={history}
           refunds={refunds}

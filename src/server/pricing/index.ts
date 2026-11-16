@@ -1,6 +1,6 @@
 import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
-import { adjustmentCovers, applyDiscount, applyPriceAdjustment } from "@/lib/pricing";
+import { adjustmentCovers, applyDiscount, priceWithTemporary } from "@/lib/pricing";
 import { dhakaParts, toMinutes } from "@/lib/time";
 import { AppError } from "@/server/http";
 import type { PriceAdjustment, PricingRule } from "@/types";
@@ -32,27 +32,21 @@ export function adjustmentFor(pitchId: string, cellStart: Date): PriceAdjustment
     return priceAdjustments.find((a) => adjustmentCovers(a, pitchId, date, dow, minutes)) ?? null;
 }
 
-// Order of precedence for one cell — exactly ONE adjustment is ever applied:
-//   1. A dated slot price (rule with effectiveFrom/To) is a hand-set price for
-//      that period: it is used as-is and seasonal adjustments are ignored.
-//   2. Otherwise a seasonal adjustment, if one covers the cell, is applied to
-//      the regular base price and REPLACES the rule's own standing adjustment
-//      (no stacking: "−10% promo" + "−20% Ramadan" = −20%, not −28%).
-//   3. Otherwise the rule's own adjustment, as before.
-// When the seasonal range ends, step 2 stops matching and step 3 applies again.
+// Order of precedence for one cell — exactly ONE change is ever applied:
+//   1. A dated slot price (older rule with effectiveFrom/To) is a hand-set price for
+//      that period: it is used with its own discount, temporary prices are ignored.
+//   2. Otherwise the regular price, with the temporary price covering the cell or the
+//      regular discount (never both); see priceWithTemporary in lib/pricing:
+//      increase -> the increase; reduction -> the lower of reduction / regular discount;
+//      none -> the regular discount.
+// When the temporary price ends, the regular discount applies again by itself.
 export function priceForCell(pitchId: string, cellStart: Date) {
     const rule = ruleFor(pitchId, cellStart);
     if (!rule) return null;
     const dated = !!(rule.effectiveFrom || rule.effectiveTo);
-    const seasonal = dated ? null : adjustmentFor(pitchId, cellStart);
-    const priced = seasonal
-        ? applyPriceAdjustment(rule.pricePerSlot, seasonal)
-        : applyDiscount(
-            rule.pricePerSlot,
-            rule.discountType,
-            rule.discountValue,
-            rule.discountDirection ?? "DISCOUNT"
-        );
+    const priced = dated
+        ? applyDiscount(rule.pricePerSlot, rule.discountType, rule.discountValue, rule.discountDirection ?? "DISCOUNT")
+        : priceWithTemporary(rule, adjustmentFor(pitchId, cellStart));
     return {
         price: priced.discounted,
         originalPrice: priced.original,

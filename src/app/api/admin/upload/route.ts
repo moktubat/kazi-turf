@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import type { NextRequest } from "next/server";
 import { staffGuard } from "@/server/admin/guard";
 import { AppError, handleError, ok } from "@/server/http";
@@ -8,6 +9,10 @@ import { validateImageMagicBytes } from "@/server/cloudinary/magic";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+const FOLDERS: Record<string, { superAdminOnly: boolean }> = {
+    "kaziturf/pitches": { superAdminOnly: false },
+    "kaziturf/sports": { superAdminOnly: true },
+};
 
 export async function POST(req: NextRequest) {
     try {
@@ -32,8 +37,16 @@ export async function POST(req: NextRequest) {
 
         const form = await req.formData();
         const file = form.get("file");
-        const folder = (form.get("folder") as string | null) || "kaziturf";
+        const folderRaw = (form.get("folder") as string | null) || "kaziturf/pitches";
         const publicIdRaw = (form.get("publicId") as string | null) || "";
+
+        // The server decides where an upload may go. Field photos: anyone allowed to edit
+        // fields; sport backgrounds: Super Admin only (the same rule as saving them).
+        const folder = Object.hasOwn(FOLDERS, folderRaw) ? FOLDERS[folderRaw] : undefined;
+        if (!folder) throw new AppError("VALIDATION", "Unknown upload location.", 400, { file: "Unknown upload location" });
+        if (folder.superAdminOnly && user.role !== "SUPER_ADMIN") {
+            throw new AppError("FORBIDDEN", "Only a Super Admin can change sport images.", 403);
+        }
 
         if (!(file instanceof File)) {
             throw new AppError("VALIDATION", "No file uploaded.", 400, { file: "Select an image" });
@@ -45,13 +58,10 @@ export async function POST(req: NextRequest) {
             throw new AppError("VALIDATION", `Image must be under ${MAX_BYTES / 1024 / 1024} MB.`, 400, { file: "File too large" });
         }
 
-        const slugSource = publicIdRaw || `${Date.now()}`;
-        const slug = slugSource.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-        if (slug.length < 3) {
-            throw new AppError("VALIDATION", "publicId must slug to at least 3 characters.", 400, { publicId: "Too short" });
-        }
-
-        const folderSlug = folder.toLowerCase().replace(/[^a-z0-9-/]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "kaziturf";
+        // The client's name is only a readable prefix; the random suffix means an upload can
+        // never land on (and replace) an existing image, even with a guessed name.
+        const prefix = publicIdRaw.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "image";
+        const slug = `${prefix}-${randomBytes(6).toString("hex")}`;
 
         const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -61,7 +71,7 @@ export async function POST(req: NextRequest) {
             throw new AppError("VALIDATION", "The file content does not match its declared type.", 400, { file: "Corrupted or mismatched image" });
         }
 
-        const result = await uploadImage(buffer, { publicId: slug, folder: folderSlug });
+        const result = await uploadImage(buffer, { publicId: slug, folder: folderRaw });
         return ok(
             {
                 url: result.secureUrl,

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         }
         const { code } = await params;
         const input = changeRequestSchema.parse(await readJson(req));
-        return ok({ changeRequest: requestChange(user, code, input) }, 201);
+        return ok({ changeRequest: await requestChange(user, code, input) }, 201);
     } catch (e) {
         return handleError(e);
     }

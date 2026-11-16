@@ -1,7 +1,6 @@
 import "server-only";
 import { randomUUID } from "crypto";
 import { BookingModel, PaymentModel, SlotClaimModel } from "@/models";
-import { policies } from "@/data/site";
 import type { ServerUser } from "@/server/auth/session";
 import { findOwned, settle } from "@/server/bookings";
 import { tx } from "@/server/db/connect";

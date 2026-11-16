@@ -7,7 +7,7 @@ import type { Branch } from "@/types";
 import { FormActions } from "./ui";
 import { useSave } from "./useSave";
 import { Button } from "@/components/ui/Button";
-import { Plus, Trash2, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { useRouter } from "next/navigation";
 import { SideSheet } from "@/components/ui/SideSheet";
@@ -85,6 +85,7 @@ function VenueForm({ venue }: { venue: Branch }) {
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const { busy, error, fields, save } = useSave();
+    const [saved, setSaved] = useState(false);
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
 
     function updateSport(i: number, patch: Partial<SportConfig>) {
@@ -181,6 +182,7 @@ function VenueForm({ venue }: { venue: Branch }) {
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
+        setSaved(false);
 
         const sports = f.sportConfigs
             .filter((sc) => sc.name.trim().length > 0)
@@ -209,15 +211,12 @@ function VenueForm({ venue }: { venue: Branch }) {
             })
             .map((sc) => sc.id);
 
-        console.log("[VenueTab] submit — derived sports:", sports);
-        console.log("[VenueTab] submit — touched sports:", touchedSportIds);
-
         save(
             branchUpdateSchema,
             { ...f, sports, sportConfigs, touchedSportIds, id: venue.id },
             "/admin/setup/branches",
             "PATCH",
-            () => { }
+            () => setSaved(true)
         );
     }
 
@@ -376,7 +375,21 @@ function VenueForm({ venue }: { venue: Branch }) {
                     <input type="hidden" value={f.sportConfigs.map(s => s.name).join(",")} readOnly />
                 </div>
 
-                <FormActions busy={busy} error={error} label="Save changes" onCancel={() => { }} />
+                {saved && !error && (
+                    <p role="status" className="flex items-start gap-2 rounded-xl bg-emerald/20 p-3 text-sm font-medium">
+                        <CheckCircle2 size={18} aria-hidden className="mt-0.5 shrink-0 text-teal" /> Venue saved.
+                    </p>
+                )}
+                {/* Cancel = discard unsaved edits (back to what the server has). */}
+                <FormActions
+                    busy={busy}
+                    error={error}
+                    label="Save changes"
+                    onCancel={() => {
+                        setF(buildVenueFormState(venue));
+                        setSaved(false);
+                    }}
+                />
             </form>
 
             {/* Sport cascade-delete confirmation modal — dynamic per sport */}

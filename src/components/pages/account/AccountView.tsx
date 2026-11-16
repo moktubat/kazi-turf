@@ -4,11 +4,12 @@ import { CalendarCheck, CalendarX2, History as HistoryIcon, RotateCcw, UserRound
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SideSheet } from "@/components/ui/SideSheet";
+import { dhakaParts } from "@/lib/time";
 import type { AccountBookingDto, ChangeRequestInfo } from "@/types/account";
 import { BookingRow } from "./BookingRow";
 import { BookingSheet } from "./BookingSheet";
 import { NextBookingCard } from "./NextBookingCard";
-import { ProfileForms } from "./ProfileForms";
+import { ProfileForms, type ProfileView } from "./ProfileForms";
 import { DEFAULT_REFUND_POLICY } from "@/data/defaultRefundPolicy";
 
 interface BookingGroup {
@@ -48,7 +49,7 @@ export function AccountView({
     initialCode,
     showBookings,
 }: {
-    profile: { name: string; phone: string; email: string };
+    profile: ProfileView;
     upcoming: AccountBookingDto[];
     history: AccountBookingDto[];
     refunds: AccountBookingDto[];
@@ -93,7 +94,7 @@ export function AccountView({
 
     const next = upcoming.find((b) => b.bookingStatus !== "PENDING_PAYMENT");
     const rest = upcoming.filter((b) => b !== next);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dhakaParts(new Date()).date; // Dhaka date, not UTC (they differ 00:00–06:00)
     const groups = groupUpcoming(rest, today);
 
     return (

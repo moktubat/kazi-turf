@@ -102,6 +102,26 @@ export function passwordResetEmailTemplate(input: { name: string; resetUrl: stri
   return { subject, html: shell(subject, body), text };
 }
 
+export function verificationCodeTemplate(input: {
+  code: string;
+  purpose: "REGISTER" | "EMAIL_CHANGE";
+  minutes: number;
+}): { subject: string; html: string; text: string } {
+  const why =
+    input.purpose === "REGISTER"
+      ? "Use this code to finish creating your KaziTurf account."
+      : "Use this code to confirm this as the new email for your KaziTurf account.";
+  const subject = `${input.code} is your KaziTurf verification code`;
+  const body = `
+        <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;">Your verification code</h2>
+        <p style="margin:0 0 16px;font-size:14px;">${why}</p>
+        <p style="margin:0 0 20px;font-size:32px;font-weight:800;letter-spacing:6px;color:#0b6e4f;font-family:ui-monospace,monospace;">${escapeHtml(input.code)}</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">The code expires in ${input.minutes} minutes. Never share it with anyone, including venue staff.</p>
+        <p style="margin:0;font-size:13px;color:#6b7280;">If you didn't ask for this, you can safely ignore this email.</p>`;
+  const text = `Your KaziTurf verification code: ${input.code}\n\n${why}\nThe code expires in ${input.minutes} minutes. Never share it with anyone.\n\nIf you didn't ask for this, ignore this email.`;
+  return { subject, html: shell(subject, body), text };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

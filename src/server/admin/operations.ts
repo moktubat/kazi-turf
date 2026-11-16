@@ -240,7 +240,7 @@ export async function setBlock(
     const d = new Date(input.cellStart);
     if (Number.isNaN(d.getTime())) throw new AppError("INVALID_SLOT", "Invalid slot.", 400);
     const date = dhakaParts(d).date;
-    const cell = (await getPitchAvailability(pitch.id, date, now, { allowStarted: true })).find(
+    const cell = (await getPitchAvailability(pitch.id, date, now, { allowStarted: true, fresh: true })).find(
         (c) => c.cellStart === d.toISOString()
     );
     if (!cell) throw new AppError("INVALID_SLOT", "That slot is not on this pitch's schedule.", 400);
@@ -265,11 +265,22 @@ export async function setBlock(
             if (existing) {
                 // A staff claim already sits here (expired hold or the other kind):
                 // flip it to the requested kind instead of failing on the unique index.
-                await SlotClaimModel.updateOne(
-                    { pitchId: pitch.id, cellStart: cell.cellStart },
+                // Only the exact claim checked above: if a customer replaced an expired
+                // hold with a live one in the meantime, their hold is left alone.
+                const r = await SlotClaimModel.updateOne(
+                    {
+                        pitchId: pitch.id,
+                        cellStart: cell.cellStart,
+                        state: existing.state,
+                        bookingId: existing.bookingId ?? null,
+                        expiresAt: existing.expiresAt ?? null,
+                    },
                     { $set: { state: kind, reason: input.reason ?? null }, $unset: { bookingId: "", expiresAt: "" } },
                     { session: s }
                 );
+                if (r.matchedCount === 0) {
+                    throw new AppError("SLOT_TAKEN", "That slot just changed. Refresh and try again.", 409);
+                }
             } else {
                 await insertClaims(pitch.id, [cell.cellStart], { state: kind, reason: input.reason }, now, s);
             }

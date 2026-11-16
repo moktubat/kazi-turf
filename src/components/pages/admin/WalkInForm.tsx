@@ -43,8 +43,9 @@ export function WalkInForm({
     const [known, setKnown] = useState<{ name: string } | null>(null);
     const [cash, setCash] = useState("");
     const [cashTouched, setCashTouched] = useState(false);
-    const [quote, setQuote] = useState<Quote | null>(null);
-    const [quoteError, setQuoteError] = useState<string | null>(null);
+    // Keyed by the selection it was priced for: after the slot count changes, the old
+    // price (or error) is not shown and Save stays disabled until the new one arrives.
+    const [quoted, setQuoted] = useState<{ key: string; quote: Quote | null; error: string | null } | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -68,15 +69,17 @@ export function WalkInForm({
             body: JSON.stringify({ pitchId: pitch.id, cellStarts: startsKey.split("|") }),
         })
             .then((r) => {
-                setQuote(r.quote);
-                setQuoteError(null);
+                setQuoted({ key: startsKey, quote: r.quote, error: null });
             })
             .catch((e) => {
                 if (isAbort(e)) return;
-                setQuoteError(e instanceof ApiError ? e.message : "Could not price this slot.");
+                setQuoted({ key: startsKey, quote: null, error: e instanceof ApiError ? e.message : "Could not price this slot." });
             });
         return () => ctrl.abort();
     }, [pitch.id, startsKey]);
+    const current = quoted?.key === startsKey ? quoted : null;
+    const quote = current?.quote ?? null;
+    const quoteError = current?.error ?? null;
 
     useEffect(() => {
         if (quote && !cashTouched) setCash(String(quote.total));

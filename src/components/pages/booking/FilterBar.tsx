@@ -93,7 +93,7 @@ export function FilterBar({
                             className={`${control} appearance-none pr-9`}
                         >
                             {(!pitches || pitches.length === 0) ? (
-                                <option value="">Loading pitches…</option>
+                                <option value="">{pitches === undefined ? "Loading pitches…" : "No pitches"}</option>
                             ) : (
                                 <>
                                     <option value="">All pitches</option>

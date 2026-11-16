@@ -15,7 +15,6 @@ export function BookingSearchForm({
     today,
     policies,
     pitches: pitchesProp,
-    venue: _venue,
     onInteract,
 }: {
     sport: string;

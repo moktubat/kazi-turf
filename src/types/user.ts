@@ -14,6 +14,8 @@ export interface User {
     // True after the phone number has been verified via OTP (audit finding CONF-03).
     // Optional so existing docs/users created before OTP was introduced still type-check.
     phoneVerified?: boolean;
+    // True only after the current email was confirmed with an emailed code.
+    emailVerified?: boolean;
 }
 
 export interface SessionRecord {

@@ -49,6 +49,40 @@ export function applyDiscount(
         hasAdjustment: final !== price,
     };
 }
+/** Lowest price a customer can ever be charged for one slot, discounts included. */
+export const MIN_SLOT_PRICE = 100;
+/** Largest percentage a regular-price discount may take off. */
+export const MAX_REGULAR_DISCOUNT_PERCENT = 90;
+
+/**
+ * One slot's price from an always-on regular price, its optional discount and the
+ * temporary price covering the slot (if any). Exactly ONE change is ever applied, so
+ * no discount is counted twice:
+ *   - no temporary price          -> regular price minus its discount (if any)
+ *   - temporary INCREASE          -> the increase, applied to the regular price; the
+ *                                    regular discount is paused for those dates
+ *   - temporary REDUCTION         -> whichever is LOWER for the customer: the reduction
+ *                                    (on the regular price) or the regular discount.
+ *                                    A "reduction" never makes a slot dearer.
+ * When the temporary price ends, the regular discount applies again by itself.
+ * Shared by the server (bookings, quotes, /book, Field card) and the admin previews.
+ */
+export function priceWithTemporary(
+    rule: {
+        pricePerSlot: number;
+        discountType: "PERCENT" | "FIXED" | null;
+        discountValue: number | null;
+        discountDirection: "DISCOUNT" | "SURCHARGE" | null;
+    },
+    temp: { direction: "DISCOUNT" | "SURCHARGE"; type: "PERCENT" | "FIXED" | "PRICE"; value: number } | null
+): Priced {
+    const regular = applyDiscount(rule.pricePerSlot, rule.discountType, rule.discountValue, rule.discountDirection ?? "DISCOUNT");
+    if (!temp) return regular;
+    const temporary = applyPriceAdjustment(rule.pricePerSlot, temp);
+    if (temp.direction === "DISCOUNT" && regular.discounted < temporary.discounted) return regular;
+    return temporary;
+}
+
 /** Does a date-range adjustment cover this cell? `minutes` = cell start, Dhaka minutes since midnight. */
 export function adjustmentCovers(
     a: { pitchIds: string[]; effectiveFrom: string; effectiveTo: string; days: number[]; startTime: string; endTime: string },

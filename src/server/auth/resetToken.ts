@@ -6,6 +6,8 @@ import { AppError } from "@/server/http";
 import { hashPassword } from "@/server/auth/password";
 import { endOtherSessions } from "@/server/auth/session";
 import { logAudit } from "@/server/audit";
+import { parseIdentifier } from "@/server/auth/users";
+import { runAfterResponse } from "@/server/background";
 
 const TTL_MS = 15 * 60_000; // 15 minutes
 const TOKEN_BYTES = 32;
@@ -17,9 +19,10 @@ function hashToken(token: string): string {
 export async function requestPasswordReset(identifier: string): Promise<{ sent: boolean }> {
     await connectDb();
     // Look up the user by email or phone. Do NOT reveal whether the account exists.
-    const isEmail = identifier.includes("@");
+    // Same canonical form as login: "+8801…" / "0171-…" find the same account as "01…".
+    const id = parseIdentifier(identifier);
     const user = await UserModel.findOne(
-        isEmail ? { email: identifier.toLowerCase() } : { phone: identifier }
+        id.kind === "email" ? { email: id.value } : { phone: id.value }
     ).lean<{ id: string; email: string | null; name: string } | null>();
 
     if (!user?.email) {
@@ -41,10 +44,9 @@ export async function requestPasswordReset(identifier: string): Promise<{ sent: 
     const baseUrl = process.env.AUTH_URL?.replace(/\/+$/, "");
     const resetUrl = `${baseUrl}/login?reset=${token}`;
 
-    // Send the email — non-blocking.
-    void sendResetEmail(user.email, user.name, resetUrl).catch((e) => {
-        console.error("[reset] email send failed:", e instanceof Error ? e.message : e);
-    });
+    // Sent after the response (same timing for every identifier, so it reveals nothing).
+    const to = user.email;
+    runAfterResponse("reset email", () => sendResetEmail(to, user.name, resetUrl));
 
     return { sent: true };
 }

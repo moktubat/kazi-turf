@@ -1,6 +1,7 @@
 // Shared by the Setup forms (client pre-check) and the Setup API routes (server re-validates).
 import { z } from "zod";
 import { normalizePhone } from "@/lib/phone";
+import { MAX_REGULAR_DISCOUNT_PERCENT, MIN_SLOT_PRICE, applyDiscount } from "@/lib/pricing";
 import { toMinutes } from "@/lib/time";
 import { phoneInput } from "./common";
 import { staffPasswordSchema } from "./password";
@@ -140,17 +141,27 @@ const rateRules = (v: z.infer<typeof rateBase>, ctx: z.RefinementCtx) => {
     if (v.discountType && !v.discountValue) {
         ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Enter an adjustment value" });
     }
-    if (v.discountType === "PERCENT" && v.discountValue && v.discountValue > 100) {
-        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Percentage cannot exceed 100" });
+    if (!v.discountType || !v.discountValue) return;
+    const isDiscount = (v.discountDirection ?? "DISCOUNT") === "DISCOUNT";
+    if (!isDiscount) {
+        // Older "built-in increase" (kept for existing prices).
+        if (v.discountType === "PERCENT" && v.discountValue > 100) {
+            ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Percentage cannot exceed 100" });
+        }
+        return;
     }
-    // Only a decrease can eat into the slot price; an increase just adds on top.
-    if (
-        v.discountType === "FIXED" &&
-        v.discountValue &&
-        v.discountDirection === "DISCOUNT" &&
-        v.discountValue >= v.pricePerSlot
-    ) {
-        ctx.addIssue({ code: "custom", path: ["discountValue"], message: "Discount must be less than the slot price" });
+    // Regular-price discount: a sensible percentage, and the customer always pays a real price.
+    if (v.discountType === "PERCENT" && v.discountValue > MAX_REGULAR_DISCOUNT_PERCENT) {
+        ctx.addIssue({ code: "custom", path: ["discountValue"], message: `A percentage discount can be 1–${MAX_REGULAR_DISCOUNT_PERCENT}%` });
+        return;
+    }
+    const final = applyDiscount(v.pricePerSlot, v.discountType, v.discountValue, "DISCOUNT").discounted;
+    if (final < MIN_SLOT_PRICE) {
+        ctx.addIssue({
+            code: "custom",
+            path: ["discountValue"],
+            message: `Customers would pay ৳${final}. The price after the discount must be at least ৳${MIN_SLOT_PRICE}.`,
+        });
     }
 };
 

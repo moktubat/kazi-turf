@@ -1,5 +1,6 @@
 // Money-path tests against real MongoDB: verified confirmation, idempotency, mismatch, late success,
 // retries and double tap. Only the bKash HTTP layer is mocked.
+import type { SlotClaim } from "@/types";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/payments/bkash", () => ({
@@ -85,7 +86,7 @@ describe("bKash advance", () => {
         expect(b.paymentStatus).toBe("PARTIALLY_PAID");
         expect((await getPayment(payment.id)).status).toBe("SUCCESS");
 
-        const claims = await SlotClaimModel.find({}).lean<any[]>();
+        const claims = await SlotClaimModel.find({}).lean<SlotClaim[]>();
         expect(claims[0]).toMatchObject({ state: "BOOKED" });
         expect(claims[0].expiresAt).toBeUndefined();
     });
@@ -147,7 +148,7 @@ describe("bKash advance", () => {
         const b = await getBooking(code);
         expect(b.bookingStatus).toBe("CONFIRMED");
 
-        const claims = await SlotClaimModel.find({}).lean<any[]>();
+        const claims = await SlotClaimModel.find({}).lean<SlotClaim[]>();
         expect(claims).toHaveLength(1);
         expect(claims[0]).toMatchObject({ state: "BOOKED", bookingId: b.id });
     });
@@ -165,7 +166,7 @@ describe("bKash advance", () => {
         expect(b.bookingStatus).toBe("EXPIRED");
         expect((await getPayment(payment.id)).status).toBe("SUCCESS"); // the money is recorded, never silently kept
 
-        const claims = await SlotClaimModel.find({}).lean<any[]>();
+        const claims = await SlotClaimModel.find({}).lean<SlotClaim[]>();
         expect(claims).toHaveLength(1); // the other customer keeps their slot
         expect(claims[0].bookingId).toBe("someone-else");
     });

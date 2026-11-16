@@ -26,10 +26,10 @@ const STATUS_PILLS: ReadonlyArray<readonly [string, string]> = [["", "All"], ...
 
 const PAYMENT = [
     ["NOT_STARTED", "Not paid"],
-    ["PENDING", "Processing"],
+    ["PENDING", "Payment processing"],
     ["PARTIALLY_PAID", "Advance paid"],
     ["PAID", "Fully paid"],
-    ["FAILED", "Failed"],
+    ["FAILED", "Payment failed"],
     ["CANCELLED", "Payment cancelled"],
     ["REFUND_PENDING", "Refund pending"],
     ["REFUNDED", "Refunded"],

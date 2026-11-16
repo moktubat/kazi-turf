@@ -12,40 +12,40 @@ export class ApiError extends Error {
     }
 }
 
+interface ErrorBody {
+    code?: string;
+    message?: string;
+    fields?: Record<string, string>;
+}
+
+// Browser code: nothing about the server response is printed to the console. Every failure
+// becomes an ApiError with a plain message that the calling screen shows. The server keeps the
+// details in its own log (with the "Reference" id quoted in 500 messages).
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
     let res: Response;
     try {
         res = await fetch(url, options);
     } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") throw e;
-        console.error("[api] network error:", url, e);
         throw new ApiError("NETWORK", "Network error. Check your connection.", 0);
     }
 
-    // Read the response as text first, then try to parse as JSON
     const text = await res.text();
-    let data: any;
+    let data: unknown;
     try {
         data = text ? JSON.parse(text) : null;
     } catch {
-        // FIX: Non-JSON response — the server returned an HTML error page or crashed.
-        // Log the response so the developer can see what happened.
-        console.error("[api] Non-JSON response from", url);
-        console.error("[api] Status:", res.status, res.statusText);
-        console.error("[api] Response preview:", text.slice(0, 500));
-        throw new ApiError(
-            "PARSE_ERROR",
-            `Server returned ${res.status} ${res.statusText} (non-JSON response). Check the terminal for the actual error.`,
-            res.status
-        );
+        // Not JSON (an HTML error page, a proxy timeout…).
+        throw new ApiError("PARSE_ERROR", "Something went wrong. Please try again.", res.status);
     }
 
     if (!res.ok) {
+        const body = (data ?? {}) as ErrorBody;
         throw new ApiError(
-            data?.code ?? "ERROR",
-            data?.message ?? `Request failed with status ${res.status}`,
+            body.code ?? "ERROR",
+            body.message ?? (res.status >= 500 ? "Something went wrong. Please try again." : `Request failed (${res.status}).`),
             res.status,
-            data?.fields
+            body.fields
         );
     }
 

@@ -9,7 +9,7 @@ import { rateLimitAsync } from "@/server/security/rateLimit";
 export async function POST(req: NextRequest) {
     try {
         assertSameOrigin(req);
-        if (!(await rateLimitAsync(`register:${clientIp(req)}`, 5, 60 * 60_000))) {
+        if (!(await rateLimitAsync(`register:${clientIp(req)}`, 20, 60 * 60_000))) {
             throw new AppError("RATE_LIMITED", "Too many sign-ups from this connection. Try again later.", 429);
         }
 
