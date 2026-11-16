@@ -1,6 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Building2, Clock, FileText, LayoutGrid, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SetupData, SetupTab } from "@/types/setup";
@@ -19,44 +18,40 @@ const TABS: { id: SetupTab; label: string; icon: React.ElementType }[] = [
 ];
 
 export function SetupView({ data, initialTab = "venue" }: { data: SetupData; initialTab?: SetupTab }) {
-    const router = useRouter();
-    const searchParams = useSearchParams();
     // Only the tabs the server says this user may use (Staff with pitches.edit:
     // Fields + Slots). Venue / Staff / Policies save through Super-Admin-only
     // routes, so showing them to Staff only led to "Only a Super Admin" errors.
     const allowed = data.tabs;
-    const requested = (searchParams.get("tab") as SetupTab) ?? initialTab;
-    const currentTab: SetupTab = allowed.includes(requested) ? requested : allowed[0] ?? "pitches";
-    const prevTab = useRef<SetupTab>(currentTab);
-    const navRef = useRef<HTMLElement>(null);
 
-    useEffect(() => {
-        if (prevTab.current !== currentTab) {
-            prevTab.current = currentTab;
-            router.refresh();
-        }
-    }, [currentTab, router]);
+    // Every tab's data arrives with the page (data.venue / pitches / rates /
+    // staff / policies), so switching tabs is pure client state: instant, with
+    // no server round trip and no skeleton. The ?tab= query stays in the address
+    // bar via history.replaceState (integrated with the App Router), so deep
+    // links and F5-still-opens-the-right-tab keep working without a navigation.
+    const [tab, setTab] = useState<SetupTab>(
+        allowed.includes(initialTab) ? initialTab : allowed[0] ?? "pitches"
+    );
+    const navRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
         const root = navRef.current;
         if (!root) return;
         const active = root.querySelector<HTMLElement>('[aria-selected="true"]');
         active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-    }, [currentTab]);
+    }, [tab]);
 
-    function changeTab(tab: SetupTab) {
-        const params = new URLSearchParams(searchParams.toString());
-        if (tab === allowed[0]) params.delete("tab");
-        else params.set("tab", tab);
+    function changeTab(next: SetupTab) {
+        setTab(next);
+        const params = new URLSearchParams(window.location.search);
+        if (next === allowed[0]) params.delete("tab");
+        else params.set("tab", next);
         const qs = params.toString();
-        router.replace(qs ? `/admin/setup?${qs}` : "/admin/setup", { scroll: false });
+        window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
     }
-
-    const tab: SetupTab = currentTab;
 
     return (
         <div className="space-y-5">
-            
+
             <nav
                 ref={navRef}
                 aria-label="Setup sections"

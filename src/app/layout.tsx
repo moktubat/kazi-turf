@@ -77,7 +77,7 @@ export const metadata: Metadata = {
         },
     },
     icons: {
-        icon: "/sports/logo2.png",
+        icon: "/favicon.ico",
         apple: "/sports/logo2.png",
     },
 };

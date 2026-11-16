@@ -1078,9 +1078,24 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
     const coverage: Record<string, string[]> = {};
     for (const p of myPitches) coverage[p.id] = gapLines(p, today);
 
-    const staffDocs: StaffDoc[] = isAdmin
-        ? await UserModel.find({ role: { $ne: "CUSTOMER" } }).sort({ name: 1 }).lean<StaffDoc[]>()
-        : [];
+    // Staff list and upcoming-booking counts are independent reads, so they run
+    // in parallel — one Atlas round trip instead of two on every setup render.
+    // Both still start after settleExpired() above, so expired holds never count.
+    const [staffDocs, counts] = await Promise.all([
+        isAdmin
+            ? UserModel.find({ role: { $ne: "CUSTOMER" } }).sort({ name: 1 }).lean<StaffDoc[]>()
+            : Promise.resolve([] as StaffDoc[]),
+        BookingModel.aggregate<{ _id: string; n: number }>([
+            {
+                $match: {
+                    pitchId: { $in: myPitches.map((p) => p.id) },
+                    bookingStatus: { $in: ["CONFIRMED", "CHECKED_IN", "PENDING_PAYMENT"] },
+                    endAt: { $gt: now.toISOString() },
+                },
+            },
+            { $group: { _id: "$pitchId", n: { $sum: 1 } } },
+        ]),
+    ]);
     const staff: SetupStaff[] = staffDocs.map((u) => ({
         id: u.id,
         name: u.name,
@@ -1092,17 +1107,6 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
         status: u.status,
         isSelf: u.id === user.id,
     }));
-
-    const counts = await BookingModel.aggregate<{ _id: string; n: number }>([
-        {
-            $match: {
-                pitchId: { $in: myPitches.map((p) => p.id) },
-                bookingStatus: { $in: ["CONFIRMED", "CHECKED_IN", "PENDING_PAYMENT"] },
-                endAt: { $gt: now.toISOString() },
-            },
-        },
-        { $group: { _id: "$pitchId", n: { $sum: 1 } } },
-    ]);
     const upcoming = new Map(counts.map((c) => [c._id, c.n]));
 
     const tabs: SetupTab[] = isAdmin
