@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
 
     poweredByHeader: false,
 
+    experimental: {
+        agentUpgrade: "security",
+    },
+
     // Pin the Turbopack project root so it never picks up a stray
     // package-lock.json from a parent folder (e.g. C:\Users\shadhin).
     turbopack: {
