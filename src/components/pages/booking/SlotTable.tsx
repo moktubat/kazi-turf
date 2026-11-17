@@ -17,7 +17,7 @@ const statusLook: Record<SlotStatus, { label: string; icon: React.ElementType; b
     PAST: { label: "Past", icon: Clock, badge: "bg-evergreen/5 text-evergreen/60" },
 };
 
-const HEAD = "px-3 py-2.5 text-left font-heading text-xs font-bold uppercase tracking-[0.14em] text-emerald";
+const HEAD = "px-3 py-2.5 text-left font-heading text-xs font-bold uppercase tracking-[0.14em] text-teal";
 const GRID =
     "grid grid-cols-[minmax(0,1fr)_5rem_7.5rem] items-center md:grid-cols-[minmax(0,1fr)_8.5rem_9rem_8.5rem]";
 

@@ -53,7 +53,9 @@ export function FilterBar({
 
     return (
         <div className="rounded-3xl border border-evergreen/10 bg-surface p-4 shadow-sm sm:p-5">
-            <div className="grid gap-5 lg:grid-cols-3 lg:gap-4">
+            {/* Desktop: sport and pitch a step narrower, date + refresh a step wider.
+                Below lg everything stacks in one column as before. */}
+            <div className="grid gap-5 lg:grid-cols-[1fr_1fr_1.4fr] lg:gap-4">
                 {/* 1 · Select Sport (single location, so sport takes the first spot) */}
                 <section aria-label="Select sport">
                     <p className={stepLabel}>
