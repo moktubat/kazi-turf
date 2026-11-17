@@ -216,7 +216,7 @@ function SlotRow({ cell, selected, onToggle }: { cell: Cell; selected: boolean; 
     // Available rows are tappable; the rest render as plain rows (Action shows why).
     if (!available) {
         return (
-            <div className={cn(GRID, "bg-evergreen/[0.03] text-evergreen/60")}>
+            <div className={cn(GRID, "bg-evergreen/[0.03] text-evergreen/60 last:rounded-b-2xl")}>
                 {head}
                 <div className="hidden px-3 py-3 text-sm font-medium md:block">{look.label}</div>
             </div>
@@ -238,7 +238,10 @@ function SlotRow({ cell, selected, onToggle }: { cell: Cell; selected: boolean; 
             }}
             className={cn(
                 GRID,
-                "group cursor-pointer transition-colors",
+                // last: the pitch section clips content at its rounded-2xl corners,
+                // so the bottom row must share the curve — otherwise its inset
+                // selection ring loses the bottom-left and bottom-right corners.
+                "group cursor-pointer transition-colors last:rounded-b-2xl",
                 selected ? "bg-mint/70 ring-2 ring-inset ring-teal" : "hover:bg-mint/50"
             )}
         >
