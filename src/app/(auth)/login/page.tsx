@@ -111,7 +111,11 @@ async function LoginContent({ searchParams }: { searchParams: Params }) {
 
     return (
         <LoginShell>
-            <LoginCard next={next} initialMode={one("mode") === "signup" ? "signup" : "signin"} />
+            <LoginCard
+                next={next}
+                initialMode={one("mode") === "signup" ? "signup" : "signin"}
+                resetToken={one("reset") ?? null}
+            />
         </LoginShell>
     );
 }

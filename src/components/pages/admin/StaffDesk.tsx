@@ -71,7 +71,21 @@ export function StaffDesk({
     // "book": tapping an open slot starts a walk-in. "manage": tapping a slot
     // opens Hold / Maintenance (no booking is created). ?manage=1 opens in manage mode.
     const searchParams = useSearchParams();
-    const [mode, setMode] = useState<"book" | "manage">(searchParams.get("manage") === "1" ? "manage" : "book");
+    const manageParam = searchParams.get("manage");
+    const [mode, setMode] = useState<"book" | "manage">(manageParam === "1" ? "manage" : "book");
+
+    // ?manage=1 can arrive while this component is already mounted (RatesTab's
+    // "Desk → Manage slots" link, and the sidebar switching between /admin and
+    // /admin?manage=1). useState reads its initializer only on the first mount,
+    // so the desk used to stay in whatever mode opened first until a reload.
+    // Follow the query param whenever it actually changes; the in-page Book /
+    // Manage toggle still owns the mode between navigations (it doesn't touch
+    // the URL, so its value never re-triggers this).
+    const [lastManageParam, setLastManageParam] = useState<string | null>(manageParam);
+    if (manageParam !== lastManageParam) {
+        setLastManageParam(manageParam);
+        setMode(manageParam === "1" ? "manage" : "book");
+    }
 
     const [board, setBoard] = useState<BoardResponse | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");

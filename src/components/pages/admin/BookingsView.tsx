@@ -58,6 +58,26 @@ export function BookingsView({
     const [q, setQ] = useState("");
     const [requestOnly, setRequestOnly] = useState(initial.requestOnly);
 
+    // `initial` is recomputed from the URL on every navigation, but the filter
+    // state above only reads it on the first mount, so arriving through another
+    // link (Needs Attention "view all", the desk's open-request link) while this
+    // page is already mounted kept the first-visited filters until a reload.
+    // Adopt `initial` whenever its values actually change — same reset the
+    // Clear filters button does, but to the newly linked filters. Local edits
+    // keep winning in between, because they never change the URL.
+    const initialKey = JSON.stringify(initial);
+    const [lastInitialKey, setLastInitialKey] = useState(initialKey);
+    if (initialKey !== lastInitialKey) {
+        setLastInitialKey(initialKey);
+        setFrom(initial.from);
+        setTo(initial.to);
+        setBookingStatus(initial.bookingStatus);
+        setPaymentStatus(initial.paymentStatus);
+        setSource("");
+        setQ("");
+        setRequestOnly(initial.requestOnly);
+    }
+
     const [rows, setRows] = useState<AdminBookingDto[] | null>(null);
     const [next, setNext] = useState<string | null>(null);
     const [loadedKey, setLoadedKey] = useState<string | null>(null);

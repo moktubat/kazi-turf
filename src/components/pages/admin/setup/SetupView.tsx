@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Building2, Clock, FileText, LayoutGrid, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SetupData, SetupTab } from "@/types/setup";
@@ -31,6 +32,27 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
     const [tab, setTab] = useState<SetupTab>(
         allowed.includes(initialTab) ? initialTab : allowed[0] ?? "pitches"
     );
+
+    // The tab can also change through the URL while this component stays
+    // mounted: the sidebar's Setup children (Venue / Fields / …) are <Link>s to
+    // /admin/setup?tab=…, so client-side navigation re-renders this component
+    // with a new initialTab — but useState reads its initializer only on the
+    // first mount, which left the page stuck on the first-visited tab until a
+    // full reload. Follow the ?tab= query whenever it actually changes
+    // (navigation, back/forward); in-page tab taps keep working as before
+    // (changeTab below updates both state and the URL).
+    const searchParams = useSearchParams();
+    const urlTab = searchParams.get("tab");
+    const [lastUrlTab, setLastUrlTab] = useState<string | null>(urlTab);
+    if (urlTab !== lastUrlTab) {
+        setLastUrlTab(urlTab);
+        setTab(
+            urlTab && allowed.includes(urlTab as SetupTab)
+                ? (urlTab as SetupTab)
+                : allowed[0] ?? "pitches"
+        );
+    }
+
     const navRef = useRef<HTMLElement>(null);
 
     useEffect(() => {

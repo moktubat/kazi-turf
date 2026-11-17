@@ -1,41 +1,65 @@
 // One form, reused inline in /book step 2 and on /login (Batch 4).
 // Posts to /api/auth/login, /api/auth/register/code (emails a code) and /api/auth/register.
+// Forgot password: posts to /api/auth/forgot-password (emails a reset link) and,
+// when the link opens /login?reset=…, to /api/auth/reset-password.
 "use client";
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
 import { Tabs } from "@/components/ui/Tabs";
 import { useCountdown } from "@/hooks/useCountdown";
 import { ApiError, api } from "@/lib/api";
 import { loginSchema, registerDetailsSchema, type LoginInput, type RegisterDetailsInput } from "@/schemas/auth";
+import { customerPasswordSchema } from "@/schemas/password";
 
 type Mode = "signin" | "signup";
+/** Which card is open: the login/register tabs, the forgot form, or the reset-link form. */
+type View = "auth" | "forgot" | "reset";
 
 export function AuthForm({
     onSuccess,
     initialMode = "signin",
+    initialResetToken = null,
 }: {
     onSuccess: () => void;
     initialMode?: Mode;
+    /** Token from a reset email link (/login?reset=…); opens the set-new-password card. */
+    initialResetToken?: string | null;
 }) {
     const [mode, setMode] = useState<Mode>(initialMode);
+    const [view, setView] = useState<View>(initialResetToken ? "reset" : "auth");
 
     return (
         <div>
-            <Tabs
-                label="Account"
-                items={[
-                    { id: "signin", label: "Login" },
-                    { id: "signup", label: "Register" },
-                ]}
-                value={mode}
-                onChange={(m) => setMode(m as Mode)}
-            />
-            <div role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`} className="mt-4">
-                {mode === "signin" ? <SignIn onSuccess={onSuccess} /> : <SignUp onSuccess={onSuccess} />}
+            {view === "auth" && (
+                <Tabs
+                    label="Account"
+                    items={[
+                        { id: "signin", label: "Login" },
+                        { id: "signup", label: "Register" },
+                    ]}
+                    value={mode}
+                    onChange={(m) => setMode(m as Mode)}
+                />
+            )}
+            <div className="mt-4">
+                {view === "auth" && (
+                    <div role="tabpanel" id={`panel-${mode}`} aria-labelledby={`tab-${mode}`}>
+                        {mode === "signin" ? (
+                            <SignIn onSuccess={onSuccess} onForgot={() => setView("forgot")} />
+                        ) : (
+                            <SignUp onSuccess={onSuccess} />
+                        )}
+                    </div>
+                )}
+                {view === "forgot" && <ForgotPassword onDone={() => setView("auth")} />}
+                {view === "reset" && initialResetToken && (
+                    <ResetPassword token={initialResetToken} onDone={() => setView("auth")} />
+                )}
             </div>
         </div>
     );
@@ -50,7 +74,7 @@ function FormError({ message }: { message: string | null }) {
     );
 }
 
-function SignIn({ onSuccess }: { onSuccess: () => void }) {
+function SignIn({ onSuccess, onForgot }: { onSuccess: () => void; onForgot: () => void }) {
     const [formError, setFormError] = useState<string | null>(null);
     const {
         register,
@@ -91,6 +115,13 @@ function SignIn({ onSuccess }: { onSuccess: () => void }) {
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? "Signing in…" : "Sign in"}
             </Button>
+            <button
+                type="button"
+                onClick={onForgot}
+                className="block w-fit text-sm font-semibold text-teal underline underline-offset-2 hover:text-evergreen"
+            >
+                Forgot password?
+            </button>
         </form>
     );
 }
@@ -267,6 +298,138 @@ function SignUp({ onSuccess }: { onSuccess: () => void }) {
             <FormError message={formError} />
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? "Sending code…" : "Send verification code"}
+            </Button>
+        </form>
+    );
+}
+
+const forgotSchema = z.object({
+    identifier: z.string().trim().min(3, "Enter your email or phone").max(120, "Too long"),
+});
+
+/** Ask for a reset email. The confirmation never says whether the account exists. */
+function ForgotPassword({ onDone }: { onDone: () => void }) {
+    const [formError, setFormError] = useState<string | null>(null);
+    const [sent, setSent] = useState(false);
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<z.infer<typeof forgotSchema>>({
+        resolver: zodResolver(forgotSchema),
+        defaultValues: { identifier: "" },
+    });
+
+    async function onSubmit(values: z.infer<typeof forgotSchema>) {
+        setFormError(null);
+        try {
+            await api("/api/auth/forgot-password", { method: "POST", body: JSON.stringify(values) });
+            setSent(true);
+        } catch (e) {
+            setFormError(e instanceof ApiError ? e.message : "Could not send the reset email. Please try again.");
+        }
+    }
+
+    if (sent) {
+        return (
+            <div className="space-y-4" aria-label="Check your email">
+                <p role="status" className="flex items-start gap-2 rounded-xl bg-emerald/20 p-3 text-sm font-medium">
+                    <CheckCircle2 size={18} aria-hidden className="mt-0.5 shrink-0 text-teal" />
+                    If an account exists for that email or phone, a reset link is on its way. It expires in 15
+                    minutes — check the spam folder too.
+                </p>
+                <Button type="button" variant="ghost" className="w-full" onClick={onDone}>
+                    Back to sign in
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4" aria-label="Forgot password">
+            <p className="text-sm text-evergreen/80">
+                Enter the email or phone on your account and we&apos;ll email you a link to set a new password.
+            </p>
+            <Input
+                label="Email or phone"
+                autoComplete="username"
+                error={errors.identifier?.message}
+                {...register("identifier")}
+            />
+            <FormError message={formError} />
+            <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Sending…" : "Send reset link"}
+            </Button>
+            <Button type="button" variant="ghost" className="w-full" onClick={onDone}>
+                Back to sign in
+            </Button>
+        </form>
+    );
+}
+
+const resetSchema = z.object({ newPassword: customerPasswordSchema });
+
+/** Set a new password from an emailed reset link (/login?reset=token). */
+function ResetPassword({ token, onDone }: { token: string; onDone: () => void }) {
+    const [formError, setFormError] = useState<string | null>(null);
+    const [done, setDone] = useState(false);
+    const {
+        register,
+        handleSubmit,
+        setError,
+        formState: { errors, isSubmitting },
+    } = useForm<z.infer<typeof resetSchema>>({
+        resolver: zodResolver(resetSchema),
+        defaultValues: { newPassword: "" },
+    });
+
+    async function onSubmit(values: z.infer<typeof resetSchema>) {
+        setFormError(null);
+        try {
+            await api("/api/auth/reset-password", {
+                method: "POST",
+                body: JSON.stringify({ token, newPassword: values.newPassword }),
+            });
+            setDone(true);
+        } catch (e) {
+            // A field problem (weak password) keeps the form open so the link is
+            // not wasted; an invalid or expired link is fatal — say so plainly.
+            if (e instanceof ApiError && e.fields?.newPassword) {
+                setError("newPassword", { message: e.fields.newPassword });
+            } else {
+                setFormError(e instanceof ApiError ? e.message : "Could not reset the password. Please try again.");
+            }
+        }
+    }
+
+    if (done) {
+        return (
+            <div className="space-y-4" aria-label="Password updated">
+                <p role="status" className="flex items-start gap-2 rounded-xl bg-emerald/20 p-3 text-sm font-medium">
+                    <CheckCircle2 size={18} aria-hidden className="mt-0.5 shrink-0 text-teal" />
+                    Your password is updated. Sign in with the new password — your other sessions were signed out.
+                </p>
+                <Button type="button" className="w-full" onClick={onDone}>
+                    Go to sign in
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4" aria-label="Set a new password">
+            <p className="text-sm text-evergreen/80">Choose a new password for your account.</p>
+            <Input
+                label="New password"
+                type="password"
+                autoComplete="new-password"
+                hint="At least 8 characters, with letters and digits."
+                error={errors.newPassword?.message}
+                {...register("newPassword")}
+            />
+            <FormError message={formError} />
+            <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Saving…" : "Save new password"}
             </Button>
         </form>
     );

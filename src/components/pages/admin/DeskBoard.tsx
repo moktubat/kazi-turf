@@ -1,12 +1,10 @@
 "use client";
-import { useRef, useState } from "react";
-import { CalendarPlus, LogIn, MoreHorizontal, Wrench } from "lucide-react";
+import { useState } from "react";
+import { CalendarPlus, LogIn, Wrench } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import type { BoardCell, BoardPitch } from "@/types/admin";
 import { slotLook } from "../booking/SlotChip";
-
-const LONG_PRESS_MS = 500;
 
 /** Arrow keys / Home / End move the selection in a tab list or radio group and focus the new item. */
 function moveWithKeys<T extends string>(e: React.KeyboardEvent, ids: T[], current: T, select: (id: T) => void, domId: (id: T) => string) {
@@ -22,20 +20,7 @@ function moveWithKeys<T extends string>(e: React.KeyboardEvent, ids: T[], curren
     document.getElementById(domId(ids[next]))?.focus();
 }
 
-function Cell({
-    cell,
-    onOpen,
-    onMore,
-    showMore,
-}: {
-    cell: BoardCell;
-    onOpen: () => void;
-    onMore: () => void;
-    showMore: boolean;
-}) {
-    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const fired = useRef(false);
-
+function Cell({ cell, onOpen }: { cell: BoardCell; onOpen: () => void }) {
     const bk = cell.booking;
     const available = cell.status === "AVAILABLE";
     // Tappable: open slots, anything with a booking, staff blocks and manual holds.
@@ -52,80 +37,40 @@ function Cell({
             ? bk ? "Held · customer paying" : "Held by staff"
             : look.label;
 
-    const clear = () => {
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = null;
-    };
-    const start = () => {
-        if (!available) return;
-        fired.current = false;
-        clear();
-        timer.current = setTimeout(() => {
-            fired.current = true;
-            onMore();
-        }, LONG_PRESS_MS);
-    };
-
     return (
-        <div className="relative">
-            <button
-                type="button"
-                disabled={!interactive}
-                aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${label}${bk ? `, ${bk.customerName}, ${bk.code}` : ""}${cell.reason ? `, ${cell.reason}` : ""}`}
-                onPointerDown={start}
-                onPointerUp={clear}
-                onPointerLeave={clear}
-                onPointerCancel={clear}
-                onContextMenu={(e) => {
-                    if (available) {
-                        e.preventDefault();
-                        onMore();
-                    }
-                }}
-                onClick={() => {
-                    if (fired.current) {
-                        fired.current = false;
-                        return;
-                    }
-                    onOpen();
-                }}
-                className={cn(
-                    "flex min-h-[5.75rem] w-full flex-col items-start justify-between rounded-xl border-2 px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed",
-                    checkedIn ? "border-teal/40 bg-mint text-teal" : look.cls
-                )}
-            >
-                <span className="font-heading text-base font-bold leading-tight">{formatTime12(cell.start)}</span>
-                <span className="flex items-center gap-1 text-xs font-semibold">
-                    <Icon size={12} aria-hidden /> {label}
-                </span>
-                {bk ? (
-                    <span className="w-full min-w-0">
-                        <span className="block truncate text-xs font-medium">{bk.customerName}</span>
-                        {bk.balanceDue > 0 && <span className="block text-xs font-bold">Due {formatBDT(bk.balanceDue)}</span>}
-                    </span>
-                ) : cell.reason ? (
-                    <span className="block w-full truncate text-xs">{cell.reason}</span>
-                ) : (
-                    <span className="text-xs font-semibold">{formatBDT(cell.price)}</span>
-                )}
-            </button>
-
-            {available && showMore && (
-                <button
-                    type="button"
-                    aria-label={`Hold or block ${formatTime12(cell.start)}`}
-                    onClick={onMore}
-                    className="absolute right-0 top-0 inline-flex size-11 items-center justify-center rounded-xl text-evergreen/70 hover:bg-emerald/30"
-                >
-                    <MoreHorizontal size={18} aria-hidden />
-                </button>
+        // The card hugs its text and padding (w-fit), so it is only as wide as its
+        // content. min-w-0 / max-w-full keep the truncating spans working when a
+        // narrow screen squeezes a column.
+        <button
+            type="button"
+            disabled={!interactive}
+            aria-label={`${formatTime12(cell.start)} to ${formatTime12(cell.end)}, ${label}${bk ? `, ${bk.customerName}, ${bk.code}` : ""}${cell.reason ? `, ${cell.reason}` : ""}`}
+            onClick={onOpen}
+            className={cn(
+                "flex min-h-[5.75rem] w-fit min-w-0 max-w-full flex-col items-start justify-between rounded-xl border-2 px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed",
+                checkedIn ? "border-teal/40 bg-mint text-teal" : look.cls
             )}
-        </div>
+        >
+            <span className="font-heading text-base font-bold leading-tight">{formatTime12(cell.start)}</span>
+            <span className="flex items-center gap-1 text-xs font-semibold">
+                <Icon size={12} aria-hidden /> {label}
+            </span>
+            {bk ? (
+                <span className="w-full min-w-0">
+                    <span className="block truncate text-xs font-medium">{bk.customerName}</span>
+                    {bk.balanceDue > 0 && <span className="block text-xs font-bold">Due {formatBDT(bk.balanceDue)}</span>}
+                </span>
+            ) : cell.reason ? (
+                <span className="block w-full truncate text-xs">{cell.reason}</span>
+            ) : (
+                <span className="text-xs font-semibold">{formatBDT(cell.price)}</span>
+            )}
+        </button>
     );
 }
 
 const MODES: { id: "book" | "manage"; label: string; hint: string; icon: React.ElementType }[] = [
-    { id: "book", label: "Add walk-in booking", hint: "Tap an open slot to book it for a customer at the counter.", icon: CalendarPlus },
+    { id: "book", label: "Add walk-in booking", hint: "Tap an open slot to book it for a customer at the counter. To hold or block a slot instead, switch to Hold or maintenance.", icon: CalendarPlus },
     {
         id: "manage",
         label: "Hold or maintenance",
@@ -154,6 +99,11 @@ export function DeskBoard({
     const current = MODES.find((m) => m.id === mode) ?? MODES[0];
 
     if (!active) return null;
+
+    // Passed hours (status PAST, no booking) are skipped: they only lengthen the
+    // board. Earlier bookings keep showing — they carry a claim, so their status
+    // is BOOKED / MAINTENANCE etc., never PAST.
+    const cells = active.cells.filter((c) => c.status !== "PAST");
 
     return (
         <div className="space-y-4">
@@ -261,25 +211,27 @@ export function DeskBoard({
                         {active.sport} · {active.format}
                     </p>
                 </div>
-                <div className="scrollbar-thin overflow-x-auto pb-2">
-                    <div className="grid grid-flow-col auto-cols-[7rem] gap-2">
-                        {active.cells.map((c) => (
-                            <Cell
-                                key={c.cellStart}
-                                cell={c}
-                                showMore={mode === "book"}
-                                onOpen={() => {
-                                    // A customer's booking or online hold always opens the booking: staff
-                                    // slot management never touches customer bookings.
-                                    if (c.booking) onBooking(c.booking.code);
-                                    else if (c.status === "AVAILABLE") (mode === "manage" ? onBlock : onAvailable)(active.id, c);
-                                    else if (c.status === "MAINTENANCE" || c.status === "HELD") onBlock(active.id, c);
-                                }}
-                                onMore={() => onBlock(active.id, c)}
-                            />
-                        ))}
-                    </div>
+                {/* Slots flow left to right and wrap onto new rows — each card is
+                    only as wide as its text and cards sit right next to each other
+                    with a tight 8px gap: no uneven holes, no horizontal scrolling. */}
+                <div className="flex flex-wrap gap-2">
+                    {cells.map((c) => (
+                        <Cell
+                            key={c.cellStart}
+                            cell={c}
+                            onOpen={() => {
+                                // A customer's booking or online hold always opens the booking: staff
+                                // slot management never touches customer bookings.
+                                if (c.booking) onBooking(c.booking.code);
+                                else if (c.status === "AVAILABLE") (mode === "manage" ? onBlock : onAvailable)(active.id, c);
+                                else if (c.status === "MAINTENANCE" || c.status === "HELD") onBlock(active.id, c);
+                            }}
+                        />
+                    ))}
                 </div>
+                {cells.length === 0 && (
+                    <p className="text-sm text-evergreen/70">No slots left to show for this day.</p>
+                )}
             </section>
         </div>
     );
