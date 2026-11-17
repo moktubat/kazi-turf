@@ -1,6 +1,6 @@
 "use client"; // Error boundaries must be Client Components
 
-import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 
 // Shown when a page fails to render (e.g. the database is briefly unreachable).
 // No error details reach the browser: production errors carry only a `digest`,
@@ -14,21 +14,14 @@ export default function Error({ error, retry }: { error: unknown; retry: () => v
             <p className="mt-2 text-sm text-evergreen/70">
                 This page couldn&apos;t load right now. Please try again in a moment.
             </p>
-            {digest && <p className="mt-2 text-xs text-evergreen/60">Reference: {digest}</p>}
+            {digest && <p className="mt-2 select-all text-xs text-evergreen/60">Reference: {digest}</p>}
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <button
-                    type="button"
-                    onClick={() => retry()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal px-6 font-heading text-sm font-bold text-white transition-colors hover:bg-evergreen"
-                >
+                <Button onClick={() => retry()} className="px-6">
                     Try again
-                </button>
-                <Link
-                    href="/"
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-teal px-6 font-heading text-sm font-bold text-teal transition-colors hover:bg-mint"
-                >
+                </Button>
+                <Button href="/" variant="outline" className="px-6">
                     Back to Home
-                </Link>
+                </Button>
             </div>
         </div>
     );

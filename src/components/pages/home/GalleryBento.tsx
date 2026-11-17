@@ -20,7 +20,7 @@ function Photo({ n, cls }: { n: number; cls: string }) {
         <li className={`${tile} ${cls}`}>
             <Image
                 src={`/sports/galleryImage0${n}.webp`}
-                alt={`KaziTurf venue photo ${n}`}
+                alt={`Kazi Sports Arena, photo ${n}`}
                 fill
                 sizes="(min-width: 1024px) 33vw, 50vw"
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -47,7 +47,7 @@ export function GalleryBento() {
                     loop
                     playsInline
                     preload="metadata"
-                    aria-label="KaziTurf venue video"
+                    aria-label="Video of Kazi Sports Arena"
                 />
             </li>
 

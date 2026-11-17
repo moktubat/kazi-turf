@@ -2,6 +2,7 @@
 // Posts to /api/auth/login, /api/auth/register/code (emails a code) and /api/auth/register.
 "use client";
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/Button";
@@ -192,12 +193,13 @@ function SignUp({ onSuccess }: { onSuccess: () => void }) {
         return (
             <form onSubmit={verify} noValidate className="space-y-4" aria-label="Verify your email">
                 <p className="text-sm text-evergreen/80">
-                    We sent a 6-digit code to <strong className="font-semibold text-evergreen">{sent.sentTo}</strong>. It expires in{" "}
+                    We sent a 6-digit code to <strong className="font-semibold text-evergreen [overflow-wrap:anywhere]">{sent.sentTo}</strong>. It expires in{" "}
                     {sent.expiresInMinutes} minutes.
                 </p>
                 <Input
                     label="Verification code"
                     inputMode="numeric"
+                    autoFocus
                     autoComplete="one-time-code"
                     maxLength={6}
                     value={code}
@@ -205,7 +207,11 @@ function SignUp({ onSuccess }: { onSuccess: () => void }) {
                     hint="Not in your inbox? Check the spam folder."
                     error={codeError ?? undefined}
                 />
-                {notice && <p role="status" className="text-sm font-medium text-teal">{notice}</p>}
+                {notice && (
+                    <p role="status" className="flex items-start gap-2 rounded-xl bg-emerald/20 p-3 text-sm font-medium">
+                        <CheckCircle2 size={18} aria-hidden className="mt-0.5 shrink-0 text-teal" /> {notice}
+                    </p>
+                )}
                 <FormError message={formError} />
                 <Button type="submit" size="lg" className="w-full" disabled={busy !== null}>
                     {busy === "verify" ? "Creating account…" : "Create account"}

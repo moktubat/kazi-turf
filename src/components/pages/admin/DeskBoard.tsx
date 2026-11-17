@@ -8,6 +8,20 @@ import { slotLook } from "../booking/SlotChip";
 
 const LONG_PRESS_MS = 500;
 
+/** Arrow keys / Home / End move the selection in a tab list or radio group and focus the new item. */
+function moveWithKeys<T extends string>(e: React.KeyboardEvent, ids: T[], current: T, select: (id: T) => void, domId: (id: T) => string) {
+    const i = ids.indexOf(current);
+    let next = i;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % ids.length;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (i - 1 + ids.length) % ids.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = ids.length - 1;
+    else return;
+    e.preventDefault();
+    select(ids[next]);
+    document.getElementById(domId(ids[next]))?.focus();
+}
+
 function Cell({
     cell,
     onOpen,
@@ -155,8 +169,11 @@ export function DeskBoard({
                                 key={m.id}
                                 type="button"
                                 role="radio"
+                                id={`desk-mode-${m.id}`}
                                 aria-checked={on}
+                                tabIndex={on ? 0 : -1}
                                 onClick={() => onModeChange(m.id)}
+                                onKeyDown={(e) => moveWithKeys(e, MODES.map((x) => x.id), mode, onModeChange, (id) => `desk-mode-${id}`)}
                                 className={cn(
                                     "flex min-h-12 items-center gap-2 rounded-xl border-2 px-4 text-left font-heading text-sm font-bold transition-colors",
                                     on ? "border-teal bg-teal text-white shadow-md" : "border-evergreen/15 bg-surface text-evergreen hover:border-teal"
@@ -200,9 +217,12 @@ export function DeskBoard({
                                     key={p.id}
                                     type="button"
                                     role="tab"
+                                    id={`desk-tab-${p.id}`}
                                     aria-selected={isActive}
-                                    aria-controls={`panel-${p.id}`}
+                                    aria-controls={isActive ? `panel-${p.id}` : undefined}
+                                    tabIndex={isActive ? 0 : -1}
                                     onClick={() => setActiveId(p.id)}
+                                    onKeyDown={(e) => moveWithKeys(e, pitches.map((x) => x.id), active.id, setActiveId, (id) => `desk-tab-${id}`)}
                                     className={cn(
                                         "flex min-h-12 shrink-0 flex-col items-start gap-0.5 rounded-xl border-2 px-4 py-2 text-left transition-all",
                                         isActive
@@ -231,11 +251,12 @@ export function DeskBoard({
                 key={active.id}
                 role="tabpanel"
                 id={`panel-${active.id}`}
-                aria-label={active.name}
+                {...(pitches.length > 1 ? { "aria-labelledby": `desk-tab-${active.id}` } : { "aria-label": active.name })}
                 className="rounded-2xl border border-evergreen/10 bg-surface p-4 shadow-sm"
             >
                 <div className="mb-2 flex flex-wrap items-baseline gap-x-3">
-                    <h3 className="text-base font-bold">{active.name}</h3>
+                    {/* h2: the page's h1 is "Staff Desk"; there is no h2 in between */}
+                    <h2 className="text-base font-bold">{active.name}</h2>
                     <p className="text-sm text-evergreen/70">
                         {active.sport} · {active.format}
                     </p>

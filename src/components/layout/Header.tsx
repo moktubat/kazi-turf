@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     Menu, X, UserRound, LogOut, UserCog,
     CalendarCheck
 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { site } from "@/data/site";
 import { cn } from "@/lib/cn";
 import type { SessionUser } from "@/types";
@@ -15,6 +16,7 @@ const barLink =
 
 export function Header({ user }: { user: SessionUser | null }) {
     const [open, setOpen] = useState(false);
+    const toggleRef = useRef<HTMLButtonElement>(null);
     const pathname = usePathname();
     const isStaff = user?.role === "STAFF" || user?.role === "SUPER_ADMIN";
     const isLogin = pathname === "/login";
@@ -28,7 +30,10 @@ export function Header({ user }: { user: SessionUser | null }) {
     useEffect(() => {
         if (!open) return;
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") {
+                setOpen(false);
+                toggleRef.current?.focus(); // keep keyboard users on the control that opened the menu
+            }
         };
         document.addEventListener("keydown", onKey);
         const prev = document.body.style.overflow;
@@ -74,8 +79,6 @@ export function Header({ user }: { user: SessionUser | null }) {
                         />
                     </Link>
 
-                    {/* Desktop primary nav — Home link removed per client request */}
-                    <nav aria-label="Primary" className="hidden lg:flex" />
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -100,18 +103,14 @@ export function Header({ user }: { user: SessionUser | null }) {
                             )}
                         </>
                     ) : (
-                        <Link
-                            href="/login"
-                            className="inline-flex min-h-11 items-center rounded-xl bg-teal px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-evergreen"
-                        >
-                            Sign In
-                        </Link>
+                        <Button href="/login">Sign In</Button>
                     )}
 
                     {/* Book now CTA removed from header per client request.
                         Mobile users still have the bottom MobileActionBar with Book Now. */}
 
                     <button
+                        ref={toggleRef}
                         type="button"
                         onClick={() => setOpen((v) => !v)}
                         aria-label={open ? "Close menu" : "Open menu"}

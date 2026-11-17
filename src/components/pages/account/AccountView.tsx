@@ -10,7 +10,8 @@ import { BookingRow } from "./BookingRow";
 import { BookingSheet } from "./BookingSheet";
 import { NextBookingCard } from "./NextBookingCard";
 import { ProfileForms, type ProfileView } from "./ProfileForms";
-import { DEFAULT_REFUND_POLICY } from "@/data/defaultRefundPolicy";
+import { hasRefundRules, REFUND_RULES_PENDING } from "@/data/legal";
+import { site } from "@/data/site";
 
 interface BookingGroup {
     id: string;
@@ -92,6 +93,20 @@ export function AccountView({
         ]
         : [{ id: "profile", label: "Profile", icon: UserRound }];
 
+    // Arrow keys move between sections (Left/Right on the phone row, Up/Down in the sidebar), Home/End jump.
+    function onTabKey(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+        const n = navItems.length;
+        let to = index;
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") to = (index + 1) % n;
+        else if (e.key === "ArrowLeft" || e.key === "ArrowUp") to = (index - 1 + n) % n;
+        else if (e.key === "Home") to = 0;
+        else if (e.key === "End") to = n - 1;
+        else return;
+        e.preventDefault();
+        setTab(navItems[to].id);
+        document.getElementById(`tab-${navItems[to].id}`)?.focus();
+    }
+
     const next = upcoming.find((b) => b.bookingStatus !== "PENDING_PAYMENT");
     const rest = upcoming.filter((b) => b !== next);
     const today = dhakaParts(new Date()).date; // Dhaka date, not UTC (they differ 00:00–06:00)
@@ -101,27 +116,33 @@ export function AccountView({
         <>
             <div className="grid gap-6 md:grid-cols-[15rem_1fr] md:gap-8">
                 {/* Sidebar (vertical on md+, horizontal pills on mobile) */}
-                <nav aria-label="Account sections" className="md:pr-2">
-                    <ul className="grid grid-cols-4 gap-2 pb-2 md:flex md:flex-col md:gap-1 md:pb-0">
-                        {navItems.map((item) => {
+                <div className="md:pr-2">
+                    <ul
+                        role="tablist"
+                        aria-label="Account sections"
+                        className="grid grid-cols-4 gap-2 pb-2 md:flex md:flex-col md:gap-1 md:pb-0"
+                    >
+                        {navItems.map((item, i) => {
                             const active = tab === item.id;
                             const Icon = item.icon;
                             return (
-                                <li key={item.id} className="md:shrink">
+                                <li key={item.id} role="presentation" className="min-w-0 md:shrink">
                                     <button
                                         type="button"
                                         role="tab"
                                         id={`tab-${item.id}`}
                                         aria-selected={active}
                                         aria-controls={`panel-${item.id}`}
+                                        tabIndex={active ? 0 : -1}
                                         onClick={() => setTab(item.id)}
+                                        onKeyDown={(e) => onTabKey(e, i)}
                                         className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold transition-colors sm:text-sm md:justify-start md:gap-2.5 md:px-4 md:text-sm ${active
                                             ? "bg-teal text-white shadow-sm"
                                             : "bg-mint text-evergreen hover:bg-emerald/40"
                                             }`}
                                     >
                                         <Icon size={16} aria-hidden className="shrink-0" />
-                                        <span className="truncate">{item.label}</span>
+                                        <span className="min-w-0 text-center leading-tight md:truncate md:text-left">{item.label}</span>
                                         {typeof item.count === "number" && (
                                             <span
                                                 className={`ml-auto hidden rounded-full px-1.5 text-xs font-bold md:inline ${active ? "bg-white/20 text-white" : "bg-surface text-teal"
@@ -135,7 +156,7 @@ export function AccountView({
                             );
                         })}
                     </ul>
-                </nav>
+                </div>
 
                 {/* Content */}
                 <div
@@ -253,10 +274,9 @@ function RefundPolicyView({
         exceptions: string[];
     };
 }) {
-    const hasContent =
-        policy.tiers.length > 0 || policy.method || policy.timing || policy.exceptions.length > 0;
-
-    const effective = hasContent ? policy : DEFAULT_REFUND_POLICY;
+    // Only the owner's saved rules are shown. Without them, no amounts or deadlines are promised.
+    const effective = policy;
+    const hasRules = hasRefundRules(policy);
 
     return (
         <div className="space-y-5">
@@ -268,10 +288,17 @@ function RefundPolicyView({
                     <div>
                         <h2 className="font-heading text-base font-bold leading-tight">Cancellation &amp; Refund Policy</h2>
                         <p className="mt-0.5 text-xs text-evergreen/70">
-                            What happens to your advance if you cancel. All turfs are indoor — weather is never a reason for a refund.
+                            How to cancel, and what happens to the money you paid.
                         </p>
                     </div>
                 </div>
+
+                <p className="text-sm text-evergreen/85">
+                    To cancel or reschedule, open the booking and send a request. Our team reviews it and contacts you.
+                    Nothing is cancelled or refunded automatically.
+                </p>
+
+                {!hasRules && <p className="text-sm text-evergreen/85">{REFUND_RULES_PENDING}</p>}
 
                 {effective.tiers.length > 0 && (
                     <div className="space-y-3">
@@ -312,17 +339,14 @@ function RefundPolicyView({
                     </div>
                 )}
 
-                <div className="rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
-                    If you have a dispute about a refund, please contact the venue directly. Last-minute cancellations
-                    where the slot cannot be rebooked may not receive a full refund of the advance.
-                </div>
+                <p className="text-sm text-evergreen/85">
+                    Refund status is shown in the Refunds tab. Questions about a refund? Call {site.phone} or email{" "}
+                    {site.email} with your booking code.
+                </p>
 
-                <a
-                    href="/legal#refund"
-                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal hover:bg-mint"
-                >
+                <Button href="/legal#refund" variant="outline">
                     Read the full policy
-                </a>
+                </Button>
             </Card>
         </div>
     );

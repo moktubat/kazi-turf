@@ -70,6 +70,10 @@ export function BookingFlow({
 
     const abortRef = useRef<AbortController | null>(null);
     const preselected = useRef(false);
+    // Moving between steps replaces the content under the focused button, so focus
+    // goes to the step title instead of being dropped to <body>.
+    const headingRef = useRef<HTMLHeadingElement>(null);
+    const focusHeading = () => requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
 
     /* ---------- availability ---------- */
     const load = useCallback(
@@ -310,6 +314,7 @@ export function BookingFlow({
         if (!canContinue) return;
         setStep(2);
         window.scrollTo({ top: 0 });
+        focusHeading();
     }
 
     async function goBack() {
@@ -322,6 +327,7 @@ export function BookingFlow({
             setHold(null);
         }
         setStep(1);
+        focusHeading();
         load(true);
     }
 
@@ -352,7 +358,7 @@ export function BookingFlow({
                                 <span aria-hidden className="h-0.5 w-6 bg-emerald" />
                                 {step === 1 ? "Live slot availability" : "Step 2 · Pay"}
                             </p>
-                            <h1 className="text-2xl font-extrabold text-white md:text-3xl">
+                            <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-extrabold text-white outline-none md:text-3xl">
                                 {step === 1 ? "Choose your slot" : "Confirm & pay"}
                             </h1>
                         </div>
@@ -399,7 +405,11 @@ export function BookingFlow({
                                 )}
 
                                 <p className="text-sm text-evergreen/80" aria-live="polite">
-                                    {data ? `Last updated ${formatTime(data.updatedAt)}` : "Loading slots…"}
+                                    {refreshing
+                                        ? "Refreshing slots…"
+                                        : data
+                                            ? `Last updated ${formatTime(data.updatedAt)}`
+                                            : "Loading slots…"}
                                 </p>
 
                                 {status === "loading" && !data && <SlotSkeleton />}
@@ -504,9 +514,10 @@ export function BookingFlow({
 
 function SlotSkeleton() {
     return (
-        <div aria-busy aria-label="Loading slots" className="space-y-2">
+        <div role="status" aria-busy className="space-y-2">
+            <span className="sr-only">Loading slots…</span>
             {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="h-14 animate-pulse rounded-xl bg-evergreen/10" />
+                <div key={i} aria-hidden className="h-14 animate-pulse rounded-xl bg-evergreen/10" />
             ))}
         </div>
     );

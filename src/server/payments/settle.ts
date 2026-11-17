@@ -54,10 +54,15 @@ export function settlePayment(paymentId: string, hint: Hint, now: Date = new Dat
 async function tryExecute(p: Payment): Promise<RemotePayment | null> {
     try {
         return await bkashExecute(p.providerPaymentId!);
-    } catch {
-        return null; // outcome unknown: the status query below decides
+    } catch (e) {
+        // Outcome unknown: the status query decides. Logged so a failing bKash API is visible.
+        console.warn(`[bkash] execute failed for payment ${p.id}, checking status instead:`, errText(e));
+        return null;
     }
 }
+
+/** Error text for logs: the message only (bKash errors carry status codes, never credentials). */
+const errText = (e: unknown) => (e instanceof Error ? e.message : "unknown error");
 
 async function doSettle(id: string, hint: Hint, now: Date): Promise<SettleResult> {
     await connectDb();
@@ -86,8 +91,10 @@ async function doSettle(id: string, hint: Hint, now: Date): Promise<SettleResult
             }
         }
         remote = done;
-    } catch {
-        return "PENDING"; // bKash unreachable: leave it for the reconcile job
+    } catch (e) {
+        // bKash unreachable: leave it for the reconcile job, but never silently.
+        console.error(`[bkash] status check failed for payment ${p.id}; it stays pending for the next reconcile:`, errText(e));
+        return "PENDING";
     }
 
     const fresh = await getPayment(id);

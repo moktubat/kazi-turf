@@ -7,7 +7,9 @@ import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Field";
 import { SideSheet } from "@/components/ui/SideSheet";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
+import { countLabel } from "@/lib/adminMessages";
 import { ApiError, api, isAbort } from "@/lib/api";
+import type { BookingListFilters } from "@/lib/bookingFilters";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import type { Role } from "@/types";
 import type { AdminBookingDto } from "@/types/admin";
@@ -35,24 +37,32 @@ const PAYMENT = [
     ["REFUNDED", "Refunded"],
 ] as const;
 
+type Page = { bookings: AdminBookingDto[]; next: string | null };
+
 export function BookingsView({
     role,
+    initial,
     defaults,
 }: {
     role: Role;
-    defaults: { from: string; to: string; requestOnly: boolean };
+    /** Filters the page opened with (may come from a link, e.g. Needs Attention). */
+    initial: BookingListFilters;
+    /** What "Clear filters" goes back to. */
+    defaults: BookingListFilters;
 }) {
-    const [from, setFrom] = useState(defaults.from);
-    const [to, setTo] = useState(defaults.to);
-    const [bookingStatus, setBookingStatus] = useState("");
-    const [paymentStatus, setPaymentStatus] = useState("");
+    const [from, setFrom] = useState(initial.from);
+    const [to, setTo] = useState(initial.to);
+    const [bookingStatus, setBookingStatus] = useState<string>(initial.bookingStatus);
+    const [paymentStatus, setPaymentStatus] = useState<string>(initial.paymentStatus);
     const [source, setSource] = useState("");
     const [q, setQ] = useState("");
-    const [requestOnly, setRequestOnly] = useState(defaults.requestOnly);
+    const [requestOnly, setRequestOnly] = useState(initial.requestOnly);
 
     const [rows, setRows] = useState<AdminBookingDto[] | null>(null);
+    const [next, setNext] = useState<string | null>(null);
+    const [loadedKey, setLoadedKey] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [moreBusy, setMoreBusy] = useState(false);
     const [openCode, setOpenCode] = useState<string | null>(null);
     const [reload, setReload] = useState(0);
 
@@ -68,34 +78,54 @@ export function BookingsView({
         return p.toString();
     }, [from, to, bookingStatus, paymentStatus, source, q, requestOnly]);
 
+    // Loading = the list on screen is not for the current filters yet (first load, a filter
+    // change or a refresh after an action). Derived, so the effect never sets state synchronously.
+    const key = `${params}#${reload}`;
+    const loading = loadedKey !== key;
+
     useEffect(() => {
         const ctrl = new AbortController();
         const t = setTimeout(async () => {
             try {
-                const r = await api<{ bookings: AdminBookingDto[] }>(`/api/admin/bookings?${params}`, { signal: ctrl.signal });
+                const r = await api<Page>(`/api/admin/bookings?${params}`, { signal: ctrl.signal });
                 setRows(r.bookings);
+                setNext(r.next);
                 setError(null);
             } catch (e) {
                 if (isAbort(e)) return;
                 setError(e instanceof ApiError ? e.message : "Could not load bookings.");
-            } finally {
-                setLoading(false);
             }
+            setLoadedKey(key);
         }, 250);
         return () => {
             clearTimeout(t);
             ctrl.abort();
         };
-    }, [params, reload]);
+    }, [params, key]);
+
+    async function loadMore() {
+        if (!next) return;
+        setMoreBusy(true);
+        try {
+            const r = await api<Page>(`/api/admin/bookings?${params}&${new URLSearchParams({ before: next })}`);
+            setRows((cur) => [...(cur ?? []), ...r.bookings]);
+            setNext(r.next);
+            setError(null);
+        } catch (e) {
+            setError(e instanceof ApiError ? e.message : "Could not load more bookings.");
+        } finally {
+            setMoreBusy(false);
+        }
+    }
 
     function clear() {
         setFrom(defaults.from);
         setTo(defaults.to);
-        setBookingStatus("");
-        setPaymentStatus("");
+        setBookingStatus(defaults.bookingStatus);
+        setPaymentStatus(defaults.paymentStatus);
         setSource("");
         setQ("");
-        setRequestOnly(false);
+        setRequestOnly(defaults.requestOnly);
     }
 
     const sourceBadge = (s: AdminBookingDto["source"]) => (
@@ -142,7 +172,7 @@ export function BookingsView({
                         <input type="checkbox" className="size-5 accent-teal" checked={requestOnly} onChange={(e) => setRequestOnly(e.target.checked)} />
                         Only bookings with an open customer request
                     </label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="ghost" onClick={clear}>Clear filters</Button>
                         {role === "SUPER_ADMIN" && (
                             <a
@@ -157,20 +187,31 @@ export function BookingsView({
             </Card>
 
             <p className="text-sm text-evergreen/80" aria-live="polite">
-                {loading ? "Loading…" : rows ? `${rows.length} ${rows.length === 1 ? "booking" : "bookings"}${rows.length >= 100 ? " (showing the first 100, narrow the filters)" : ""}` : ""}
+                {loading ? "Loading…" : rows ? countLabel(rows.length, !!next) : ""}
             </p>
 
             {error && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{error}</p>}
 
+            {loading && !rows && !error && (
+                <div role="status" aria-label="Loading bookings" className="space-y-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-16 animate-pulse rounded-xl bg-evergreen/10" />
+                    ))}
+                </div>
+            )}
+
             {rows && rows.length === 0 && !loading && (
-                <Card className="text-center"><p className="font-semibold">No bookings match these filters.</p></Card>
+                <Card className="flex flex-col items-center gap-3 text-center">
+                    <p className="text-sm text-evergreen/70">No bookings match these filters.</p>
+                    <Button variant="outline" onClick={clear}>Clear filters</Button>
+                </Card>
             )}
 
             {rows && rows.length > 0 && (
                 <>
                     {/* Desktop table */}
-                    <div className="hidden overflow-x-auto rounded-2xl border border-evergreen/10 bg-surface shadow-sm md:block">
-                        <table className="w-full text-left text-sm">
+                    <div className="scrollbar-thin hidden overflow-x-auto rounded-2xl border border-evergreen/10 bg-surface shadow-sm md:block">
+                        <table className="w-full min-w-[48rem] text-left text-sm">
                             <caption className="sr-only">Bookings</caption>
                             <thead>
                                 <tr className="border-b border-evergreen/10 text-xs uppercase tracking-wide text-evergreen/70">
@@ -219,10 +260,10 @@ export function BookingsView({
                                     className="w-full space-y-2 rounded-2xl border border-evergreen/10 bg-surface p-4 text-left hover:border-teal"
                                 >
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="font-mono font-bold">{b.code}</span>
+                                        <span className="min-w-0 truncate font-mono font-bold">{b.code}</span>
                                         {sourceBadge(b.source)}
                                     </div>
-                                    <p className="text-sm">{b.customerName} · {b.phone}</p>
+                                    <p className="break-words text-sm">{b.customerName} · {b.phone}</p>
                                     <p className="text-sm text-evergreen/80">{formatDateLong(b.date)} · {formatTime12(b.start)}–{formatTime12(b.end)} · {b.pitchName}</p>
                                     <div className="flex flex-wrap gap-2">
                                         <BookingStatusBadge status={b.bookingStatus} />
@@ -237,11 +278,19 @@ export function BookingsView({
                             </li>
                         ))}
                     </ul>
+
+                    {next && (
+                        <div className="flex justify-center">
+                            <Button variant="outline" onClick={loadMore} disabled={moreBusy || loading}>
+                                {moreBusy ? "Loading…" : "Load more bookings"}
+                            </Button>
+                        </div>
+                    )}
                 </>
             )}
 
             <SideSheet open={!!openCode} onClose={() => setOpenCode(null)} title="Booking">
-                {openCode && <BookingPanel code={openCode} role={role} onChanged={() => setReload((n) => n + 1)} />}
+                {openCode && <BookingPanel key={openCode} code={openCode} role={role} onChanged={() => setReload((n) => n + 1)} />}
             </SideSheet>
         </div>
     );

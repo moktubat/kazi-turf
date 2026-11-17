@@ -72,15 +72,15 @@ export function NextBookingCard({ b, onOpen }: { b: AccountBookingDto; onOpen: (
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-evergreen/10 bg-mint/40 p-3">
+                    <div className="min-w-0 rounded-xl border border-evergreen/10 bg-mint/40 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-evergreen/60">
                             Booking code
                         </p>
-                        <p className="mt-1 font-mono text-lg font-extrabold tracking-wider sm:text-xl">
+                        <p className="mt-1 select-all font-mono text-lg font-extrabold tracking-wider [overflow-wrap:anywhere] sm:text-xl">
                             {b.code}
                         </p>
                     </div>
-                    <div className="rounded-xl border border-evergreen/10 bg-mint/40 p-3">
+                    <div className="min-w-0 rounded-xl border border-evergreen/10 bg-mint/40 p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-evergreen/60">
                             Balance at venue
                         </p>

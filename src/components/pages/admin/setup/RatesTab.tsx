@@ -60,7 +60,7 @@ export function RatesTab({
 
     const pitch = pitches.find((p) => p.id === effectivePitchId);
     if (pitches.length === 0 || !pitch) {
-        return <Card><p className="font-semibold">Add a field first, then set its slot prices.</p></Card>;
+        return <Card><p className="text-sm text-evergreen/70">Add a field first, then set its slot prices.</p></Card>;
     }
 
     const mine = rates
@@ -111,6 +111,11 @@ export function RatesTab({
 
     return (
         <div className="space-y-6">
+            {/* Section heading, like the Venue / Fields / Staff tabs, so the h3s below have an h2 above them. */}
+            <div>
+                <h2 className="text-xl font-bold">Slot prices</h2>
+                <p className="text-sm text-evergreen/70">Regular and temporary prices for each field&apos;s bookable slots.</p>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
                 <Select label="Sport" value={sportFilter} onChange={(e) => changeSport(e.target.value)}>
                     {sports.length === 0 && <option value="">No sports yet</option>}
@@ -165,8 +170,8 @@ export function RatesTab({
 
             {gaps.length > 0 && (
                 <div role="alert" className="rounded-xl bg-held-soft p-3 text-sm text-held">
-                    <p className="flex items-center gap-2 font-bold">
-                        <AlertTriangle size={18} aria-hidden /> These slots have no regular price, so customers cannot book them
+                    <p className="flex items-start gap-2 font-bold">
+                        <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> These slots have no regular price, so customers cannot book them
                     </p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-6">
                         {gaps.map((g) => (
@@ -193,7 +198,7 @@ export function RatesTab({
                                 <li key={r.id}>
                                     <Card className="space-y-2">
                                         <div className="flex items-start justify-between gap-2">
-                                            <div className="flex items-baseline gap-2">
+                                            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                                                 {priced.hasAdjustment && (
                                                     <span className="font-heading text-sm text-evergreen/50 line-through">{formatBDT(priced.original)}</span>
                                                 )}
@@ -477,7 +482,7 @@ function RegularPriceForm({ pitch, rate, onDone }: { pitch: SetupPitch; rate: Se
                             <Input label="Increase" type="number" inputMode="numeric" value={f.discountValue} error={fields.discountValue} onChange={(e) => set("discountValue", e.target.value)} />
                         </div>
                     )}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <Input label="Only from" type="date" value={f.effectiveFrom} error={fields.effectiveFrom} onChange={(e) => set("effectiveFrom", e.target.value)} />
                         <Input label="Only until" type="date" value={f.effectiveTo} error={fields.effectiveTo} onChange={(e) => set("effectiveTo", e.target.value)} />
                     </div>
@@ -508,9 +513,14 @@ function RegularPriceForm({ pitch, rate, onDone }: { pitch: SetupPitch; rate: Se
                         <p className="font-medium text-booked">
                             Delete this price? Existing bookings keep their saved price, but slots without a price cannot be booked.
                         </p>
-                        <Button variant="danger" disabled={busy} onClick={() => save(rateDeleteSchema, { id: rate.id }, "/admin/setup/rates", "DELETE", onDone)}>
-                            Yes, delete
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                            <Button variant="danger" disabled={busy} onClick={() => save(rateDeleteSchema, { id: rate.id }, "/admin/setup/rates", "DELETE", onDone)}>
+                                {busy ? "Deleting…" : "Delete price"}
+                            </Button>
+                            <Button variant="ghost" disabled={busy} onClick={() => setConfirmDelete(false)}>
+                                Keep price
+                            </Button>
+                        </div>
                     </div>
                 ) : (
                     <Button variant="ghost" className="text-booked" onClick={() => setConfirmDelete(true)}>

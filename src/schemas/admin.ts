@@ -70,4 +70,6 @@ export const bookingSearchSchema = z.object({
     q: z.string().trim().min(3, "Type at least 3 characters").max(60).optional(),
     request: z.literal("open").optional(),
     limit: z.string().regex(/^\d{1,3}$/).optional(),
+    // Next-page cursor from the previous response: "<startAt ISO>|<booking code>".
+    before: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|KT-[A-HJ-NP-Z2-9]{6}$/).optional(),
 });

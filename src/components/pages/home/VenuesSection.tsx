@@ -13,7 +13,7 @@ export function VenuesSection({ venue }: { venue: Branch }) {
             tone="canvas"
             eyebrow="Our fields"
             title="Browse by sport"
-            intro="Pick a sport, compare the fields and what each one offers. Prices are per slot; each field shows its own slot length."
+            intro="Indoor football, cricket nets and badminton, open around the clock. Compare the fields, check prices per slot and see each field's slot length."
             action={
                 <Button href="/book">
                     <CalendarCheck size={18} aria-hidden /> Book a slot

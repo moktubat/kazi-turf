@@ -8,7 +8,8 @@ import type { Branch, Pitch, Policies } from "@/types";
 
 const label = "block text-xs font-bold uppercase tracking-wider text-evergreen/60";
 const control = "mt-1 block w-full min-w-0 cursor-pointer bg-transparent text-base font-semibold text-evergreen outline-none";
-const cell = "rounded-2xl px-4 py-3 transition-colors focus-within:bg-mint/70 hover:bg-mint/50";
+// The controls drop their own outline; the whole cell shows focus instead (ring + tint).
+const cell = "rounded-2xl px-4 py-3 transition-colors focus-within:bg-mint/70 focus-within:ring-2 focus-within:ring-teal hover:bg-mint/50";
 
 export function BookingSearchForm({
     sport,

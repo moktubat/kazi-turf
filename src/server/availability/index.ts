@@ -112,6 +112,12 @@ function buildCells(pitch: Pitch, date: string, claims: SlotClaim[], now: Date, 
     return cells;
 }
 
+/** Cells for one pitch from claims the caller already loaded (the Staff Desk board loads the day's claims once). */
+export function pitchCellsFromClaims(pitchId: string, date: string, claims: SlotClaim[], now: Date, opts: AvailabilityOptions = {}): Cell[] {
+    const pitch = getPitch(pitchId);
+    return pitch ? buildCells(pitch, date, claims, now, opts) : [];
+}
+
 /** Batch-load availability for all pitches of a branch+sport in ONE Mongo query. */
 export async function getBranchAvailability(
     branchId: string,

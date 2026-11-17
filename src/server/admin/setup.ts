@@ -157,7 +157,7 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
         for (const [key, oldImg] of oldImages) {
             const newImg = newImageById.get(key) ?? null;
             if (oldImg && oldImg !== newImg) {
-                const oldPublicId = publicIdFromImage(oldImg);
+                const oldPublicId = publicIdFromImage(oldImg, "kaziturf/sports");
                 if (oldPublicId) await deleteImage(oldPublicId);
             }
         }
@@ -292,7 +292,7 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
 
         // [CLOUDINARY] If the image URL changed, delete the old Cloudinary asset.
         if (oldImage && oldImage !== next.image) {
-            const oldPublicId = publicIdFromImage(oldImage);
+            const oldPublicId = publicIdFromImage(oldImage, "kaziturf/pitches");
             if (oldPublicId) await deleteImage(oldPublicId);
         }
 
@@ -331,7 +331,7 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
     }
 
     // Capture BEFORE we mutate the arrays.
-    const cloudinaryPublicId = p.image ? publicIdFromImage(p.image) : null;
+    const cloudinaryPublicId = p.image ? publicIdFromImage(p.image, "kaziturf/pitches") : null;
     const removedRulesCount = pricingRules.reduce(
         (n, r) => (r.pitchId === id ? n + 1 : n),
         0
@@ -413,7 +413,7 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
     const pitchImagePublicIds: string[] = [];
     for (const p of doomedPitches) {
         if (p.image) {
-            const pid = publicIdFromImage(p.image);
+            const pid = publicIdFromImage(p.image, "kaziturf/pitches");
             if (pid) pitchImagePublicIds.push(pid);
         }
     }
@@ -433,7 +433,7 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
     }
 
     // 5. Capture the sport's hero background public_id BEFORE we mutate the branch.
-    const sportImagePublicId = sportConfig.image ? publicIdFromImage(sportConfig.image) : null;
+    const sportImagePublicId = sportConfig.image ? publicIdFromImage(sportConfig.image, "kaziturf/sports") : null;
 
     // 6. Remove the sport from branch.sportConfigs and branch.sports.
     branch.sportConfigs = (branch.sportConfigs ?? []).filter((s) => s.id !== sportId);
@@ -872,7 +872,7 @@ export async function createStaff(user: ServerUser, input: StaffCreateInput) {
     const isAdmin = input.role === "SUPER_ADMIN";
     const branchIds = isAdmin ? [] : [...new Set(input.branchIds)];
     for (const id of branchIds) {
-        if (!branches.some((b) => b.id === id)) throw new AppError("NOT_FOUND", "Unknown venue.", 400, { branchIds: "Unknown venue" });
+        if (!branches.some((b) => b.id === id)) throw new AppError("VALIDATION", "Unknown venue.", 400, { branchIds: "Unknown venue" });
     }
 
     const email = input.email.trim() ? input.email.trim().toLowerCase() : null;
@@ -927,7 +927,7 @@ export async function updateStaff(user: ServerUser, input: StaffUpdateInput) {
     const isAdmin = input.role === "SUPER_ADMIN";
     const branchIds = isAdmin ? [] : [...new Set(input.branchIds)];
     for (const id of branchIds) {
-        if (!branches.some((b) => b.id === id)) throw new AppError("NOT_FOUND", "Unknown venue.", 400, { branchIds: "Unknown venue" });
+        if (!branches.some((b) => b.id === id)) throw new AppError("VALIDATION", "Unknown venue.", 400, { branchIds: "Unknown venue" });
     }
 
     const newHash = input.newPassword ? await hashPassword(input.newPassword) : null;

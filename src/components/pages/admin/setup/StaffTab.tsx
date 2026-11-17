@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, UserCog, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -29,7 +29,10 @@ export function StaffTab({ staff: initialStaff }: { staff: SetupStaff[] }) {
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-xl font-bold">Staff</h2>
+                <div>
+                    <h2 className="text-xl font-bold">Staff</h2>
+                    <p className="text-sm text-evergreen/70">Who can sign in to the admin desk and what they can change.</p>
+                </div>
                 <Button onClick={() => setEditing("new")}>
                     <Plus size={18} aria-hidden /> Add staff
                 </Button>
@@ -40,13 +43,13 @@ export function StaffTab({ staff: initialStaff }: { staff: SetupStaff[] }) {
                     <li key={u.id}>
                         <Card className="space-y-2">
                             <div className="flex items-start justify-between gap-2">
-                                <div>
-                                    <h3 className="text-lg font-bold">
+                                <div className="min-w-0">
+                                    <h3 className="break-words text-lg font-bold">
                                         {u.name} {u.isSelf && <span className="text-sm font-medium text-evergreen/70">(you)</span>}
                                     </h3>
-                                    <p className="text-sm text-evergreen/80">{u.phone}{u.email && ` · ${u.email}`}</p>
+                                    <p className="break-words text-sm text-evergreen/80">{u.phone}{u.email && ` · ${u.email}`}</p>
                                 </div>
-                                <div className="flex flex-col items-end gap-1">
+                                <div className="flex shrink-0 flex-col items-end gap-1">
                                     <Badge tone={u.role === "SUPER_ADMIN" ? "info" : "neutral"}>{u.role === "SUPER_ADMIN" ? "Super Admin" : "Staff"}</Badge>
                                     <Badge tone={u.status === "ACTIVE" ? "success" : "maint"}>{u.status === "ACTIVE" ? "Active" : "Disabled"}</Badge>
                                 </div>
@@ -67,6 +70,8 @@ export function StaffTab({ staff: initialStaff }: { staff: SetupStaff[] }) {
                 open={!!editing}
                 onClose={() => setEditing(null)}
                 title={editing === "new" ? "Add staff" : "Edit staff"}
+                description={editing === "new" ? "Create a sign-in for a team member." : "Change this person's role, access or status."}
+                icon={editing === "new" ? UserPlus : UserCog}
             >
                 {editing && (
                     <StaffForm

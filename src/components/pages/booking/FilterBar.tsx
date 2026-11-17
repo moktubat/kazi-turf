@@ -20,7 +20,7 @@ const stepLabel = "flex items-center gap-2 font-heading text-xs font-bold upperc
 const stepNo =
     "inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-teal font-heading text-xs font-bold text-white";
 const control =
-    "block w-full min-w-0 rounded-xl border border-evergreen/15 bg-paper px-3 py-2.5 text-base font-semibold text-evergreen outline-none transition-colors focus:border-teal";
+    "block w-full min-w-0 rounded-xl border border-evergreen/15 bg-paper px-3 py-2.5 text-base font-semibold text-evergreen transition-colors focus:border-teal";
 
 export function FilterBar({
     venue,

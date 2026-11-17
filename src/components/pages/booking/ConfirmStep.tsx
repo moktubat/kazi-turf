@@ -156,7 +156,7 @@ export function ConfirmStep({
             <button
                 type="button"
                 onClick={onBack}
-                className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-teal"
+                className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-teal underline-offset-2 hover:underline"
             >
                 <ArrowLeft size={16} aria-hidden /> Back to slots
             </button>
@@ -213,15 +213,22 @@ export function ConfirmStep({
                         ))}
                         <p className="text-sm">
                             <Link href="/legal#refund" target="_blank" className="font-semibold text-teal underline underline-offset-2">
-                                Read the full policy
+                                Read the full policy<span className="sr-only"> (opens in a new tab)</span>
                             </Link>
                         </p>
-                        <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
-                            <input type="checkbox" className="mt-1 size-5 accent-teal" {...register("acceptPolicy")} />
+                        {/* items-start keeps the box beside the first line when the label wraps on phones */}
+                        <label className="flex min-h-11 items-start gap-3 py-2 text-sm font-medium">
+                            <input
+                                type="checkbox"
+                                className="mt-px size-5 shrink-0 accent-teal"
+                                aria-invalid={!!errors.acceptPolicy}
+                                aria-describedby={errors.acceptPolicy ? "accept-policy-error" : undefined}
+                                {...register("acceptPolicy")}
+                            />
                             <span>I have read and accept the cancellation and refund policy.</span>
                         </label>
                         {errors.acceptPolicy && (
-                            <p role="alert" className="text-sm font-medium text-booked">{errors.acceptPolicy.message}</p>
+                            <p id="accept-policy-error" role="alert" className="text-sm font-medium text-booked">{errors.acceptPolicy.message}</p>
                         )}
                     </Card>
 

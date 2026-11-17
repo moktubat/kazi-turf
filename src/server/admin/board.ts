@@ -6,7 +6,7 @@ import { addDays, dhakaToUtc } from "@/lib/time";
 import { BookingModel, ChangeRequestModel, PaymentModel, SlotClaimModel } from "@/models";
 import { assertBranchAccess } from "@/server/auth/guards";
 import type { ServerUser } from "@/server/auth/session";
-import { getBranchPitches, getPitchAvailability } from "@/server/availability";
+import { getBranchPitches, pitchCellsFromClaims } from "@/server/availability";
 import { settleExpired } from "@/server/bookings/expire";
 import { connectDb } from "@/server/db/connect";
 import { plainAll } from "@/server/db/util";
@@ -65,7 +65,8 @@ export async function getBoard(
 
     const pitches = await Promise.all(
         list.map(async (p) => {
-            const cells: BoardCell[] = (await getPitchAvailability(p.id, date, now, { allowStarted: true })).map((c) => {
+            // Same day, same claims the board already loaded: no second query per field.
+            const cells: BoardCell[] = pitchCellsFromClaims(p.id, date, claims, now, { allowStarted: true }).map((c) => {
                 const claim = claimBy.get(`${p.id}|${c.cellStart}`);
                 const bk = claim?.bookingId ? byId.get(claim.bookingId) : undefined;
                 return {

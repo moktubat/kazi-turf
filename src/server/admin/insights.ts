@@ -3,6 +3,7 @@ import "server-only";
 import { branches } from "@/data/branches";
 import { pitches } from "@/data/pitches";
 import { policies } from "@/data/site";
+import { bookingsHref } from "@/lib/bookingFilters";
 import { formatBDT, formatDateShort } from "@/lib/format";
 import { formatDateTime } from "@/lib/formatAdmin";
 import { addDays, dhakaParts, dhakaToUtc, toHHMM, toMinutes } from "@/lib/time";
@@ -70,7 +71,8 @@ export async function getInsights(
         ).lean<Pick<Booking, "id" | "branchId" | "pitchId" | "source" | "paymentStatus" | "balanceAmount" | "cellStarts">[]>(),
         PaymentModel.find({ status: "SUCCESS", verifiedAt: { $gte: fromIso, $lt: toIso } }).lean<Payment[]>(),
         PaymentModel.find({ status: "PENDING" }).lean<Payment[]>(),
-        SlotClaimModel.find({ state: "MAINTENANCE", cellStart: { $gte: fromIso, $lt: toIso } }, { pitchId: 1, cellStart: 1 }).lean<Pick<SlotClaim, "pitchId" | "cellStart">[]>(),
+        // pitchId: only in-scope fields are counted below; it also lets the {pitchId, cellStart} index serve this.
+        SlotClaimModel.find({ pitchId: { $in: [...scopePitchIds] }, state: "MAINTENANCE", cellStart: { $gte: fromIso, $lt: toIso } }, { pitchId: 1, cellStart: 1 }).lean<Pick<SlotClaim, "pitchId" | "cellStart">[]>(),
     ]);
 
     // Join payments to their bookings, limited to the branches in scope.
@@ -254,18 +256,24 @@ export async function getAttention(user: ServerUser, now: Date = new Date()): Pr
         item(b, "Balance unpaid", `${b.customerName} · ${formatBDT(b.balanceAmount)} · played ${b.date}`)
     );
 
-    const group = (id: AttentionGroup["id"], title: string, hint: string, items: AttentionItem[]): AttentionGroup => ({
+    const group = (id: AttentionGroup["id"], title: string, hint: string, items: AttentionItem[], viewAll?: string): AttentionGroup => ({
         id,
         title,
         hint,
         count: items.length,
         items: items.slice(0, 10),
+        ...(viewAll ? { viewAll } : {}),
     });
 
+    // Where one Bookings filter finds every item, link to it. Balances: every advance-paid booking up
+    // to today (a superset only by today's games that have not ended yet).
+    const today = dhakaParts(now).date;
     return [
         group("payments", "Failed or stuck payments", "Failed, flagged for review, or still processing after 10 minutes.", [...payments.values()]),
-        group("refunds", "Refunds pending", "Money received on cancelled or late bookings. Settle and record it.", refundItems),
-        group("balances", "Unpaid balances on past bookings", "Slot has ended but the balance was never collected.", balances),
+        group("refunds", "Refunds pending", "Money received on cancelled or late bookings. Settle and record it.", refundItems,
+            bookingsHref({ paymentStatus: "REFUND_PENDING", range: "all" })),
+        group("balances", "Unpaid balances on past bookings", "Slot has ended but the balance was never collected.", balances,
+            bookingsHref({ paymentStatus: "PARTIALLY_PAID", range: "all", to: today })),
         group("expired", "Expired holds", "Last 7 days. Usually harmless: the customer did not pay in time.", expired),
     ];
 }

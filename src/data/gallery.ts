@@ -1,4 +1,4 @@
-// Real venue photos only. No stock images presented as a KaziTurf branch.
+// Real venue photos only. No stock images presented as Kazi Sports Arena.
 // Put files in /public/gallery and add entries, 6-9 recommended:
 //   { src: "/gallery/pitch-a.jpg", alt: "Pitch A under floodlights" }
 export interface GalleryImage {

@@ -46,13 +46,20 @@ export function SideSheet({
     // Prevent the overlay from catching the opening click for a brief moment.
     const [overlayReady, setOverlayReady] = useState(false);
 
-    useEffect(() => {
+    // Opening shows the sheet in the same render (React's "adjust state when a prop changes"
+    // pattern), instead of a synchronous setState inside an effect one commit later.
+    const [prevOpen, setPrevOpen] = useState(open);
+    if (open !== prevOpen) {
+        setPrevOpen(open);
         if (open) {
             setMounted(true);
             setOverlayReady(false);
-            return;
         }
-        if (!mounted) return;
+    }
+
+    // Closing: unmount after the slide-out (250 ms). State changes only in the timer callback.
+    useEffect(() => {
+        if (open || !mounted) return;
         const t = setTimeout(() => setMounted(false), 250);
         return () => clearTimeout(t);
     }, [open, mounted]);
@@ -154,11 +161,13 @@ export function SideSheet({
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-5">{children}</div>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
 
-                {/* Optional sticky footer */}
+                {/* Optional sticky footer — clears the phone's home indicator when full screen */}
                 {footer && (
-                    <div className="border-t border-evergreen/10 bg-surface px-5 py-3">{footer}</div>
+                    <div className="border-t border-evergreen/10 bg-surface px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                        {footer}
+                    </div>
                 )}
             </div>
         </div>,

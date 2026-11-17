@@ -11,7 +11,7 @@ import type { AdminBookingDto } from "@/types/admin";
 import type { BookingStatus, PaymentStatus } from "@/types";
 import type { Booking } from "@/types/booking";
 import { assertSuperAdmin, findBookingForStaff } from "./access";
-import { toAdminDto } from "./dto";
+import { toAdminDto, toAdminDtos } from "./dto";
 
 export interface BookingFilters {
     from?: string;
@@ -23,7 +23,13 @@ export interface BookingFilters {
     q?: string;
     request?: "open";
     limit?: number;
+    /** Keyset cursor from the previous page: "<startAt>|<bookingCode>" of its last row. */
+    before?: string;
 }
+
+/** Newest first; bookingCode breaks ties so pages never overlap or skip a row. */
+const ORDER = { startAt: -1, bookingCode: -1 } as const;
+export const cursorOf = (b: Pick<Booking, "startAt" | "bookingCode">) => `${b.startAt}|${b.bookingCode}`;
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -39,8 +45,10 @@ export async function filterBookings(user: ServerUser, f: BookingFilters, now: D
     await settleExpired(q, now);
 
     if (f.from || f.to) q.date = { ...(f.from ? { $gte: f.from } : {}), ...(f.to ? { $lte: f.to } : {}) };
-    // Expired holds are noise unless asked for.
-    q.bookingStatus = f.bookingStatus ?? { $ne: "EXPIRED" };
+    // Expired holds are noise unless asked for, except when money moved: a payment that arrived
+    // after the hold expired leaves an EXPIRED booking with a refund to make, and that must be findable.
+    if (f.bookingStatus) q.bookingStatus = f.bookingStatus;
+    else q.$nor = [{ bookingStatus: "EXPIRED", paymentStatus: { $nin: ["REFUND_PENDING", "REFUNDED"] } }];
     if (f.paymentStatus) q.paymentStatus = f.paymentStatus;
     if (f.source) q.source = f.source;
     if (f.request === "open") q.bookingCode = { $in: await ChangeRequestModel.distinct("bookingCode", { status: "OPEN" }) };
@@ -56,13 +64,34 @@ export async function filterBookings(user: ServerUser, f: BookingFilters, now: D
         q.$or = or;
     }
 
-    return plainAll<Booking>(await BookingModel.find(q).sort({ startAt: -1 }).limit(limit).lean());
+    if (f.before) {
+        const [startAt, code] = f.before.split("|");
+        // Rows strictly after the cursor in ORDER. $and keeps it separate from the search $or.
+        q.$and = [{ $or: [{ startAt: { $lt: startAt } }, { startAt, bookingCode: { $lt: code } }] }];
+    }
+
+    return plainAll<Booking>(await BookingModel.find(q).sort(ORDER).limit(limit).lean());
 }
 
 export async function searchBookings(user: ServerUser, f: BookingFilters, now: Date = new Date()): Promise<AdminBookingDto[]> {
     const limit = Math.min(Math.max(f.limit ?? 100, 1), 200);
     const rows = await filterBookings(user, f, now, limit);
-    return Promise.all(rows.map((b) => toAdminDto(b, user, now)));
+    return toAdminDtos(rows, user, now);
+}
+
+/** One page of the Bookings list, plus the cursor for the next page (null when this is the last). */
+export async function searchBookingsPage(
+    user: ServerUser,
+    f: BookingFilters,
+    now: Date = new Date()
+): Promise<{ bookings: AdminBookingDto[]; next: string | null }> {
+    const limit = Math.min(Math.max(f.limit ?? 100, 1), 200);
+    const rows = await filterBookings(user, f, now, limit + 1); // one extra row says whether more exist
+    const page = rows.slice(0, limit);
+    return {
+        bookings: await toAdminDtos(page, user, now),
+        next: rows.length > limit ? cursorOf(page[page.length - 1]) : null,
+    };
 }
 
 export async function getBookingDetail(user: ServerUser, code: string, now: Date = new Date()) {

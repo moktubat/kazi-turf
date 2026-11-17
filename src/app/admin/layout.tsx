@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { canSetup } from "@/server/auth/permissions";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 import { AdminNav } from "@/components/layout/admin/AdminNav";
+import { NOINDEX } from "@/lib/seo";
+
+// Staff tools are never shown in search results.
+export const metadata: Metadata = { robots: NOINDEX };
 
 async function AdminLayoutContent({
   children,

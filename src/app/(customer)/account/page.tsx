@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { NOINDEX } from "@/lib/seo";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { CalendarCheck } from "lucide-react";
 import { AccountView } from "@/components/pages/account/AccountView";
+import { Button } from "@/components/ui/Button";
 import { getSessionUser } from "@/server/auth/session";
 import { listAccountBookings } from "@/server/bookings/account";
 import { getPublicRefundPolicy } from "@/server/public-data";
 
-export const metadata: Metadata = { title: "My account" };
+export const metadata: Metadata = { title: "My account", robots: NOINDEX };
 
 const CODE = /^KT-[A-HJ-NP-Z2-9]{6}$/;
 
@@ -27,17 +28,14 @@ function PageHeader({ name, isStaff }: { name: string; isStaff: boolean }) {
           <h1 className="font-heading text-2xl font-extrabold tracking-tight md:text-3xl">
             My account
           </h1>
-          <p className="text-sm text-evergreen/70">
+          <p className="break-words text-sm text-evergreen/70">
             Hello, {name}. Manage your bookings and profile.
           </p>
         </div>
         {isStaff && (
-          <Link
-            href="/admin"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal transition-colors hover:bg-mint"
-          >
+          <Button href="/admin" variant="outline">
             <CalendarCheck size={16} aria-hidden /> Open Staff Desk
-          </Link>
+          </Button>
         )}
       </div>
     </header>

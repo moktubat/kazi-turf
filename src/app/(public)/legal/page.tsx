@@ -1,5 +1,7 @@
 
 import type { Metadata } from "next";
+import { site } from "@/data/site";
+import { pageMetadata } from "@/lib/seo";
 import { Suspense } from "react";
 import { AlertTriangle } from "lucide-react";
 
@@ -7,9 +9,12 @@ import { LegalTabs } from "@/components/pages/legal/LegalTabs";
 import { getLegalDocs, legalStatus } from "@/data/legal";
 import { getPublicRefundPolicy } from "@/server/public-data";
 
-export const metadata: Metadata = {
-    title: "Terms, Privacy & Refund policy",
-};
+export const metadata: Metadata = pageMetadata({
+    path: "/legal",
+    title: "Terms, Privacy & Refund Policy",
+    description:
+        "Booking terms, privacy policy and refund policy for Kazi Sports Arena, Shabgram, Bogura: advance payments by bKash, cancellations, refunds and how we use your data.",
+});
 
 function LegalHeader() {
     return (
@@ -20,11 +25,11 @@ function LegalHeader() {
                 </p>
 
                 <h1 className="text-3xl font-extrabold text-white md:text-5xl">
-                    Legal
+                    Terms, Privacy &amp; Refund Policy
                 </h1>
 
                 <p className="mt-2 max-w-xl text-white/75">
-                    Terms, privacy and our refund policy.
+                    The rules for booking at {site.name}, how we handle your information, and what happens to your advance if plans change.
                 </p>
 
                 {!legalStatus.reviewed && (
@@ -59,10 +64,7 @@ async function LegalContent() {
 
     return (
         <div className="mx-auto max-w-3xl px-4 py-8 pb-16">
-            <LegalTabs
-                docs={getLegalDocs()}
-                refundPolicy={refundPolicy}
-            />
+            <LegalTabs docs={getLegalDocs(refundPolicy)} />
         </div>
     );
 }

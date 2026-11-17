@@ -16,8 +16,8 @@ import type { AccountBookingDto, ChangeRequestInfo } from "@/types/account";
 function Line({ label, value, strong }: { label: string; value: React.ReactNode; strong?: boolean }) {
     return (
         <div className={`flex items-baseline justify-between gap-4 ${strong ? "font-bold" : ""}`}>
-            <dt className={strong ? "" : "text-evergreen/80"}>{label}</dt>
-            <dd className="text-right font-semibold">{value}</dd>
+            <dt className={strong ? "shrink-0" : "shrink-0 text-evergreen/80"}>{label}</dt>
+            <dd className="min-w-0 text-right font-semibold [overflow-wrap:anywhere]">{value}</dd>
         </div>
     );
 }
@@ -76,12 +76,7 @@ export function BookingSheet({
                 <p className="font-heading text-[11px] font-bold uppercase tracking-[0.18em] text-evergreen/60">
                     Booking code
                 </p>
-                <p
-                    className="font-mono text-2xl font-extrabold tracking-widest sm:text-3xl"
-                    aria-label={`Booking code ${b.code}`}
-                >
-                    {b.code}
-                </p>
+                <p className="select-all font-mono text-2xl font-extrabold tracking-widest sm:text-3xl">{b.code}</p>
                 <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2">
                     <BookingStatusBadge status={b.bookingStatus} />
                     <PaymentStatusBadge status={b.paymentStatus} />
@@ -147,7 +142,7 @@ export function BookingSheet({
                     <a
                         href={`/api/bookings/${encodeURIComponent(b.code)}/receipt`}
                         download
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal hover:bg-mint"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal transition-colors hover:bg-mint"
                     >
                         <Download size={18} aria-hidden /> Download receipt
                     </a>
@@ -174,6 +169,7 @@ export function BookingSheet({
                             <p className="text-sm">
                                 <Link href="/legal#refund" target="_blank" className="font-semibold text-teal underline underline-offset-2">
                                     Read the full policy
+                                    <span className="sr-only"> (opens in a new tab)</span>
                                 </Link>
                             </p>
                             <Select label="What do you need?" error={errors.kind?.message} {...register("kind")}>

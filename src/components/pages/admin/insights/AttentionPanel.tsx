@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 import { BookingPanel } from "@/components/pages/admin/BookingPanel";
@@ -29,11 +30,14 @@ export function AttentionPanel({ groups, role }: { groups: AttentionGroup[]; rol
                 {groups.map((g) => (
                     <Card key={g.id} className="space-y-3">
                         <div className="flex items-start justify-between gap-2">
-                            <div>
+                            <div className="min-w-0">
                                 <h3 className="font-bold">{g.title}</h3>
                                 <p className="text-xs text-evergreen/70">{g.hint}</p>
                             </div>
-                            <Badge tone={g.count > 0 && g.id !== "expired" ? "held" : "neutral"}>{g.count}</Badge>
+                            <Badge tone={g.count > 0 && g.id !== "expired" ? "held" : "neutral"}>
+                                {g.count}
+                                <span className="sr-only"> {g.count === 1 ? "item" : "items"}</span>
+                            </Badge>
                         </div>
 
                         {g.items.length === 0 ? (
@@ -59,14 +63,23 @@ export function AttentionPanel({ groups, role }: { groups: AttentionGroup[]; rol
                             </ul>
                         )}
                         {g.count > g.items.length && (
-                            <p className="text-xs text-evergreen/70">Showing {g.items.length} of {g.count}. Use Bookings to see the rest.</p>
+                            <p className="text-xs text-evergreen/70">
+                                Showing {g.items.length} of {g.count}.{" "}
+                                {g.viewAll ? (
+                                    <Link href={g.viewAll} className="font-semibold text-teal underline underline-offset-2">
+                                        View all in Bookings
+                                    </Link>
+                                ) : (
+                                    "Use Bookings to see the rest."
+                                )}
+                            </p>
                         )}
                     </Card>
                 ))}
             </div>
 
             <SideSheet open={!!code} onClose={() => setCode(null)} title="Booking">
-                {code && <BookingPanel code={code} role={role} onChanged={() => router.refresh()} />}
+                {code && <BookingPanel key={code} code={code} role={role} onChanged={() => router.refresh()} />}
             </SideSheet>
         </section>
     );

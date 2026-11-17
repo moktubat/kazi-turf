@@ -42,7 +42,7 @@ function Stat({
                 {label}
                 <Icon size={16} aria-hidden className="text-evergreen/40" />
             </span>
-            <span className="font-heading text-3xl font-extrabold">{value}</span>
+            <span className="break-words font-heading text-2xl font-extrabold sm:text-3xl">{value}</span>
         </>
     );
     const cls = "flex flex-col gap-2 rounded-2xl border border-evergreen/10 bg-surface p-5 shadow-sm";
@@ -82,36 +82,53 @@ export function StaffDesk({
 
     const minDate = addDays(today, -90);
 
+    /** A finished board request: the board, an error message, or null when it was aborted. */
+    type BoardResult = { ok: true; board: BoardResponse } | { ok: false; error: string } | null;
+
+    // Starts a request and aborts the previous one, so an older board never replaces a newer one.
+    const startRequest = useCallback((): { ctrl: AbortController; result: Promise<BoardResult> } => {
+        abortRef.current?.abort();
+        const ctrl = new AbortController();
+        abortRef.current = ctrl;
+        const result = api<BoardResponse>(`/api/admin/board?${new URLSearchParams({ date })}`, { signal: ctrl.signal }).then(
+            (board): BoardResult => ({ ok: true, board }),
+            (e): BoardResult => (isAbort(e) ? null : { ok: false, error: e instanceof ApiError ? e.message : "Could not load the board." })
+        );
+        return { ctrl, result };
+    }, [date]);
+
+    // Applies a finished request (called from the request's own callback, never synchronously).
+    const apply = useCallback((r: BoardResult, silent: boolean, ctrl: AbortController) => {
+        if (r?.ok) {
+            setBoard(r.board);
+            setStatus("ready");
+            setError(""); // a later success clears an earlier refresh failure
+        } else if (r) {
+            setError(r.error);
+            if (!silent) setStatus("error");
+        }
+        if (abortRef.current === ctrl) setRefreshing(false);
+    }, []);
+
+    /** For buttons, timers and callbacks: show the spinner or skeleton, then fetch. */
     const load = useCallback(
-        async (silent = false) => {
-            if (!venueId) return;
-            abortRef.current?.abort();
-            const ctrl = new AbortController();
-            abortRef.current = ctrl;
+        (silent = false) => {
+            if (!venueId) return Promise.resolve();
             if (silent) setRefreshing(true);
             else setStatus("loading");
-            try {
-                const r = await api<BoardResponse>(
-                    `/api/admin/board?${new URLSearchParams({ date })}`,
-                    { signal: ctrl.signal }
-                );
-                setBoard(r);
-                setStatus("ready");
-            } catch (e) {
-                if (isAbort(e)) return;
-                setError(e instanceof ApiError ? e.message : "Could not load the board.");
-                if (!silent) setStatus("error");
-            } finally {
-                if (abortRef.current === ctrl) setRefreshing(false);
-            }
+            const { ctrl, result } = startRequest();
+            return result.then((r) => apply(r, silent, ctrl));
         },
-        [date, venueId]
+        [venueId, startRequest, apply]
     );
 
+    // First load and every date change. "loading" is already set: initially, and by changeDate.
     useEffect(() => {
-        load();
-        return () => abortRef.current?.abort();
-    }, [load]);
+        if (!venueId) return;
+        const { ctrl, result } = startRequest();
+        result.then((r) => apply(r, false, ctrl));
+        return () => ctrl.abort();
+    }, [venueId, startRequest, apply]);
 
     useEffect(() => {
         const id = setInterval(() => {
@@ -121,8 +138,9 @@ export function StaffDesk({
     }, [load]);
 
     function changeDate(d: string) {
-        if (d < minDate || d > maxDate) return;
+        if (d < minDate || d > maxDate || d === date) return; // same day: nothing to reload
         setBoard(null);
+        setStatus("loading");
         setDate(d);
     }
 
@@ -146,7 +164,7 @@ export function StaffDesk({
                     max={maxDate}
                     onChange={(e) => e.target.value && changeDate(e.target.value)}
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Button variant="outline" aria-label="Previous day" onClick={() => changeDate(addDays(date, -1))} disabled={date <= minDate}>
                         <ChevronLeft size={18} aria-hidden />
                     </Button>
@@ -157,7 +175,7 @@ export function StaffDesk({
                 </div>
             </Card>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Day summary">
+            <div role="group" className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Day summary">
                 <Stat icon={Users} label="Arrivals pending" value={board?.stats.arrivalsPending ?? "–"} />
                 <Stat icon={LogIn} label="Checked in" value={board?.stats.checkedIn ?? "–"} />
                 <Stat icon={Banknote} label="Cash collected" value={board ? formatBDT(board.stats.cashCollected) : "–"} />
@@ -173,13 +191,19 @@ export function StaffDesk({
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-evergreen/80">
                 <p aria-live="polite">{board ? `Last updated ${formatTime(board.updatedAt)}` : "Loading board…"}</p>
+                {/* A failed background refresh keeps the last board on screen; say that it is out of date. */}
+                {board && error && (
+                    <p role="alert" className="w-full rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">
+                        Could not refresh: {error} The board shows the last update. Tap Refresh to try again.
+                    </p>
+                )}
                 <Button variant="ghost" onClick={() => load(true)} disabled={refreshing} aria-label="Refresh board">
                     <RefreshCw size={16} aria-hidden className={refreshing ? "animate-spin" : ""} /> Refresh
                 </Button>
             </div>
 
             {status === "loading" && !board && (
-                <div aria-busy aria-label="Loading board" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                <div role="status" aria-busy aria-label="Loading board" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                     {Array.from({ length: 12 }).map((_, i) => (
                         <div key={i} className="h-[5.75rem] animate-pulse rounded-xl bg-evergreen/10" />
                     ))}
@@ -188,13 +212,13 @@ export function StaffDesk({
 
             {status === "error" && !board && (
                 <Card className="space-y-3" role="alert">
-                    <p className="flex items-center gap-2 font-semibold"><AlertTriangle size={18} aria-hidden /> {error}</p>
+                    <p className="flex items-start gap-2 rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked"><AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> {error}</p>
                     <Button onClick={() => load()}>Try again</Button>
                 </Card>
             )}
 
             {board && board.pitches.length === 0 && (
-                <Card><p className="font-semibold">No active pitches today.</p></Card>
+                <Card><p className="text-sm text-evergreen/70">No active pitches today.</p></Card>
             )}
 
             {board && board.pitches.length > 0 && (
@@ -231,7 +255,7 @@ export function StaffDesk({
                         }}
                     />
                 )}
-                {drawer?.kind === "booking" && <BookingPanel code={drawer.code} role={role} onChanged={() => load(true)} />}
+                {drawer?.kind === "booking" && <BookingPanel key={drawer.code} code={drawer.code} role={role} onChanged={() => load(true)} />}
             </SideSheet>
         </div>
     );

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/seo";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
@@ -11,6 +12,7 @@ import { getSessionUser } from "@/server/auth/session";
 export const metadata: Metadata = {
     title: "Sign in",
     description: "Sign in to Kazi Sports Arena to book your indoor sports slot and manage your bookings.",
+    robots: NOINDEX,
 };
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
@@ -45,9 +47,9 @@ function BrandPanel() {
             </div>
 
             <div className="absolute inset-x-0 bottom-0 p-8 xl:p-12">
-                <h2 className="max-w-md text-3xl font-extrabold leading-tight text-white xl:text-4xl">
+                <p className="max-w-md font-heading text-3xl font-extrabold leading-tight text-white xl:text-4xl">
                     Book your slot in a few taps.
-                </h2>
+                </p>
                 <p className="mt-2 max-w-sm text-sm text-white/75">
                     Sign in to pay for your slot and see your bookings.
                 </p>
@@ -87,7 +89,10 @@ function LoginShell({ children }: { children: React.ReactNode }) {
 function LoginFallback() {
     return (
         <LoginShell>
-            <div className="min-h-64 animate-pulse" />
+            <div aria-hidden className="space-y-4">
+                <div className="h-11 animate-pulse rounded-full bg-evergreen/10" />
+                <div className="h-48 animate-pulse rounded-xl bg-evergreen/10" />
+            </div>
         </LoginShell>
     );
 }

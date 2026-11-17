@@ -56,7 +56,8 @@ export function Tabs({
                         role="tab"
                         id={`tab-${t.id}`}
                         aria-selected={selected}
-                        aria-controls={`panel-${t.id}`}
+                        // Only the selected panel is rendered, so only it can be referenced.
+                        aria-controls={selected ? `panel-${t.id}` : undefined}
                         tabIndex={selected ? 0 : -1}
                         onClick={() => onChange(t.id)}
                         onKeyDown={(e) => onKeyDown(e, i)}

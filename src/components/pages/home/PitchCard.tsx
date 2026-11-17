@@ -74,7 +74,7 @@ export async function PitchCard({ pitch }: { pitch: Pitch }) {
 
             {/* Body */}
             <div className="flex flex-1 flex-col gap-4 p-5">
-                <h4 className="text-xl font-extrabold">{pitch.name}</h4>
+                <h3 className="text-xl font-extrabold">{pitch.name}</h3>
 
                 {specs.length > 0 && (
                     <dl

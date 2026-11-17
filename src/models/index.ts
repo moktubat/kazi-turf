@@ -85,6 +85,10 @@ booking.index({ customerId: 1, startAt: -1 });
 booking.index({ bookingStatus: 1, paymentStatus: 1 });
 booking.index({ bookingStatus: 1, holdExpiresAt: 1 });
 booking.index({ createdFromIp: 1, createdAt: -1 });
+// Admin Bookings list / CSV: newest first with a limit, bookingCode as the page tie-breaker.
+// Without it every load read and sorted ALL bookings in memory (4,680 read to return 100 in
+// the audit benchmark).
+booking.index({ startAt: -1, bookingCode: -1 });
 
 const slotClaim = new Schema(
     {
@@ -124,6 +128,9 @@ const payment = new Schema(
 );
 payment.index({ providerTxnId: 1 }, { unique: true, partialFilterExpression: { providerTxnId: { $type: "string" } } });
 payment.index({ provider: 1, status: 1, createdAt: 1 });
+// Insights (collected by verifiedAt, pending) and the Staff Desk's cash-today total filter by
+// status + verifiedAt without a provider prefix: without this they scanned every payment.
+payment.index({ status: 1, verifiedAt: 1 });
 
 const checkIn = new Schema(
     {

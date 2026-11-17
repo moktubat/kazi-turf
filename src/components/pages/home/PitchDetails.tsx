@@ -48,8 +48,11 @@ export function PitchDetails({
             <SideSheet open={open} onClose={() => setOpen(false)} title={name}>
                 <div className="space-y-5">
                     <p className="text-sm text-evergreen/80">{meta}</p>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
+                    {rows.length === 0 ? (
+                        <p className="text-sm text-evergreen/70">Prices for this field are not set yet.</p>
+                    ) : (
+                    <div className="scrollbar-thin overflow-x-auto">
+                        <table className="w-full min-w-[18rem] text-left text-sm">
                             <caption className="sr-only">Rates per slot for {name}</caption>
                             <thead>
                                 <tr className="border-b border-evergreen/10 text-xs uppercase tracking-wide text-evergreen/70">
@@ -80,6 +83,7 @@ export function PitchDetails({
                         </table>
                         <p className="mt-1 text-xs text-evergreen/70">Price per slot.</p>
                     </div>
+                    )}
                     {facilities.length > 0 && (
                         <ul className="flex flex-wrap gap-2" aria-label="All facilities">
                             {facilities.map((f) => (

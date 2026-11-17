@@ -8,7 +8,7 @@ const PROD = process.env.NODE_ENV === "production";
 // before the form-action check, so 'self' no longer matches and Chrome blocks
 // the Logout form. Listing the site's https origins explicitly keeps form
 // posts working no matter which origin the page was opened on.
-const formAction = ["'self'", site.url, site.url.replace("://", "://www.")].join(" ");
+const formAction = ["form-action", "'self'", site.url, site.url.replace("://", "://www.")].join(" ");
 
 const baseHeaders: Record<string, string> = {
     "X-Content-Type-Options": "nosniff",

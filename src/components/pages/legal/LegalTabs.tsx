@@ -2,21 +2,13 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "@/components/ui/Tabs";
 import type { LegalDoc, LegalTab } from "@/data/legal";
-import { DEFAULT_REFUND_POLICY } from "@/data/defaultRefundPolicy";
 
-type RefundPolicy = {
-    tiers: { when: string; outcome: string }[];
-    method: string;
-    timing: string;
-    exceptions: string[];
-};
-
+// Every tab, including Refund, is built on the server from data/legal (with the owner's saved
+// refund settings), so this component only renders it.
 export function LegalTabs({
     docs,
-    refundPolicy,
 }: {
     docs: LegalDoc[];
-    refundPolicy: RefundPolicy;
 }) {
     const [tab, setTab] = useState<LegalTab>(docs[0].id);
 
@@ -38,10 +30,6 @@ export function LegalTabs({
     }
 
     const doc = docs.find((d) => d.id === tab) ?? docs[0];
-    const isRefundTab = doc.id === "refund";
-
-    // Build dynamic refund content from the admin-saved policy
-    const refundSections = buildRefundSections(refundPolicy);
 
     return (
         <>
@@ -58,13 +46,13 @@ export function LegalTabs({
                 tabIndex={0}
                 className="mt-6 rounded-2xl border border-evergreen/10 bg-surface p-5 shadow-sm md:p-8"
             >
-                <h2 className="text-xl font-extrabold md:text-2xl">{doc.label}</h2>
+                <h2 className="text-xl font-extrabold md:text-2xl">{doc.title}</h2>
                 <p className="mt-1 text-evergreen/80">
-                    {isRefundTab ? refundIntro() : doc.intro}
+                    {doc.intro}
                 </p>
 
                 <div className="mt-6 space-y-6">
-                    {(isRefundTab ? refundSections : doc.sections).map((s, i) => (
+                    {doc.sections.map((s, i) => (
                         <section
                             key={s.heading}
                             aria-label={s.heading}
@@ -94,58 +82,4 @@ export function LegalTabs({
             </div>
         </>
     );
-}
-
-function refundIntro(): string {
-    return "All turfs are indoor — weather is never a reason for a refund. The windows below describe what happens to your advance if you cancel.";
-}
-
-function buildRefundSections(p: RefundPolicy): LegalDoc["sections"] {
-    const hasContent =
-        p.tiers.length > 0 || p.method || p.timing || p.exceptions.length > 0;
-
-    // Fall back to realistic default data when the admin hasn't saved a policy yet.
-    const effective = hasContent ? p : DEFAULT_REFUND_POLICY;
-
-    const sections: LegalDoc["sections"] = [];
-
-    if (effective.tiers.length > 0) {
-        sections.push({
-            heading: "Cancellation windows",
-            paragraphs: [
-                "The amount of your advance that is refunded depends on how far in advance you cancel:",
-            ],
-            bullets: effective.tiers.map((t) => `${t.when}: ${t.outcome}`),
-        });
-    }
-
-    if (effective.method) {
-        sections.push({
-            heading: "Refund method",
-            paragraphs: [effective.method],
-        });
-    }
-
-    if (effective.timing) {
-        sections.push({
-            heading: "Refund timing",
-            paragraphs: [effective.timing],
-        });
-    }
-
-    if (effective.exceptions.length > 0) {
-        sections.push({
-            heading: "Exceptions",
-            bullets: effective.exceptions,
-        });
-    }
-
-    sections.push({
-        heading: "Disputes",
-        paragraphs: [
-            "If you have a dispute about a refund, please contact the venue directly. Last-minute cancellations where the slot cannot be rebooked may not receive a full refund of the advance.",
-        ],
-    });
-
-    return sections;
 }

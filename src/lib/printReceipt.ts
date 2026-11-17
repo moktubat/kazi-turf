@@ -26,7 +26,7 @@ h1{font-size:20px;margin:0 0 4px}.code{font-family:monospace;font-size:22px;font
 table{width:100%;border-collapse:collapse}td{padding:3px 0;vertical-align:top}hr{border:0;border-top:1px dashed #013220;margin:10px 0}
 .small{font-size:12px;color:#355}
 </style></head><body>
-<h1>KaziTurf</h1>
+<h1>Kazi Sports Arena</h1>
 <div class="small">${esc(b.branchAddress)}</div>
 <div class="code">${esc(b.code)}</div>
 <table>

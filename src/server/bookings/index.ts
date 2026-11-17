@@ -126,19 +126,32 @@ export async function quoteSelection(pitchId: string, cellStarts: string[]) {
     return quote(pitchId, v.starts);
 }
 
-/** One live unpaid hold per customer: a new Continue replaces the old one. */
+/**
+ * One live unpaid hold per customer: a new Continue replaces the old one.
+ * A hold with no payment attempt is deleted. A hold whose bKash attempt failed or was
+ * cancelled ends now as it would at timeout (EXPIRED, cells freed), so its payment records
+ * keep their booking. A hold with a payment in flight (PENDING) is never touched.
+ */
 async function dropStaleHolds(userId: string) {
     await tx(async (s) => {
         const live = await BookingModel.find(
-            { customerId: userId, bookingStatus: "PENDING_PAYMENT", paymentStatus: "NOT_STARTED" },
-            { id: 1 }
+            { customerId: userId, bookingStatus: "PENDING_PAYMENT", paymentStatus: { $in: SETTLEABLE } },
+            { id: 1, paymentStatus: 1 }
         )
             .session(s)
-            .lean<{ id: string }[]>();
+            .lean<{ id: string; paymentStatus: string }[]>();
         if (live.length === 0) return;
-        const ids = live.map((x) => x.id);
-        await releaseClaims(ids, s);
-        await BookingModel.deleteMany({ id: { $in: ids } }, { session: s });
+        const fresh = live.filter((x) => x.paymentStatus === "NOT_STARTED").map((x) => x.id);
+        const tried = live.filter((x) => x.paymentStatus !== "NOT_STARTED").map((x) => x.id);
+        await releaseClaims([...fresh, ...tried], s);
+        if (fresh.length) await BookingModel.deleteMany({ id: { $in: fresh }, paymentStatus: "NOT_STARTED" }, { session: s });
+        if (tried.length) {
+            await BookingModel.updateMany(
+                { id: { $in: tried }, bookingStatus: "PENDING_PAYMENT", paymentStatus: { $in: ["FAILED", "CANCELLED"] } },
+                { $set: { bookingStatus: "EXPIRED" } },
+                { session: s }
+            );
+        }
     });
 }
 

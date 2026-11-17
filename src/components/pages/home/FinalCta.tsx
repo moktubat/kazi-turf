@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { ArrowRight, CircleDot, Feather, Goal, Target, Trophy } from "lucide-react";
 import type { Branch } from "@/types";
 
@@ -50,7 +50,7 @@ export function FinalCta({ venue }: { venue: Branch }) {
                                     } as React.CSSProperties}
                                     className={`float-drift absolute place-items-center rounded-full shadow-card ring-4 ring-surface bg-mint text-teal ${s.edge ? "hidden md:grid" : "hidden lg:grid"}`}
                                 >
-                                    <Icon size={Math.round(s.size * 0.45)} />
+                                    <Icon size={Math.round(s.size * 0.45)} aria-hidden />
                                 </span>
                             );
                         })}
@@ -61,14 +61,11 @@ export function FinalCta({ venue }: { venue: Branch }) {
                             Ready to play?
                         </h2>
                         <p className="text-white/80">
-                            See which slots are open, lock yours in with a bKash advance and pay the rest at the venue.
+                            We are open 24 hours, every day. Pick an open slot, pay the advance by bKash and the rest at the arena.
                         </p>
-                        <Link
-                            href="/book"
-                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 font-heading text-base font-semibold text-evergreen transition-colors hover:bg-mint"
-                        >
-                            Book now <ArrowRight size={18} aria-hidden />
-                        </Link>
+                        <Button href="/book" variant="light" size="lg" className="px-6">
+                            Book a slot <ArrowRight size={18} aria-hidden />
+                        </Button>
                     </div>
                 </div>
             </div>

@@ -118,27 +118,46 @@ async function uploadLocal(
 // DELETE + PUBLIC ID extraction — required by src/server/admin/setup.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Upload folders the app writes to (see the FOLDERS allow-list in /api/admin/upload). */
+export type ImageFolder = "kaziturf/pitches" | "kaziturf/sports";
+
 /**
- * Extract the Cloudinary public ID from an image URL.
+ * Public ID of an asset the app may delete for this kind of image, or null.
  *
- * Cloudinary URLs look like:
- *   https://res.cloudinary.com/<cloud>/image/upload/v123/<folder>/<publicId>.jpg
- *
- * For local fallback URLs like /uploads/123456-name.jpg, returns null
- * (there is no Cloudinary asset to delete — the file is local).
+ * The image URL is typed by the editor, so it is not trusted: deletion only targets assets in
+ * OUR cloud and inside the folder that matches the operation. Otherwise a field editor could
+ * set a field photo to, say, a sport background's URL and have the server destroy it.
  */
-export function publicIdFromImage(url: string): string | null {
+export function publicIdFromImage(url: string, folder: ImageFolder): string | null {
+    const id = parsePublicId(url);
+    if (!id) return null;
+    const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+    if (cloud && id.cloud !== cloud) return null;
+    if (id.segments.some((s) => s === "" || s === "." || s === "..")) return null;
+    return id.publicId.startsWith(`${folder}/`) ? id.publicId : null;
+}
+
+/**
+ * Split a Cloudinary image URL into its cloud name and public ID.
+ *   https://res.cloudinary.com/<cloud>/image/upload/v123/<folder>/<publicId>.jpg
+ * Local paths like /uploads/123456-name.jpg have no Cloudinary asset: null.
+ */
+function parsePublicId(url: string): { cloud: string; publicId: string; segments: string[] } | null {
     if (!url || typeof url !== "string") return null;
 
     // Local or other relative URLs have no Cloudinary public ID.
     if (url.startsWith("/")) return null;
 
+    // new URL() silently resolves "." and ".." segments, so look at the raw text first.
+    if (/\/\.{1,2}(\/|$)/.test(url)) return null;
+
     try {
         const u = new URL(url);
+        if (u.protocol !== "https:" || u.hostname !== "res.cloudinary.com") return null;
         // Path format: /<cloud_name>/image/upload/v123/<folder>/<publicId>.<ext>
         const parts = u.pathname.split("/");
         const uploadIdx = parts.indexOf("upload");
-        if (uploadIdx === -1) return null;
+        if (uploadIdx !== 3 || parts[2] !== "image") return null;
 
         // Everything after "upload", skipping the version segment (v123) if present
         let relevantParts = parts.slice(uploadIdx + 1);
@@ -150,7 +169,7 @@ export function publicIdFromImage(url: string): string | null {
         const fullId = relevantParts.join("/");
         const lastDot = fullId.lastIndexOf(".");
         const publicId = lastDot > 0 ? fullId.slice(0, lastDot) : fullId;
-        return publicId || null;
+        return publicId ? { cloud: parts[1], publicId, segments: relevantParts } : null;
     } catch {
         // Not a valid URL — might be a relative path or something else
         return null;

@@ -40,8 +40,10 @@ export function WalkInForm({
     const [count, setCount] = useState(1);
     const [phone, setPhone] = useState("");
     const [name, setName] = useState("");
-    const [known, setKnown] = useState<{ name: string } | null>(null);
-    const [cash, setCash] = useState("");
+    // Customer lookup, kept with the number it was for: a name is never shown for a different number.
+    const [lookup, setLookup] = useState<{ phone: string; customer: { name: string } | null } | null>(null);
+    // What staff typed or picked. Until then the cash field follows the quoted total (derived below).
+    const [cashInput, setCashInput] = useState("");
     const [cashTouched, setCashTouched] = useState(false);
     // Keyed by the selection it was priced for: after the slot count changes, the old
     // price (or error) is not shown and Save stays disabled until the new one arrives.
@@ -81,28 +83,27 @@ export function WalkInForm({
     const quote = current?.quote ?? null;
     const quoteError = current?.error ?? null;
 
-    useEffect(() => {
-        if (quote && !cashTouched) setCash(String(quote.total));
-    }, [quote, cashTouched]);
+    const cash = cashTouched ? cashInput : quote ? String(quote.total) : "";
 
     // Find the customer by phone.
+    const phoneKey = isBdPhone(phone) ? normalizePhone(phone) : null;
+    const known = phoneKey && lookup?.phone === phoneKey ? lookup.customer : null;
     useEffect(() => {
-        setKnown(null);
-        if (!isBdPhone(phone)) return;
+        if (!phoneKey) return;
         const ctrl = new AbortController();
         const t = setTimeout(() => {
             api<{ customer: { name: string } | null }>(
-                `/api/admin/customers?${new URLSearchParams({ phone: normalizePhone(phone) })}`,
+                `/api/admin/customers?${new URLSearchParams({ phone: phoneKey })}`,
                 { signal: ctrl.signal }
             )
-                .then((r) => setKnown(r.customer))
+                .then((r) => setLookup({ phone: phoneKey, customer: r.customer }))
                 .catch(() => undefined);
         }, 300);
         return () => {
             clearTimeout(t);
             ctrl.abort();
         };
-    }, [phone]);
+    }, [phoneKey]);
 
     async function submit(e: React.FormEvent) {
         e.preventDefault();
@@ -146,13 +147,13 @@ export function WalkInForm({
     if (created) {
         return (
             <div className="space-y-5 text-center">
-                <p className="inline-flex items-center gap-2 font-heading font-bold text-teal">
+                <p role="status" className="inline-flex items-center gap-2 font-heading font-bold text-teal">
                     <BadgeCheck size={22} aria-hidden /> Walk-in booked
                 </p>
-                <p className="font-mono text-3xl font-extrabold tracking-widest">{created.code}</p>
+                <p className="break-all font-mono text-3xl font-extrabold tracking-widest">{created.code}</p>
                 <dl className="space-y-1.5 text-left text-sm">
-                    <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Customer</dt><dd className="font-semibold">{created.customerName}</dd></div>
-                    <div className="flex justify-between gap-4"><dt className="text-evergreen/80">When</dt><dd className="font-semibold">{formatDateLong(created.date)}, {formatTime12(created.start)}–{formatTime12(created.end)}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">Customer</dt><dd className="min-w-0 break-words text-right font-semibold">{created.customerName}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">When</dt><dd className="text-right font-semibold">{formatDateLong(created.date)}, {formatTime12(created.start)}–{formatTime12(created.end)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Total</dt><dd className="font-semibold">{formatBDT(created.total)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Cash received</dt><dd className="font-semibold">{formatBDT(created.advancePaid)}</dd></div>
                     <div className="flex justify-between gap-4 font-bold"><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
@@ -173,7 +174,7 @@ export function WalkInForm({
     return (
         <form onSubmit={submit} noValidate className="space-y-5" aria-label="Walk-in booking">
             <dl className="space-y-1.5 text-sm">
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Field</dt><dd className="font-semibold">{pitch.name}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">Field</dt><dd className="min-w-0 break-words text-right font-semibold">{pitch.name}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Date</dt><dd className="font-semibold">{formatDateLong(date)}</dd></div>
                 <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="font-semibold">{formatTime12(picked[0]?.start ?? "")}–{formatTime12(picked[picked.length - 1]?.end ?? "")}</dd></div>
             </dl>
@@ -181,14 +182,14 @@ export function WalkInForm({
             {maxCount > 1 && (
                 <fieldset>
                     <legend className="mb-1.5 text-sm font-semibold">Number of slots</legend>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {Array.from({ length: maxCount }, (_, i) => i + 1).map((n) => (
                             <button
                                 key={n}
                                 type="button"
                                 aria-pressed={count === n}
                                 onClick={() => setCount(n)}
-                                className={`min-h-11 flex-1 rounded-xl border-2 font-heading font-semibold ${count === n ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-surface"
+                                className={`min-h-11 flex-1 whitespace-nowrap rounded-xl border-2 px-3 font-heading text-sm font-semibold transition-colors ${count === n ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-surface hover:border-teal"
                                     }`}
                             >
                                 {n} × {slotLen} min
@@ -248,7 +249,7 @@ export function WalkInForm({
                     value={cash}
                     onChange={(e) => {
                         setCashTouched(true);
-                        setCash(e.target.value);
+                        setCashInput(e.target.value);
                     }}
                     error={errors.cashReceived}
                     hint={
@@ -259,11 +260,11 @@ export function WalkInForm({
                     }
                 />
                 {quote && (
-                    <div className="flex gap-2">
-                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCash(String(quote.total)); }}>
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput(String(quote.total)); }}>
                             Full {formatBDT(quote.total)}
                         </Button>
-                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCash(String(quote.advance)); }}>
+                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput(String(quote.advance)); }}>
                             Advance {formatBDT(quote.advance)}
                         </Button>
                     </div>

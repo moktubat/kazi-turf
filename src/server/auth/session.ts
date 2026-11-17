@@ -1,6 +1,7 @@
 // Server-side sessions: random token in an HTTP-only cookie, only its hash is stored (in MongoDB).
 import "server-only";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { createHash, randomBytes } from "crypto";
 import { SessionModel, UserModel } from "@/models";
 import { connectDb } from "@/server/db/connect";
@@ -76,7 +77,13 @@ async function userForToken(token: string | undefined): Promise<ServerUser | nul
     };
 }
 
-export async function getSessionUser(): Promise<ServerUser | null> {
+/**
+ * The signed-in user for this request. Wrapped in React's cache(): during one page render the
+ * header, the admin layout and the page share ONE session + user lookup instead of three.
+ * The cache lives for a single request only; route handlers are not a render pass, so there
+ * every call still queries (the Next.js "data access layer" pattern).
+ */
+export const getSessionUser = cache(async (): Promise<ServerUser | null> => {
     const jar = await cookies();
     return userForToken(jar.get(SESSION_COOKIE)?.value);
-}
+});

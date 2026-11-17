@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { connection } from "next/server";
 
@@ -15,6 +16,20 @@ import { getPublicVenue, getPublicPolicies } from "@/server/public-data";
 import { getBranchPitches } from "@/server/availability";
 
 import type { Branch, Policies, Pitch } from "@/types";
+import { site } from "@/data/site";
+import { businessJsonLd, pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({ path: "/", description: site.seoDescription });
+
+/** schema.org data as a JSON script. "<" is escaped so stored text can never close the tag. */
+function JsonLd({ data }: { data: unknown }) {
+    return (
+        <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\u003c") }}
+        />
+    );
+}
 
 function HeroFallback() {
     return (
@@ -71,6 +86,7 @@ async function HomeContent() {
 
     return (
         <>
+            <JsonLd data={businessJsonLd(venue)} />
             <Suspense fallback={<HeroFallback />}>
                 <HeroSection
                     venue={venue}

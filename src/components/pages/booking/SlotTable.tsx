@@ -19,7 +19,7 @@ const statusLook: Record<SlotStatus, { label: string; icon: React.ElementType; b
 
 const HEAD = "px-3 py-2.5 text-left font-heading text-xs font-bold uppercase tracking-[0.14em] text-emerald";
 const GRID =
-    "grid grid-cols-[minmax(0,1fr)_5.5rem_6.5rem] items-center md:grid-cols-[minmax(0,1fr)_8.5rem_9rem_8.5rem]";
+    "grid grid-cols-[minmax(0,1fr)_5rem_7.5rem] items-center md:grid-cols-[minmax(0,1fr)_8.5rem_9rem_8.5rem]";
 
 export function SlotTable({
     pitches,
@@ -127,10 +127,14 @@ export function SlotTable({
                 <section
                     key={p.id}
                     aria-label={p.name}
+                    // With tabs, this is the panel the active tab's aria-controls points at.
+                    {...(tabsEnabled
+                        ? { role: "tabpanel", id: `panel-${p.id}`, "aria-labelledby": `tab-${p.id}` }
+                        : {})}
                     className="overflow-hidden rounded-2xl border border-evergreen/10 bg-surface shadow-sm"
                 >
                     <div className="flex flex-wrap items-baseline gap-x-3 px-4 pt-4">
-                        <h3 className="text-base font-bold">{p.name}</h3>
+                        <h2 className="text-base font-bold">{p.name}</h2>
                         <p className="text-sm text-evergreen/70">
                             {p.format}
                             {p.maxConsecutiveSlots > 1 && ` · up to ${p.maxConsecutiveSlots} consecutive slots`}
@@ -196,10 +200,10 @@ function SlotRow({ cell, selected, onToggle }: { cell: Cell; selected: boolean; 
                     </span>
                 )}
             </div>
-            <div className="px-3 py-3">
+            <div className="px-2 py-3 sm:px-3">
                 <span
                     className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
+                        "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold",
                         selected ? "bg-teal text-white" : look.badge
                     )}
                 >
@@ -234,7 +238,7 @@ function SlotRow({ cell, selected, onToggle }: { cell: Cell; selected: boolean; 
             }}
             className={cn(
                 GRID,
-                "cursor-pointer transition-colors",
+                "group cursor-pointer transition-colors",
                 selected ? "bg-mint/70 ring-2 ring-inset ring-teal" : "hover:bg-mint/50"
             )}
         >
@@ -245,16 +249,13 @@ function SlotRow({ cell, selected, onToggle }: { cell: Cell; selected: boolean; 
                         <Check size={14} aria-hidden /> Selected
                     </span>
                 ) : (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onToggle();
-                        }}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-teal px-3 font-heading text-sm font-semibold text-white transition-colors hover:bg-evergreen"
+                    // Visual cue only: the whole row is the button, so no nested control here.
+                    <span
+                        aria-hidden
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-teal px-3 font-heading text-sm font-semibold text-white transition-colors group-hover:bg-evergreen"
                     >
                         Book Now
-                    </button>
+                    </span>
                 )}
             </div>
         </div>

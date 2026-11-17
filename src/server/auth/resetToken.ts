@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "crypto";
 import { ResetTokenModel, UserModel } from "@/models";
 import { connectDb } from "@/server/db/connect";
 import { AppError } from "@/server/http";
-import { hashPassword } from "@/server/auth/password";
+import { assertPasswordPolicy, hashPassword } from "@/server/auth/password";
 import { endOtherSessions } from "@/server/auth/session";
 import { logAudit } from "@/server/audit";
 import { parseIdentifier } from "@/server/auth/users";
@@ -62,6 +62,12 @@ export async function consumePasswordReset(token: string, newPassword: string): 
     if (!record) {
         throw new AppError("RESET_TOKEN_INVALID", "This reset link is invalid or expired.", 400);
     }
+
+    // Staff and Super Admin keep their stricter policy on reset too. Checked before the
+    // token is used, so a rejected password doesn't burn the link.
+    const owner = await UserModel.findOne({ id: record.userId }, { role: 1 }).lean<{ role: string } | null>();
+    if (!owner) throw new AppError("RESET_TOKEN_INVALID", "This reset link is invalid or expired.", 400);
+    assertPasswordPolicy(owner.role, newPassword);
 
     // Mark as used FIRST (atomic) so concurrent use is rejected.
     const r = await ResetTokenModel.updateOne(

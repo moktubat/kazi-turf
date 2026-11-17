@@ -80,7 +80,7 @@ export function HowSteps({ steps }: { steps: StepView[] }) {
                 const Icon = icons[s.icon];
                 return (
                     <li key={s.id} data-step className="will-change-transform">
-                        <div className="group relative flex h-[240px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 to-white/[0.03] p-6 transition-colors duration-300 hover:border-emerald/40 hover:from-white/15">
+                        <div className="group relative flex min-h-60 flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/10 to-white/[0.03] p-6 transition-colors duration-300 hover:border-emerald/40 hover:from-white/15">
                             <span
                                 aria-hidden
                                 className="absolute right-5 top-2 font-heading text-7xl font-extrabold text-white/[0.07] transition-colors duration-300 group-hover:text-emerald/20"

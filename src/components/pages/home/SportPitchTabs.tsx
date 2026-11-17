@@ -39,7 +39,7 @@ export function SportPitchTabs({ groups }: { groups: SportGroup[] }) {
                             aria-pressed={selected}
                             onClick={() => setActive(g.id)}
                             className={cn(
-                                "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
+                                "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
                                 selected
                                     ? "border-evergreen bg-evergreen text-white shadow-sm"
                                     : "border-evergreen/15 bg-surface text-evergreen hover:border-teal"

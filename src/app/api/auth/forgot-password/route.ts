@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requestPasswordReset } from "@/server/auth/resetToken";
-import { handleError, ok, readJson } from "@/server/http";
+import { AppError, handleError, ok, readJson } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
 import { rateLimitAsync } from "@/server/security/rateLimit";
 import { clientIp } from "@/server/http";
@@ -12,7 +12,8 @@ export async function POST(req: NextRequest) {
     try {
         assertSameOrigin(req);
         if (!(await rateLimitAsync(`forgot:${clientIp(req)}`, 5, 15 * 60_000))) {
-            return Response.json({ code: "RATE_LIMITED", message: "Too many requests." }, { status: 429 });
+            // Same shape, wording and no-store header as every other rate-limited route.
+            throw new AppError("RATE_LIMITED", "Too many requests. Please wait a few minutes.", 429);
         }
         const { identifier } = schema.parse(await readJson(req));
         const result = await requestPasswordReset(identifier);

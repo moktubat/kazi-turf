@@ -49,6 +49,8 @@ export interface AttentionGroup {
     hint: string;
     count: number;
     items: AttentionItem[];
+    /** Bookings list filtered to (at least) every item of this group, when one filter can express it. */
+    viewAll?: string;
 }
 
 export interface InquiryDto {

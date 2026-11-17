@@ -1,7 +1,6 @@
 import { MapPin, PhoneCall, Mail, Clock } from "lucide-react";
 import { site } from "@/data/site";
 import { formatHourRange } from "@/lib/format";
-import { Reveal } from "./Reveal";
 import { ContactForm } from "./ContactForm";
 import type { Branch } from "@/types";
 import { Section } from "./Section";
@@ -29,17 +28,18 @@ export function ContactSection({ venue }: { venue: Branch }) {
     return (
 
         <Section id="contact" eyebrow="Get in touch" title="Contact us" tone="canvas">
-            <Reveal className="mx-auto max-w-main px-4">
+            {/* Section already supplies the centred, padded container — no second one here. */}
+            <div>
                 {/* items-stretch (default) makes both columns the same height */}
                 <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
                     {/* Left: contact info */}
                     <div className="flex flex-col gap-8">
                         <div className="space-y-3">
-                            <h2 id="contact-title" className="font-heading text-3xl font-bold md:text-4xl">
+                            <h3 className="font-heading text-3xl font-bold md:text-4xl">
                                 Contact information
-                            </h2>
+                            </h3>
                             <p className="max-w-md text-evergreen/80">
-                                We help you find your slot, reduce friction, and keep your game moving.
+                                Questions about a slot, a booking or a group game? Call, WhatsApp or email us, or send a message below.
                             </p>
                         </div>
 
@@ -58,12 +58,12 @@ export function ContactSection({ venue }: { venue: Branch }) {
                                             <a
                                                 href={r.href}
                                                 {...(r.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                                                className="flex items-center gap-4 transition-colors hover:text-teal"
+                                                className="flex min-h-11 items-center gap-4 transition-colors hover:text-teal"
                                             >
                                                 {content}
                                             </a>
                                         ) : (
-                                            <div className="flex items-center gap-4">{content}</div>
+                                            <div className="flex min-h-11 items-center gap-4">{content}</div>
                                         )}
                                     </li>
                                 );
@@ -86,7 +86,7 @@ export function ContactSection({ venue }: { venue: Branch }) {
                     {/* Right: form (no card wrapper, same as reference) */}
                     <ContactForm sports={venue.sports} />
                 </div>
-            </Reveal>
+            </div>
         </Section>
     );
 }

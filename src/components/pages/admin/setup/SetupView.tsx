@@ -49,6 +49,22 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
         window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
     }
 
+    const visible = TABS.filter(({ id }) => allowed.includes(id));
+
+    // Arrow keys / Home / End move between tabs, as the shared Tabs component does.
+    function onTabKey(e: React.KeyboardEvent, index: number) {
+        let next = index;
+        if (e.key === "ArrowRight") next = (index + 1) % visible.length;
+        else if (e.key === "ArrowLeft") next = (index - 1 + visible.length) % visible.length;
+        else if (e.key === "Home") next = 0;
+        else if (e.key === "End") next = visible.length - 1;
+        else return;
+        e.preventDefault();
+        const id = visible[next].id;
+        changeTab(id);
+        navRef.current?.querySelector<HTMLElement>(`#tab-${id}`)?.focus();
+    }
+
     return (
         <div className="space-y-5">
 
@@ -57,18 +73,20 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
                 aria-label="Setup sections"
                 className="scrollbar-visible sticky top-16 z-20 -mx-4 flex snap-x snap-mandatory overflow-x-auto scroll-px-4 border-b border-evergreen/10 bg-canvas/95 px-4 py-2.5 backdrop-blur-md lg:hidden"
             >
-                <ul className="flex w-max gap-2">
-                    {TABS.filter(({ id }) => allowed.includes(id)).map(({ id, label, icon: Icon }) => {
+                <ul role="tablist" aria-label="Setup sections" className="flex w-max gap-2">
+                    {visible.map(({ id, label, icon: Icon }, i) => {
                         const active = tab === id;
                         return (
-                            <li key={id} className="shrink-0 snap-center">
+                            <li key={id} role="presentation" className="shrink-0 snap-center">
                                 <button
                                     type="button"
                                     role="tab"
                                     id={`tab-${id}`}
                                     aria-selected={active}
                                     aria-controls={`panel-${id}`}
+                                    tabIndex={active ? 0 : -1}
                                     onClick={() => changeTab(id)}
+                                    onKeyDown={(e) => onTabKey(e, i)}
                                     className={cn(
                                         "inline-flex min-h-12 items-center gap-2 rounded-2xl border px-4 font-heading text-sm font-semibold transition-all",
                                         active

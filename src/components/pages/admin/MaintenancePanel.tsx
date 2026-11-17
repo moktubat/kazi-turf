@@ -80,8 +80,8 @@ export function MaintenancePanel({
             </span>
         </p>
     ) : (
-        <p className="flex items-center gap-2 rounded-xl bg-emerald/15 p-3 text-sm font-semibold text-evergreen">
-            <CircleCheck size={18} aria-hidden /> Now: Available, customers can book it
+        <p className="flex items-start gap-2 rounded-xl bg-emerald/20 p-3 text-sm font-semibold text-evergreen">
+            <CircleCheck size={18} aria-hidden className="mt-0.5 shrink-0" /> Now: Available, customers can book it
         </p>
     );
 
@@ -90,9 +90,9 @@ export function MaintenancePanel({
     return (
         <div className="space-y-4">
             <dl className="space-y-1.5 text-sm">
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Field</dt><dd className="font-semibold">{pitchName}</dd></div>
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Date</dt><dd className="font-semibold">{formatDateLong(date)}</dd></div>
-                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="font-semibold">{formatTime12(cell.start)}–{formatTime12(cell.end)}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Field</dt><dd className="min-w-0 break-words text-right font-semibold">{pitchName}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Date</dt><dd className="text-right font-semibold">{formatDateLong(date)}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Time</dt><dd className="text-right font-semibold">{formatTime12(cell.start)}–{formatTime12(cell.end)}</dd></div>
             </dl>
 
             {statusBox}
@@ -104,7 +104,7 @@ export function MaintenancePanel({
                     <p className="text-sm text-evergreen/80">
                         Customers cannot book this slot until you {blockedKind === "HELD" ? "release the hold" : "remove maintenance"}.
                     </p>
-                    {error && <p role="alert" className="text-sm font-medium text-booked">{error}</p>}
+                    {error && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{error}</p>}
                     <Button size="lg" className="w-full" disabled={busy} onClick={() => call({ block: false, kind: blockedKind })}>
                         {busy ? "Saving…" : blockedKind === "HELD" ? "Release hold (make available)" : "Remove maintenance (make available)"}
                     </Button>
@@ -149,7 +149,7 @@ export function MaintenancePanel({
                         hint="Shown to staff on the board only, never to customers."
                         maxLength={120}
                     />
-                    {error && <p role="alert" className="text-sm font-medium text-booked">{error}</p>}
+                    {error && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{error}</p>}
                     <Button size="lg" className="w-full" disabled={busy} onClick={submit}>
                         {kind === "HELD" ? <Timer size={18} aria-hidden /> : <Wrench size={18} aria-hidden />}
                         {busy ? "Saving…" : kind === "HELD" ? "Hold this slot" : "Mark as maintenance"}

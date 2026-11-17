@@ -3,7 +3,7 @@ import { Resend } from "resend";
 
 const apiKey = process.env.RESEND_API_KEY;
 // Fallback is Resend's sandbox sender, which only delivers to the Resend account owner: dev only.
-const FROM = process.env.EMAIL_FROM || "KaziTurf <onboarding@resend.dev>";
+const FROM = process.env.EMAIL_FROM || "Kazi Sports Arena <onboarding@resend.dev>";
 
 const resend = apiKey ? new Resend(apiKey) : null;
 

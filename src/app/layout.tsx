@@ -13,6 +13,7 @@ import { connectDb } from "@/server/db/connect";
 import { HideOnRoutes } from "@/components/layout/HideOnRoutes";
 import { getPublicVenue } from "@/server/public-data";
 import { site } from "@/data/site";
+import { DEFAULT_TITLE, SHARE_IMAGE } from "@/lib/seo";
 
 const jakarta = Plus_Jakarta_Sans({
     subsets: ["latin"],
@@ -31,40 +32,32 @@ const vietnam = Be_Vietnam_Pro({
 export const metadata: Metadata = {
     metadataBase: new URL(site.url),
     title: {
-        default: "Kazi Sports Arena — Indoor Turf & Sports Court Booking in Bogura",
-        template: "%s | Kazi Sports Arena",
+        default: DEFAULT_TITLE,
+        template: `%s | ${site.name}`,
     },
     description: site.seoDescription,
     keywords: site.seoKeywords,
-    authors: [{ name: "Kazi Sports Arena" }],
-    creator: "Kazi Sports Arena",
-    publisher: "Kazi Sports Arena",
-    applicationName: "Kazi Sports Arena",
+    authors: [{ name: site.name }],
+    creator: site.name,
+    publisher: site.name,
+    applicationName: site.name,
     category: "Sports & Recreation",
-    alternates: {
-        canonical: site.url,
-    },
+    // No site-wide canonical: every page inherited the home URL, telling search engines that
+    // /book and /legal were copies of the home page. Public pages set their own (lib/seo).
     openGraph: {
         type: "website",
         locale: "en_US",
-        url: site.url,
-        siteName: "Kazi Sports Arena",
-        title: "Kazi Sports Arena — Indoor Turf & Sports Court Booking in Bogura",
+        siteName: site.name,
+        title: DEFAULT_TITLE,
         description: site.seoDescription,
-        images: [
-            {
-                url: "/sports/logo2.png",
-                width: 1200,
-                height: 630,
-                alt: "Kazi Sports Arena — Indoor sports facility in Bogura",
-            },
-        ],
+        // The logo is 500×500 (it was declared 1200×630), so a square card is the honest preview.
+        images: [SHARE_IMAGE],
     },
     twitter: {
-        card: "summary_large_image",
-        title: "Kazi Sports Arena — Indoor Sports in Bogura",
+        card: "summary",
+        title: DEFAULT_TITLE,
         description: site.seoDescription,
-        images: ["/sports/logo2.png"],
+        images: [SHARE_IMAGE.url],
     },
     robots: {
         index: true,
@@ -76,9 +69,12 @@ export const metadata: Metadata = {
             "max-snippet": -1,
         },
     },
+    // The site favicon is public/favicon.ico (32×32). There must be no app/favicon.ico:
+    // that file convention would serve a different icon at the same /favicon.ico URL.
     icons: {
-        icon: "/favicon.ico",
-        apple: "/sports/logo2.png",
+        icon: [{ url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" }],
+        shortcut: "/favicon.ico",
+        apple: "/sports/logo2.png", // iOS home screen needs a PNG; .ico is not used there
     },
 };
 
@@ -112,7 +108,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <HeaderWithUser />
                 </Suspense>
 
-                <main id="main" className="min-h-[70vh] pb-14 md:pb-0">
+                <main id="main" className="min-h-[70vh] pb-16 md:pb-0">
                     {children}
                 </main>
 

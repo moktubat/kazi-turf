@@ -10,7 +10,9 @@ export async function POST(req: NextRequest) {
             throw new AppError("RATE_LIMITED", "Too many requests. Please wait a moment.", 429);
         }
         const input = quoteSchema.parse(await readJson(req));
-        return ok({ quote: quoteSelection(input.pitchId, input.cellStarts) });
+        // Await: quoteSelection is async. Without it the response was {"quote":{}} and a
+        // "slot just taken" error became an unhandled rejection instead of a 409.
+        return ok({ quote: await quoteSelection(input.pitchId, input.cellStarts) });
     } catch (e) {
         return handleError(e);
     }

@@ -40,9 +40,9 @@ export function AuditPanel({
             </Card>
 
             {rows.length === 0 ? (
-                <Card><p className="text-sm text-evergreen/80">No audit entries match.</p></Card>
+                <Card><p className="text-sm text-evergreen/70">No audit entries match.</p></Card>
             ) : (
-                <div className="overflow-x-auto rounded-2xl border border-evergreen/10 bg-surface shadow-sm">
+                <div className="scrollbar-thin overflow-x-auto rounded-2xl border border-evergreen/10 bg-surface shadow-sm">
                     <table className="w-full min-w-[40rem] text-left text-sm">
                         <caption className="sr-only">Audit log, newest first</caption>
                         <thead>
@@ -61,7 +61,7 @@ export function AuditPanel({
                                     <td className="px-3 py-3">
                                         <span className="font-mono text-xs">{r.entityId}</span>
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-evergreen/80">
+                                    <td className="break-words px-3 py-3 text-xs text-evergreen/80">
                                         {Object.entries(r.meta)
                                             .filter(([, v]) => v !== null && v !== "")
                                             .map(([k, v]) => `${k}: ${v}`)

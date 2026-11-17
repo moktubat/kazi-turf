@@ -5,7 +5,7 @@ const shell = (title: string, body: string) => `<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#e8f3ee;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#013220;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0;">
@@ -13,7 +13,7 @@ const shell = (title: string, body: string) => `<!DOCTYPE html>
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(1,50,32,0.08);">
         <tr><td style="background:#013220;padding:20px 24px;">
           <p style="margin:0;font-size:20px;font-weight:800;color:#ffffff;">
-            Kazi<span style="color:#50c878;">Turf</span>
+            Kazi <span style="color:#50c878;">Sports Arena</span>
           </p>
         </td></tr>
         <tr><td style="padding:28px 24px;">
@@ -21,7 +21,7 @@ const shell = (title: string, body: string) => `<!DOCTYPE html>
         </td></tr>
         <tr><td style="padding:16px 24px;border-top:1px solid #e8f3ee;">
           <p style="margin:0;font-size:12px;color:#6b7280;">
-            KaziTurf — Turf &amp; Sports Court Booking
+            Kazi Sports Arena · Shabgram, Bogura · Open 24/7
           </p>
         </td></tr>
       </table>
@@ -89,16 +89,16 @@ export function bookingConfirmationTemplate(input: {
 }
 
 export function passwordResetEmailTemplate(input: { name: string; resetUrl: string }): { subject: string; html: string; text: string } {
-  const subject = "Reset your KaziTurf password";
+  const subject = "Reset your Kazi Sports Arena password";
   const body = `
         <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;">Reset your password</h2>
         <p style="margin:0 0 16px;color:#6b7280;font-size:14px;">Hi ${escapeHtml(input.name)},</p>
-        <p style="margin:0 0 16px;font-size:14px;">We received a request to reset your KaziTurf password. Click the button below to choose a new one. This link expires in 15 minutes.</p>
+        <p style="margin:0 0 16px;font-size:14px;">We received a request to reset your Kazi Sports Arena password. Click the button below to choose a new one. This link expires in 15 minutes.</p>
         <p style="margin:24px 0;">
             <a href="${escapeHtml(input.resetUrl)}" style="display:inline-block;background:#0b6e4f;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Reset password</a>
         </p>
         <p style="margin:0;font-size:13px;color:#6b7280;">If you didn't request this, you can safely ignore this email.</p>`;
-  const text = `Reset your KaziTurf password\n\nHi ${input.name},\n\nWe received a request to reset your password. Open this link in your browser to choose a new one (expires in 15 minutes):\n\n${input.resetUrl}\n\nIf you didn't request this, ignore this email.`;
+  const text = `Reset your Kazi Sports Arena password\n\nHi ${input.name},\n\nWe received a request to reset your password. Open this link in your browser to choose a new one (expires in 15 minutes):\n\n${input.resetUrl}\n\nIf you didn't request this, ignore this email.`;
   return { subject, html: shell(subject, body), text };
 }
 
@@ -109,16 +109,16 @@ export function verificationCodeTemplate(input: {
 }): { subject: string; html: string; text: string } {
   const why =
     input.purpose === "REGISTER"
-      ? "Use this code to finish creating your KaziTurf account."
-      : "Use this code to confirm this as the new email for your KaziTurf account.";
-  const subject = `${input.code} is your KaziTurf verification code`;
+      ? "Use this code to finish creating your Kazi Sports Arena account."
+      : "Use this code to confirm this as the new email for your Kazi Sports Arena account.";
+  const subject = `${input.code} is your Kazi Sports Arena verification code`;
   const body = `
         <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;">Your verification code</h2>
         <p style="margin:0 0 16px;font-size:14px;">${why}</p>
         <p style="margin:0 0 20px;font-size:32px;font-weight:800;letter-spacing:6px;color:#0b6e4f;font-family:ui-monospace,monospace;">${escapeHtml(input.code)}</p>
         <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">The code expires in ${input.minutes} minutes. Never share it with anyone, including venue staff.</p>
         <p style="margin:0;font-size:13px;color:#6b7280;">If you didn't ask for this, you can safely ignore this email.</p>`;
-  const text = `Your KaziTurf verification code: ${input.code}\n\n${why}\nThe code expires in ${input.minutes} minutes. Never share it with anyone.\n\nIf you didn't ask for this, ignore this email.`;
+  const text = `Your Kazi Sports Arena verification code: ${input.code}\n\n${why}\nThe code expires in ${input.minutes} minutes. Never share it with anyone.\n\nIf you didn't ask for this, ignore this email.`;
   return { subject, html: shell(subject, body), text };
 }
 

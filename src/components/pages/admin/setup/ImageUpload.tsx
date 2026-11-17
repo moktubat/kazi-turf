@@ -133,7 +133,9 @@ export function ImageUpload({
                 }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={onDrop}
-                className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 text-sm font-semibold text-evergreen transition-colors hover:border-teal ${dragOver ? "border-teal bg-mint" : "border-evergreen/20"
+                aria-busy={uploading}
+                // The file input is sr-only, so the drop zone shows its keyboard focus instead.
+                className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 text-sm font-semibold text-evergreen transition-colors focus-within:outline focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-teal ${uploading ? "cursor-wait opacity-70" : "cursor-pointer hover:border-teal"} ${dragOver ? "border-teal bg-mint" : "border-evergreen/20"
                     }`}
             >
                 {uploading ? (
@@ -158,6 +160,10 @@ export function ImageUpload({
                     aria-label={`Upload ${label}`}
                 />
             </label>
+
+            <span role="status" className="sr-only">
+                {uploading ? `Uploading ${label}…` : ""}
+            </span>
 
             {hint && !uploadError && !error && (
                 <p className="text-xs text-evergreen/70">{hint}</p>

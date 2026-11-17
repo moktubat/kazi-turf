@@ -9,6 +9,7 @@ export function Ticker({
 }) {
     const sports = (venue.sportConfigs ?? []).filter((s) => s.active).map((s) => s.name);
     const items = [
+        "Open 24/7",
         ...sports,
         "Live slot availability",
         `${policies.advancePercent}% bKash advance`,
@@ -17,8 +18,8 @@ export function Ticker({
     ];
 
     return (
-        <div aria-label="Highlights" className="overflow-hidden bg-emerald text-evergreen">
-            <ul className="marquee-track flex whitespace-nowrap py-3.5">
+        <div className="overflow-hidden bg-emerald text-evergreen">
+            <ul aria-label="Highlights" className="marquee-track flex whitespace-nowrap py-3.5">
                 {[...items, ...items].map((text, i) => (
                     <li
                         key={i}

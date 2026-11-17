@@ -50,10 +50,10 @@ export function Check({
     disabled?: boolean;
 }) {
     return (
-        <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
             <input
                 type="checkbox"
-                className="size-5 accent-teal"
+                className="size-5 shrink-0 cursor-[inherit] accent-teal"
                 checked={checked}
                 disabled={disabled}
                 onChange={(e) => onChange(e.target.checked)}

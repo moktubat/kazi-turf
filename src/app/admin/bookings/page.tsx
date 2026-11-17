@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { BookingsView } from "@/components/pages/admin/BookingsView";
-import { addDays } from "@/lib/time";
+import { bookingFiltersFromQuery, defaultBookingFilters } from "@/lib/bookingFilters";
 import { todayDhaka } from "@/lib/time.server";
 import { requireStaffPage } from "@/server/auth/pageGuards";
 
@@ -33,12 +33,6 @@ async function BookingsContent({
 
     const today = await todayDhaka();
 
-    const requestParam = Array.isArray(sp.request)
-        ? sp.request[0]
-        : sp.request;
-
-    const requestOnly = requestParam === "open";
-
     return (
         <div className="mx-auto max-w-main space-y-5 px-4 py-5 pb-24">
             <h1 className="text-2xl font-extrabold md:text-3xl">
@@ -47,13 +41,8 @@ async function BookingsContent({
 
             <BookingsView
                 role={user.role}
-                defaults={{
-                    from: requestOnly
-                        ? addDays(today, -90)
-                        : addDays(today, -7),
-                    to: addDays(today, 30),
-                    requestOnly,
-                }}
+                initial={bookingFiltersFromQuery(sp, today)}
+                defaults={defaultBookingFilters(today)}
             />
         </div>
     );

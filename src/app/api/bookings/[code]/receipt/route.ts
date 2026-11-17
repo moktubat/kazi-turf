@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
         return new NextResponse(receiptHtml(dto), {
             headers: {
                 "Content-Type": "text/html; charset=utf-8",
-                "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="KaziTurf-${code}.html"`,
+                "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="KaziSportsArena-${code}.html"`,
                 "Cache-Control": "private, no-store",
                 "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
                 "X-Content-Type-Options": "nosniff",

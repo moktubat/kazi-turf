@@ -36,7 +36,7 @@ export function MobileActionBar() {
             <div className="mx-auto flex max-w-sm items-center gap-1.5 p-2">
                 <Link
                     href="/book"
-                    className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal px-3 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-evergreen active:scale-[0.98]"
+                    className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal px-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-evergreen active:scale-[0.98]"
                 >
                     <CalendarCheck size={16} aria-hidden /> Book Now
                 </Link>
@@ -44,7 +44,7 @@ export function MobileActionBar() {
                 <a
                     href={`tel:${site.phone}`}
                     aria-label="Call us"
-                    className="flex min-h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-evergreen/15 bg-mint/60 text-evergreen transition-colors hover:bg-mint active:scale-[0.98]"
+                    className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-evergreen/15 bg-mint/60 text-evergreen transition-colors hover:bg-mint active:scale-[0.98]"
                 >
                     <Phone size={18} aria-hidden />
                 </a>
@@ -54,7 +54,7 @@ export function MobileActionBar() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Chat on WhatsApp"
-                    className="flex min-h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-evergreen/15 bg-mint/60 text-evergreen transition-colors hover:bg-mint active:scale-[0.98]"
+                    className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-evergreen/15 bg-mint/60 text-evergreen transition-colors hover:bg-mint active:scale-[0.98]"
                 >
                     <MessageCircle size={18} aria-hidden />
                 </a>

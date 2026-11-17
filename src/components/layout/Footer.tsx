@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CalendarCheck, MapPin, Phone } from "lucide-react";
+import { CalendarCheck, Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { footerLinks, legalLinks, site } from "@/data/site";
 import type { Branch } from "@/types";
 
@@ -20,28 +21,38 @@ export async function Footer({ venue }: { venue: Branch }) {
                         height={48}
                     />
                     <p className="max-w-xs text-sm text-evergreen/70">{site.tagline}</p>
-                    <Link
-                        href="/book"
-                        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal px-4 text-sm font-bold text-white transition-colors hover:bg-evergreen"
-                    >
+                    <Button href="/book">
                         <CalendarCheck size={18} aria-hidden /> Book a slot
-                    </Link>
+                    </Button>
                 </div>
 
                 <div>
                     <h2 className={head}>Visit us</h2>
                     <ul className="mt-4 space-y-2 text-sm">
                         <li className="flex items-start gap-2 text-evergreen/70">
-                            <MapPin size={16} aria-hidden className="mt-0.5 shrink-0 text-teal" /> {venue.address}
+                            <MapPin size={16} aria-hidden className="mt-0.5 shrink-0 text-teal" /> <span className="min-w-0 break-words">{venue.address}</span>
+                        </li>
+                        <li className="pl-6">
+                            <a href={venue.mapUrl} target="_blank" rel="noopener noreferrer" className={link}>
+                                Open in Maps<span className="sr-only"> (opens in a new tab)</span>
+                            </a>
+                        </li>
+                        <li className="flex items-center gap-2 text-evergreen/70">
+                            <Clock size={16} aria-hidden className="shrink-0 text-teal" /> {site.hours}
                         </li>
                         <li className="flex items-center gap-2">
                             <Phone size={16} aria-hidden className="shrink-0 text-teal" />
                             <a href={`tel:${venue.phone}`} className={link}>{venue.phone}</a>
                         </li>
-                        <li className="pl-6">
-                            <a href={venue.mapUrl} target="_blank" rel="noopener noreferrer" className={link}>
-                                Open in Maps
+                        <li className="flex items-center gap-2">
+                            <MessageCircle size={16} aria-hidden className="shrink-0 text-teal" />
+                            <a href={`https://wa.me/${venue.whatsapp || site.whatsapp}`} target="_blank" rel="noopener noreferrer" className={link}>
+                                WhatsApp<span className="sr-only"> (opens in a new tab)</span>
                             </a>
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <Mail size={16} aria-hidden className="shrink-0 text-teal" />
+                            <a href={`mailto:${site.email}`} className={`${link} min-w-0 break-all`}>{site.email}</a>
                         </li>
                     </ul>
                 </div>

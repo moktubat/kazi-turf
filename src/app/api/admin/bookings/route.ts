@@ -1,7 +1,7 @@
 import { connection, type NextRequest } from "next/server";
 import { bookingSearchSchema, walkInSchema } from "@/schemas/admin";
 import { staffGuard } from "@/server/admin/guard";
-import { searchBookings } from "@/server/admin/search";
+import { searchBookingsPage } from "@/server/admin/search";
 import { createWalkIn } from "@/server/admin/walkin";
 import { handleError, ok, readJson } from "@/server/http";
 
@@ -11,8 +11,7 @@ export async function GET(req: NextRequest) {
     try {
         const user = await staffGuard(req, false);
         const q = bookingSearchSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-        const bookings = await searchBookings(user, { ...q, limit: q.limit ? Number(q.limit) : undefined });
-        return ok({ bookings });
+        return ok(await searchBookingsPage(user, { ...q, limit: q.limit ? Number(q.limit) : undefined }));
     } catch (e) {
         return handleError(e);
     }

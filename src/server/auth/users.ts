@@ -8,7 +8,7 @@ import { dupField, isDup, plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import type { SessionUser } from "@/types";
 import type { User } from "@/types/user";
-import { DUMMY_HASH, hashPassword, verifyPassword } from "./password";
+import { DUMMY_HASH, assertPasswordPolicy, hashPassword, verifyPassword } from "./password";
 import { checkEmailOtp, consumeEmailOtp, issueEmailOtp, normalizeEmail } from "./emailOtp";
 
 export function toSessionUser(u: User): SessionUser {
@@ -218,6 +218,7 @@ export async function changePassword(userId: string, current: string, next: stri
             currentPassword: "Incorrect password",
         });
     }
+    assertPasswordPolicy(user.role, next);
     await UserModel.updateOne({ id: userId }, { $set: { passwordHash: await hashPassword(next) } });
     await logAudit({ id: userId, name: user.name }, { action: "PASSWORD_CHANGED", entityType: "USER", entityId: userId });
 }

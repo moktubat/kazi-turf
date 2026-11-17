@@ -92,25 +92,59 @@ export function canCollectBalance(b: Booking): boolean {
     );
 }
 
+type OpenRequestDoc = { bookingCode: string; kind: "CANCEL" | "RESCHEDULE"; reason: string; createdAt: string };
+type PaymentDoc = {
+    id: string; bookingId: string; provider: "BKASH" | "CASH"; kind: "ADVANCE" | "BALANCE"; amount: number;
+    status: "PENDING" | "SUCCESS" | "FAILED"; providerTxnId?: string; verifiedAt?: string; createdAt: string;
+};
+/** A booking's open change request and its payments (oldest first), loaded ahead of time. */
+interface Related {
+    openReq: OpenRequestDoc | null;
+    pays: PaymentDoc[];
+}
+
+/**
+ * Many bookings at once (the Bookings list): two queries for the whole page instead of
+ * two per row. Same output as calling toAdminDto on each booking.
+ */
+export async function toAdminDtos(rows: Booking[], viewer: ServerUser, now: Date = new Date()): Promise<AdminBookingDto[]> {
+    if (rows.length === 0) return [];
+    await connectDb();
+    const [reqs, pays] = await Promise.all([
+        ChangeRequestModel.find({ bookingCode: { $in: rows.map((b) => b.bookingCode) }, status: "OPEN" }).lean<OpenRequestDoc[]>(),
+        PaymentModel.find({ bookingId: { $in: rows.map((b) => b.id) } }).sort({ createdAt: 1 }).lean<PaymentDoc[]>(),
+    ]);
+    const reqBy = new Map<string, OpenRequestDoc>();
+    for (const r of reqs) if (!reqBy.has(r.bookingCode)) reqBy.set(r.bookingCode, r); // findOne: first match wins
+    const paysBy = new Map<string, PaymentDoc[]>();
+    for (const p of pays) paysBy.set(p.bookingId, [...(paysBy.get(p.bookingId) ?? []), p]);
+    return Promise.all(
+        rows.map((b) => toAdminDto(b, viewer, now, { openReq: reqBy.get(b.bookingCode) ?? null, pays: paysBy.get(b.id) ?? [] }))
+    );
+}
+
 export async function toAdminDto(
     b0: Booking,
     viewer: ServerUser,
-    now: Date = new Date()
+    now: Date = new Date(),
+    related?: Related
 ): Promise<AdminBookingDto> {
     const b = await settle(b0, now);
 
     await connectDb();
 
-    const [openReq, pays] = await Promise.all([
-        ChangeRequestModel.findOne({
-            bookingCode: b.bookingCode,
-            status: "OPEN",
-        }).lean(),
+    const [openReq, pays] = related
+        ? [related.openReq, related.pays]
+        : await Promise.all([
+            ChangeRequestModel.findOne({
+                bookingCode: b.bookingCode,
+                status: "OPEN",
+            }).lean<OpenRequestDoc | null>(),
 
-        PaymentModel.find({ bookingId: b.id })
-            .sort({ createdAt: 1 })
-            .lean(),
-    ]);
+            PaymentModel.find({ bookingId: b.id })
+                .sort({ createdAt: 1 })
+                .lean<PaymentDoc[]>(),
+        ]);
 
     const base = toDto(b, now);
     const check = checkInState(b, now);

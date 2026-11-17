@@ -27,8 +27,10 @@ export function Stepper({ step }: { step: 1 | 2 | 3 }) {
                         >
                             {done ? <Check size={14} aria-hidden /> : n}
                         </span>
-                        <span className={cn("font-semibold text-white", !current && "hidden text-white/70 sm:inline")}>
+                        {/* Off-step labels hide visually on phones but stay readable to screen readers. */}
+                        <span className={cn("font-semibold text-white", !current && "sr-only text-white/70 sm:not-sr-only")}>
                             {label}
+                            {done && <span className="sr-only"> (completed)</span>}
                         </span>
                         {n < steps.length && <span aria-hidden className="h-px w-6 bg-surface/25 sm:w-10" />}
                     </li>

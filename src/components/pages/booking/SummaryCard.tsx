@@ -68,15 +68,19 @@ export function SummaryCard({
                         {error && !amounts ? (
                             <p role="alert" className="text-sm font-medium text-booked">{error}</p>
                         ) : !amounts ? (
-                            <div aria-busy className="space-y-2">
-                                <div className="h-4 w-full animate-pulse rounded bg-evergreen/10" />
-                                <div className="h-4 w-2/3 animate-pulse rounded bg-evergreen/10" />
+                            <div role="status" aria-busy className="space-y-2">
+                                <span className="sr-only">Loading price…</span>
+                                <div aria-hidden className="h-4 w-full animate-pulse rounded bg-evergreen/10" />
+                                <div aria-hidden className="h-4 w-2/3 animate-pulse rounded bg-evergreen/10" />
                             </div>
                         ) : (
-                            <dl className={`space-y-1.5 text-sm ${loading ? "opacity-70" : ""}`} aria-live="polite">
+                            // Several <dl>s inside one live region: a <dl> may only hold dt/dd groups,
+                            // so the notes and the mint box sit between lists, not inside one.
+                            <div className={`space-y-1.5 text-sm ${loading ? "opacity-70" : ""}`} aria-live="polite" aria-busy={loading}>
                                 {loading && (
                                     <p className="text-xs font-medium text-evergreen/70">Updating price…</p>
                                 )}
+                                <dl>
                                 <Row
                                     label="Subtotal"
                                     value={
@@ -92,6 +96,7 @@ export function SummaryCard({
                                         )
                                     }
                                 />
+                                </dl>
                                 {adjustment > 0 && (
                                     <p className="text-right text-xs font-semibold text-teal">
                                         You save {formatBDT(adjustment)} ({Math.round((adjustment / amounts.originalSubtotal) * 100)}% off)
@@ -102,7 +107,9 @@ export function SummaryCard({
                                         Includes {formatBDT(-adjustment)} {Math.round((-adjustment / amounts.subtotal) * 100)}% surcharge
                                     </p>
                                 )}
-                                {amounts.vatRate && amounts.vat > 0 && (
+                                <dl className="space-y-1.5">
+                                {/* !! so a 0% rate never renders a stray "0" */}
+                                {!!amounts.vatRate && amounts.vat > 0 && (
                                     <Row
                                         label={
                                             amounts.total === amounts.subtotal
@@ -113,7 +120,8 @@ export function SummaryCard({
                                     />
                                 )}
                                 <Row label="Total" value={formatBDT(amounts.total)} strong />
-                                <div className="my-2 rounded-xl bg-mint p-3">
+                                </dl>
+                                <dl className="my-2 rounded-xl bg-mint p-3">
                                     <Row
                                         label={`Advance due now (${advancePercent}%)`}
                                         value={isPayableAmount(amounts.advance) ? formatBDT(amounts.advance) : "৳—"}
@@ -123,8 +131,8 @@ export function SummaryCard({
                                         label="Balance payable at venue"
                                         value={isPayableAmount(amounts.balance) ? formatBDT(amounts.balance) : "৳—"}
                                     />
-                                </div>
-                            </dl>
+                                </dl>
+                            </div>
                         )}
                     </>
                 )}

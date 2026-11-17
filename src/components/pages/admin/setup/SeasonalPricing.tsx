@@ -128,11 +128,11 @@ export function TemporaryPriceList({
                     <li key={a.id}>
                         <Card className={cn("space-y-2", st.text === "Ended" && "opacity-70")}>
                             <div className="flex items-start justify-between gap-2">
-                                <p className="flex items-center gap-2 font-heading text-lg font-bold">
-                                    {up ? <TrendingUp size={18} aria-hidden className="text-held" /> : <TrendingDown size={18} aria-hidden className="text-teal" />}
+                                <p className="flex min-w-0 items-center gap-2 break-words font-heading text-lg font-bold">
+                                    {up ? <TrendingUp size={18} aria-hidden className="shrink-0 text-held" /> : <TrendingDown size={18} aria-hidden className="shrink-0 text-teal" />}
                                     {a.label}
                                 </p>
-                                <div className="flex flex-col items-end gap-1">
+                                <div className="flex shrink-0 flex-col items-end gap-1">
                                     <Badge tone={st.tone}>{st.text}</Badge>
                                     <Badge tone={up ? "held" : "success"}>{up ? "Price increase" : "Price reduction"}</Badge>
                                 </div>
@@ -293,7 +293,7 @@ export function TemporaryPriceForm({
             </SheetSection>
 
             <SheetSection icon={CalendarRange} title="2. Dates" description="Both dates are included. For a single day, pick the same date twice.">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <Input label="Start date" type="date" value={f.effectiveFrom} error={fields.effectiveFrom} onChange={(ev) => set("effectiveFrom", ev.target.value)} />
                     <Input
                         label="End date"
@@ -426,13 +426,18 @@ export function TemporaryPriceForm({
                         <p className="font-medium text-booked">
                             Remove this temporary price? The regular price applies again on these dates. Existing bookings keep their saved price.
                         </p>
-                        <Button
-                            variant="danger"
-                            disabled={busy}
-                            onClick={() => save(adjustmentDeleteSchema, { id: adjustment.id }, "/admin/setup/adjustments", "DELETE", onDone)}
-                        >
-                            Yes, remove
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                variant="danger"
+                                disabled={busy}
+                                onClick={() => save(adjustmentDeleteSchema, { id: adjustment.id }, "/admin/setup/adjustments", "DELETE", onDone)}
+                            >
+                                {busy ? "Removing…" : "Remove temporary price"}
+                            </Button>
+                            <Button variant="ghost" disabled={busy} onClick={() => setConfirmDelete(false)}>
+                                Keep it
+                            </Button>
+                        </div>
                     </div>
                 ) : (
                     <Button variant="ghost" className="text-booked" onClick={() => setConfirmDelete(true)}>

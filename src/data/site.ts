@@ -4,8 +4,8 @@ import type { Policies } from "@/types";
 export const site = {
     name: "Kazi Sports Arena",
     shortName: "Kazi Sports",
-    tagline: "Bogura's 24/7 Indoor Sports Arena",
-    // Real contact details
+    tagline: "Indoor football, cricket and badminton in Bogura. Open 24/7.",
+    // Business details supplied by the owner (source of truth for the site, SEO and structured data).
     phone: "+8801354490362",
     whatsapp: "8801354490362",
     email: "kazisportsarena@gmail.com",
@@ -13,20 +13,19 @@ export const site = {
     url: "https://kazisports.com",
     timezone: "Asia/Dhaka",
     currency: "BDT",
-    // SEO description used in metadata
+    hours: "Open 24 hours, every day",
+    address: { area: "Shabgram", city: "Bogura", country: "Bangladesh", countryCode: "BD" },
+    // Default meta description (≈155 characters). Facts only: no rankings or claims we cannot back up.
     seoDescription:
-        "Book indoor football, cricket, and badminton courts 24/7 at Kazi Sports Arena in Shabgram, Bogura. Bangladesh's premier indoor sports facility. Pay bKash advance, play rain or shine.",
+        "Book indoor football, cricket nets and badminton at Kazi Sports Arena in Shabgram, Bogura. Open 24 hours, every day. See live slots and pay the advance by bKash.",
+    // Search engines largely ignore keywords; kept short and relevant, never stuffed.
     seoKeywords: [
-        "indoor sports Bogura",
-        "turf booking Bangladesh",
-        "football turf rental",
-        "cricket net practice",
-        "badminton court booking",
-        "indoor sports arena",
         "Kazi Sports Arena",
-        "sports court Bogura",
-        "24 hour turf",
-        "indoor football pitch",
+        "indoor football Bogura",
+        "turf booking Bogura",
+        "cricket net practice Bogura",
+        "badminton court Bogura",
+        "Shabgram sports arena",
     ],
 };
 

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronDown, ClipboardList, LayoutGrid, Settings, TrendingUp } from "lucide-react";
+import { ChevronDown, ClipboardList, LayoutGrid, Settings, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Role } from "@/types";
 
@@ -50,10 +50,21 @@ export function AdminNav({
         { href: "/admin", label: "Desk", icon: LayoutGrid, exact: true, show: true, group: "Overview" },
         { href: "/admin/insights", label: "Insights", icon: TrendingUp, exact: false, show: role === "SUPER_ADMIN", group: "Overview" },
         { href: "/admin/bookings", label: "Bookings", icon: ClipboardList, exact: false, show: true, group: "Work" },
+        { href: "/admin/customers", label: "Customers", icon: Users, exact: false, show: role === "SUPER_ADMIN", group: "Work" },
     ].filter((i) => i.show);
 
+    // The tab just tapped, kept with the page it was tapped on. It shows as active at once, and
+    // stops counting by itself as soon as the URL changes (no effect needed to clear it).
+    const [tapped, setTapped] = useState<{ href: string; from: string } | null>(null);
+    const pendingHref = tapped && tapped.from === pathname ? tapped.href : null;
+    const tap = (href: string) => setTapped({ href, from: pathname });
+
     const isActive = (href: string, exact: boolean) =>
-        exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+        pendingHref
+            ? pendingHref === href
+            : exact
+                ? pathname === href
+                : pathname === href || pathname.startsWith(`${href}/`);
 
     // ───────────────────────────── sidebar (desktop) ─────────────────────────────
     if (variant === "sidebar") {
@@ -72,6 +83,7 @@ export function AdminNav({
                                         <li key={href}>
                                             <Link
                                                 href={href}
+                                                onClick={() => tap(href)}
                                                 aria-current={active ? "page" : undefined}
                                                 className={cn(
                                                     "relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors",
@@ -104,7 +116,7 @@ export function AdminNav({
                                     type="button"
                                     onClick={() => setSetupOpen((v) => !v)}
                                     aria-expanded={setupOpen}
-                                    aria-controls="setup-children"
+                                    aria-controls={setupOpen ? "setup-children" : undefined}
                                     className={cn(
                                         "relative flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors",
                                         onSetup ? "bg-mint text-teal" : "text-evergreen/80 hover:bg-mint/60"
@@ -176,7 +188,7 @@ export function AdminNav({
         <nav
             ref={navRef}
             aria-label="Admin"
-            className="scrollbar-visible flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-px-2 py-2"
+            className="scrollbar-visible flex snap-x snap-proximity gap-2 overflow-x-auto overscroll-x-contain scroll-smooth scroll-px-2 py-2"
         >
             {items.map(({ href, label, icon: Icon, exact }) => {
                 const active = isActive(href, exact);
@@ -184,6 +196,7 @@ export function AdminNav({
                     <Link
                         key={href}
                         href={href}
+                        onClick={() => tap(href)}
                         aria-current={active ? "page" : undefined}
                         className={cn(
                             "inline-flex min-h-12 shrink-0 snap-center items-center gap-2 rounded-2xl border px-5 font-heading text-sm font-semibold transition-all",
@@ -199,10 +212,11 @@ export function AdminNav({
             {canSetup && (
                 <Link
                     href="/admin/setup"
-                    aria-current={onSetup ? "page" : undefined}
+                    onClick={() => tap("/admin/setup")}
+                    aria-current={(pendingHref ? pendingHref === "/admin/setup" : onSetup) ? "page" : undefined}
                     className={cn(
                         "inline-flex min-h-12 shrink-0 snap-center items-center gap-2 rounded-2xl border px-5 font-heading text-sm font-semibold transition-all",
-                        onSetup
+                        (pendingHref ? pendingHref === "/admin/setup" : onSetup)
                             ? "border-teal bg-teal text-white shadow-md"
                             : "border-evergreen/10 bg-mint text-evergreen hover:border-teal/40 hover:bg-emerald/30"
                     )}

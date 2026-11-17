@@ -59,8 +59,10 @@ export async function getPublicRefundPolicy(): Promise<RefundPolicyView> {
     // Make sure the live config (including refundConfig) is loaded.
     try {
         await connectDb();
-    } catch {
-        /* fall back to the in-memory defaults already present in refundConfig */
+    } catch (e) {
+        // Fall back to the in-memory defaults already present in refundConfig, but say so:
+        // the customer may be shown an outdated policy until the database is reachable again.
+        console.error("[refund policy] could not load the saved policy, showing defaults:", e instanceof Error ? e.message : String(e));
     }
     return {
         tiers: refundConfig.tiers.map((t) => ({ when: t.when, outcome: t.outcome })),

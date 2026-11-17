@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, isAbort } from "@/lib/api";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { startBkashPayment } from "@/lib/payments";
@@ -40,31 +40,58 @@ function viewOf(b: BookingDto): View {
 }
 
 export function BookingResult({ code }: { code: string }) {
-    const [state, setState] = useState<State>({ kind: "loading" });
+    // Kept with the booking code it belongs to: a response for another code is never shown,
+    // and a new code starts in "loading" without resetting state inside an effect.
+    const [loaded, setLoaded] = useState<{ code: string; state: State } | null>(null);
+    const state: State = loaded?.code === code ? loaded.state : { kind: "loading" };
     const [refreshing, setRefreshing] = useState(false);
     const [retrying, setRetrying] = useState(false);
     const [retryError, setRetryError] = useState<string | null>(null);
 
+    // The request: resolves to its outcome (null when aborted). It never sets state itself.
+    type Outcome = { booking: BookingDto } | { err: ApiError | null } | null;
+    const request = useCallback(
+        (signal?: AbortSignal): Promise<Outcome> =>
+            api<{ booking: BookingDto }>(`/api/bookings/${encodeURIComponent(code)}`, { signal }).then(
+                (r): Outcome => ({ booking: r.booking }),
+                (e): Outcome => (isAbort(e) ? null : { err: e instanceof ApiError ? e : null }) // aborted: left the page or the code changed
+            ),
+        [code]
+    );
+
+    // Applies an outcome (always from the request's own callback).
+    const apply = useCallback(
+        (o: Outcome) => {
+            if (!o) return;
+            if ("booking" in o) {
+                setLoaded({ code, state: { kind: "ready", booking: o.booking } });
+                return;
+            }
+            const err = o.err;
+            setLoaded((prev) =>
+                prev?.code === code && prev.state.kind === "ready" && err?.code === "NETWORK"
+                    ? prev // keep the last known server state on a network blip
+                    : { code, state: { kind: "error", message: err?.message ?? "Could not load your booking.", notFound: err?.status === 404 } }
+            );
+        },
+        [code]
+    );
+
+    /** "Check again" and the auto-poll: spin the button while the request runs. */
     const load = useCallback(async () => {
         setRefreshing(true);
         try {
-            const r = await api<{ booking: BookingDto }>(`/api/bookings/${encodeURIComponent(code)}`);
-            setState({ kind: "ready", booking: r.booking });
-        } catch (e) {
-            const err = e instanceof ApiError ? e : null;
-            setState((prev) =>
-                prev.kind === "ready" && err?.code === "NETWORK"
-                    ? prev // keep the last known server state on a network blip
-                    : { kind: "error", message: err?.message ?? "Could not load your booking.", notFound: err?.status === 404 }
-            );
+            apply(await request());
         } finally {
             setRefreshing(false);
         }
-    }, [code]);
+    }, [request, apply]);
 
     useEffect(() => {
-        load();
-    }, [load]);
+        const ctrl = new AbortController();
+        request(ctrl.signal).then(apply);
+        return () => ctrl.abort();
+    }, [request, apply]);
 
     const booking = state.kind === "ready" ? state.booking : null;
     const view = booking ? viewOf(booking) : null;
@@ -93,9 +120,10 @@ export function BookingResult({ code }: { code: string }) {
     if (state.kind === "loading") {
         return (
             <Shell>
-                <div aria-busy className="space-y-3">
-                    <div className="h-8 w-2/3 animate-pulse rounded bg-evergreen/10" />
-                    <div className="h-40 animate-pulse rounded-2xl bg-evergreen/10" />
+                <div role="status" aria-busy className="space-y-3">
+                    <span className="sr-only">Loading your booking…</span>
+                    <div aria-hidden className="h-8 w-2/3 animate-pulse rounded bg-evergreen/10" />
+                    <div aria-hidden className="h-40 animate-pulse rounded-2xl bg-evergreen/10" />
                 </div>
             </Shell>
         );
@@ -125,12 +153,13 @@ export function BookingResult({ code }: { code: string }) {
             {view === "confirmed" && (
                 <div className="space-y-5">
                     <div className="space-y-5 rounded-2xl bg-evergreen p-6 text-center text-white shadow-lg">
-                        <p className="inline-flex items-center justify-center gap-2 font-heading font-bold text-emerald">
+                        {/* The page's one heading, same look as before (was a <p>) */}
+                        <h1 className="inline-flex items-center justify-center gap-2 font-heading text-base font-bold text-emerald">
                             <BadgeCheck size={22} aria-hidden /> Booking confirmed
-                        </p>
+                        </h1>
                         <div>
                             <p className="text-sm text-white/75">Show this at the venue</p>
-                            <p className="mt-1 font-mono text-4xl font-extrabold tracking-widest md:text-5xl" aria-label={`Booking code ${b.code}`}>
+                            <p className="mt-1 break-all font-mono text-4xl font-extrabold tracking-widest md:text-5xl">
                                 {b.code}
                             </p>
                         </div>
@@ -155,7 +184,7 @@ export function BookingResult({ code }: { code: string }) {
                     <div className="flex flex-wrap gap-2">
                         <Button
                             href={googleCalendarUrl({
-                                title: `KaziTurf: ${b.pitchName} (${b.sport})`,
+                                title: `Kazi Sports Arena: ${b.pitchName} (${b.sport})`,
                                 startAt: b.startAt,
                                 endAt: b.endAt,
                                 location: b.branchAddress,
@@ -169,7 +198,7 @@ export function BookingResult({ code }: { code: string }) {
                         <a
                             href={`/api/bookings/${encodeURIComponent(b.code)}/receipt`}
                             download
-                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal hover:bg-mint"
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal transition-colors hover:bg-mint"
                         >
                             <Download size={18} aria-hidden /> Download receipt
                         </a>
@@ -201,8 +230,10 @@ export function BookingResult({ code }: { code: string }) {
                 </Card>
             )}
 
+            {/* No live role on this card: it holds the ticking HoldCountdown, which a live
+                region would re-announce every second. The h1 states the outcome. */}
             {view === "failed" && (
-                <Card className="space-y-4" role="alert">
+                <Card className="space-y-4">
                     <h1 className="flex items-center gap-2 text-xl font-bold">
                         <XCircle size={22} aria-hidden className="text-booked" />
                         {b.paymentStatus === "FAILED"
@@ -218,7 +249,11 @@ export function BookingResult({ code }: { code: string }) {
                     </p>
                     <Details b={b} when={when} />
                     {b.holdActive && <HoldCountdown expiresAt={b.holdExpiresAt} serverNow={b.serverNow} onExpire={load} />}
-                    {retryError && <p className="text-sm font-medium text-booked">{retryError}</p>}
+                    {retryError && (
+                        <p role="alert" className="flex items-start gap-2 rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">
+                            <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> {retryError}
+                        </p>
+                    )}
                     <div className="flex flex-wrap gap-2">
                         {b.holdActive ? (
                             <Button size="lg" onClick={retry} disabled={retrying}>

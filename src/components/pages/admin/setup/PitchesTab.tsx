@@ -130,7 +130,7 @@ export function PitchesTab({
                                 )}
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
-                                        <h4 className="text-lg font-bold">{p.name}</h4>
+                                        <h3 className="break-words text-lg font-bold">{p.name}</h3>
                                         <p className="mt-0.5 text-sm text-evergreen/80">
                                             {p.sport} · {p.format} · {p.slotMinutes ?? 90}-min slots · open 24h
                                         </p>
@@ -158,6 +158,12 @@ export function PitchesTab({
                                     >
                                         <Trash2 size={16} aria-hidden /> Delete
                                     </Button>
+                                    {/* A disabled button shows no tooltip on touch or keyboard, so say why in text. */}
+                                    {p.upcomingBookings > 0 && (
+                                        <p className="w-full text-xs text-evergreen/70">
+                                            Has upcoming bookings, so it can&apos;t be deleted. Disable it instead.
+                                        </p>
+                                    )}
                                 </div>
                             </Card>
                         </li>

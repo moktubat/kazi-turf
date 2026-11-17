@@ -15,9 +15,9 @@ export function VenuePanel({ venue }: { venue: Branch }) {
     if (configs.length === 0) {
         return (
             <div className="rounded-2xl border border-dashed border-evergreen/20 bg-surface p-8 text-center">
-                <p className="font-semibold text-evergreen">No sports configured yet</p>
+                <p className="font-semibold text-evergreen">Sports will be listed here soon</p>
                 <p className="mt-1 text-sm text-evergreen/70">
-                    Add sports from the admin setup to see them here.
+                    Call us to ask about booking in the meantime.
                 </p>
             </div>
         );
@@ -54,7 +54,7 @@ export function VenuePanel({ venue }: { venue: Branch }) {
 
             {houseRules.length > 0 && (
                 <div className="rounded-2xl border border-evergreen/10 bg-surface p-5 shadow-sm md:p-6">
-                    <h4 className="font-heading font-bold">House rules</h4>
+                    <h3 className="font-heading font-bold">House rules</h3>
                     <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm md:grid-cols-2">
                         {houseRules.map((r) => (
                             <li key={r} className="flex items-start gap-2">

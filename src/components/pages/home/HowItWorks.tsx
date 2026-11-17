@@ -9,19 +9,19 @@ export function HowItWorks({ policies }: { policies: Policies }) {
             id: "pick",
             icon: "calendar",
             title: "Pick your slot",
-            text: "Choose your sport, date and time. Check the price and availability before booking.",
+            text: "Choose your sport, date and time, any hour of the day. You see the price and live availability before you book.",
         },
         {
             id: "pay",
             icon: "wallet",
             title: "Pay the advance",
-            text: `Pay ${policies.advancePercent}% of the total price through bKash to confirm and secure your booking.`,
+            text: `Pay a ${policies.advancePercent}% advance through bKash to confirm your booking${(policies.nightAdvancePercent ?? 100) !== policies.advancePercent ? ` (${policies.nightAdvancePercent ?? 100}% for slots from 12 AM to 6 AM)` : ""}.`,
         },
         {
             id: "play",
             icon: "ticket",
-            title: "Confirm at the venue",
-            text: "Show your booking code to staff and pay the remaining balance in cash.",
+            title: "Play at the arena",
+            text: "Show your booking code at the counter, pay any balance in cash, and play.",
         },
     ];
 

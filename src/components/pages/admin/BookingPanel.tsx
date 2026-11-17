@@ -1,11 +1,12 @@
 // Shared booking drawer content: used by the Staff Desk and /admin/bookings.
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Banknote, Check, History, LogIn, Phone, Printer, RotateCcw, XCircle } from "lucide-react";
+import { AlertTriangle, Banknote, Check, CheckCircle2, History, LogIn, Phone, Printer, RotateCcw, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
-import { ApiError, api } from "@/lib/api";
+import { actionSuccessMessage, type BookingAction } from "@/lib/adminMessages";
+import { ApiError, api, isAbort } from "@/lib/api";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { formatDateTime } from "@/lib/formatAdmin";
 import { hasVerifiedPayment, printReceipt } from "@/lib/printReceipt";
@@ -28,8 +29,8 @@ const chip = {
 function Line({ label, value, strong }: { label: string; value: React.ReactNode; strong?: boolean }) {
     return (
         <div className={`flex items-baseline justify-between gap-4 ${strong ? "font-bold" : ""}`}>
-            <dt className={strong ? "" : "text-evergreen/80"}>{label}</dt>
-            <dd className="text-right font-semibold">{value}</dd>
+            <dt className={strong ? "shrink-0" : "shrink-0 text-evergreen/80"}>{label}</dt>
+            <dd className="min-w-0 break-words text-right font-semibold">{value}</dd>
         </div>
     );
 }
@@ -46,28 +47,41 @@ export function BookingPanel({
     const [mode, setMode] = useState<Mode>(null);
     const [busy, setBusy] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
 
+    // Every caller renders this with key={code}, so a different booking gets a fresh panel
+    // (loading state, no open form, no old error or confirmation) without resetting state here.
+    // The request: resolves to the next state, or null when aborted. It never sets state itself.
+    const request = useCallback(
+        (signal?: AbortSignal): Promise<State | null> =>
+            api<{ booking: AdminBookingDto; audit: AuditEntryDto[] }>(`/api/admin/bookings/${encodeURIComponent(code)}`, { signal }).then(
+                (r): State => ({ kind: "ready", booking: r.booking, audit: r.audit }),
+                (e): State | null =>
+                    isAbort(e) // panel closed or replaced: drop the stale response
+                        ? null
+                        : { kind: "error", message: e instanceof ApiError ? e.message : "Could not load this booking." }
+            ),
+        [code]
+    );
+
+    /** Reload after an action, or "Try again". */
     const load = useCallback(async () => {
-        try {
-            const r = await api<{ booking: AdminBookingDto; audit: AuditEntryDto[] }>(
-                `/api/admin/bookings/${encodeURIComponent(code)}`
-            );
-            setState({ kind: "ready", booking: r.booking, audit: r.audit });
-        } catch (e) {
-            setState({ kind: "error", message: e instanceof ApiError ? e.message : "Could not load this booking." });
-        }
-    }, [code]);
+        const next = await request();
+        if (next) setState(next);
+    }, [request]);
 
     useEffect(() => {
-        setMode(null);
-        setActionError(null);
-        setState({ kind: "loading" });
-        load();
-    }, [load]);
+        const ctrl = new AbortController();
+        request(ctrl.signal).then((next) => {
+            if (next) setState(next);
+        });
+        return () => ctrl.abort();
+    }, [request]);
 
-    async function run(path: string, body?: unknown) {
+    async function run(path: BookingAction, body?: unknown) {
         setBusy(true);
         setActionError(null);
+        setNotice(null);
         try {
             await api(`/api/admin/bookings/${encodeURIComponent(code)}/${path}`, {
                 method: "POST",
@@ -75,6 +89,7 @@ export function BookingPanel({
             });
             setMode(null);
             await load();
+            setNotice(actionSuccessMessage(path));
             onChanged();
         } catch (e) {
             if (e instanceof ApiError) {
@@ -92,7 +107,7 @@ export function BookingPanel({
 
     if (state.kind === "loading") {
         return (
-            <div aria-busy className="space-y-3">
+            <div role="status" aria-busy aria-label="Loading booking" className="space-y-3">
                 <div className="h-8 w-1/2 animate-pulse rounded bg-evergreen/10" />
                 <div className="h-40 animate-pulse rounded-2xl bg-evergreen/10" />
             </div>
@@ -100,9 +115,11 @@ export function BookingPanel({
     }
     if (state.kind === "error") {
         return (
-            <div role="alert" className="space-y-3">
-                <p className="font-semibold">{state.message}</p>
-                <Button onClick={load}>Try again</Button>
+            <div className="space-y-3">
+                <p role="alert" className="flex items-start gap-2 rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">
+                    <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" /> {state.message}
+                </p>
+                <Button onClick={() => load()}>Try again</Button>
             </div>
         );
     }
@@ -110,11 +127,15 @@ export function BookingPanel({
     const { booking: b, audit } = state;
     const c = chip[b.checkIn.state];
     const formProps = { b, busy, onBack: () => { setMode(null); setActionError(null); } };
+    const open = (m: Exclude<Mode, null>) => {
+        setNotice(null);
+        setMode(m);
+    };
 
     return (
         <div className="space-y-5">
             <div className="space-y-3 rounded-2xl bg-evergreen p-5 text-center text-white">
-                <p className="font-mono text-3xl font-extrabold tracking-widest" aria-label={`Booking code ${b.code}`}>{b.code}</p>
+                <p className="break-all font-mono text-3xl font-extrabold tracking-widest" aria-label={`Booking code ${b.code}`}>{b.code}</p>
                 <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 rounded-xl bg-surface px-3 py-2">
                     <BookingStatusBadge status={b.bookingStatus} />
                     <PaymentStatusBadge status={b.paymentStatus} />
@@ -169,14 +190,14 @@ export function BookingPanel({
                     <ul className="space-y-1 text-sm">
                         {b.payments.map((p) => (
                             <li key={p.id} className={`flex justify-between gap-4 ${p.status === "SUCCESS" ? "" : "text-evergreen/60"}`}>
-                                <span>
+                                <span className="min-w-0 break-words">
                                     {p.kind === "ADVANCE" ? "Advance" : "Balance"} · {p.provider === "CASH" ? "Cash" : "bKash"}
                                     {/* Only successful payments count towards "Paid so far". */}
                                     {p.status !== "SUCCESS" && <span className="text-xs font-semibold"> · {p.status === "PENDING" ? "Pending" : "Failed"}</span>}
                                     {p.reference && <span className="font-mono text-xs"> {p.reference}</span>}
                                     <span className="block text-xs text-evergreen/70">{formatDateTime(p.at)}</span>
                                 </span>
-                                <span className="font-semibold">{formatBDT(p.amount)}</span>
+                                <span className="shrink-0 font-semibold">{formatBDT(p.amount)}</span>
                             </li>
                         ))}
                     </ul>
@@ -185,6 +206,12 @@ export function BookingPanel({
 
             {b.cancelReason && (
                 <p className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">Cancelled: {b.cancelReason}</p>
+            )}
+
+            {notice && (
+                <p role="status" className="flex items-start gap-2 rounded-xl bg-emerald/20 p-3 text-sm font-medium">
+                    <CheckCircle2 size={18} aria-hidden className="mt-0.5 shrink-0 text-teal" /> {notice}
+                </p>
             )}
 
             {actionError && (
@@ -196,12 +223,12 @@ export function BookingPanel({
             {mode === null && (
                 <div className="flex flex-col gap-2">
                     {(b.can.checkIn || b.can.overrideCheckIn) && (
-                        <Button size="lg" onClick={() => setMode("checkin")}>
+                        <Button size="lg" onClick={() => open("checkin")}>
                             <LogIn size={18} aria-hidden /> {b.can.overrideCheckIn ? "Override check-in" : "Check in"}
                         </Button>
                     )}
                     {b.can.collectBalance && (
-                        <Button size="lg" variant="secondary" onClick={() => setMode("collect")}>
+                        <Button size="lg" variant="secondary" onClick={() => open("collect")}>
                             <Banknote size={18} aria-hidden /> Collect balance (cash {formatBDT(b.balanceDue)})
                         </Button>
                     )}
@@ -211,12 +238,12 @@ export function BookingPanel({
                         </Button>
                     )}
                     {b.can.refund && (
-                        <Button variant="outline" onClick={() => setMode("refund")}>
+                        <Button variant="outline" onClick={() => open("refund")}>
                             <RotateCcw size={18} aria-hidden /> Record refund
                         </Button>
                     )}
                     {b.can.cancel && (
-                        <Button variant="ghost" className="text-booked" onClick={() => setMode("cancel")}>
+                        <Button variant="ghost" className="text-booked" onClick={() => open("cancel")}>
                             <XCircle size={18} aria-hidden /> Cancel booking
                         </Button>
                     )}

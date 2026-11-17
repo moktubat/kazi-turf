@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +13,23 @@ export interface FinderVenue {
 
 const STORE_KEY = "kt:finder:sport";
 
+function readSavedSport(): string | null {
+    try {
+        return localStorage.getItem(STORE_KEY);
+    } catch {
+        return null; // storage unavailable: keep the default
+    }
+}
+
+/** Re-read when another tab changes the saved sport. */
+function subscribeStorage(onChange: () => void) {
+    const onStorage = (e: StorageEvent) => {
+        if (e.key === STORE_KEY) onChange();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+}
+
 export function QuickFinder({
     venue,
     defaultDate,
@@ -25,18 +42,13 @@ export function QuickFinder({
     maxDate: string;
 }) {
     const router = useRouter();
-    const [sport, setSport] = useState(venue?.sports[0] ?? "");
+    // The remembered sport is read from browser storage as an external store: null on the server
+    // and during hydration (no mismatch), then the saved value. A sport the user picks wins.
+    const saved = useSyncExternalStore(subscribeStorage, readSavedSport, () => null);
+    const [picked, setPicked] = useState<string | null>(null);
+    const sport = picked ?? (saved && venue?.sports.includes(saved) ? saved : (venue?.sports[0] ?? ""));
+    const setSport = setPicked;
     const [date, setDate] = useState(defaultDate);
-
-    // Restore remembered sport after hydration.
-    useEffect(() => {
-        try {
-            const saved = localStorage.getItem(STORE_KEY);
-            if (saved && venue?.sports.includes(saved)) setSport(saved);
-        } catch {
-            /* storage unavailable: keep default */
-        }
-    }, [venue]);
 
     function onSubmit(e: React.FormEvent) {
         e.preventDefault();

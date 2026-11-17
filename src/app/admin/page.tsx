@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { Button } from "@/components/ui/Button";
 import { StaffDesk } from "@/components/pages/admin/StaffDesk";
 import { addDays } from "@/lib/time";
 import { accessibleBranches } from "@/server/admin/access";
@@ -30,9 +31,9 @@ async function AdminContent() {
             <div className="mx-auto max-w-xl px-4 py-16 text-center">
                 <h1 className="text-2xl font-extrabold">No venue access</h1>
                 <p className="mt-2 text-evergreen/80">Ask a Super Admin to grant you access to the venue.</p>
-                <a href="/account" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal hover:bg-mint">
+                <Button href="/account" variant="outline" className="mt-6">
                     Go to my account
-                </a>
+                </Button>
             </div>
         );
     }

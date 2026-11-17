@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { BookingFlow, type FlowInitial } from "@/components/pages/booking/BookingFlow";
@@ -12,14 +13,20 @@ import { todayDhaka } from "@/lib/time.server";
 import { getPublicVenue, getPublicPolicies } from "@/server/public-data";
 import { connection } from "next/server";
 
-export const metadata: Metadata = { title: "Book a slot" };
+export const metadata: Metadata = pageMetadata({
+    path: "/book",
+    title: "Book Indoor Football, Cricket & Badminton",
+    description:
+        "See live slot availability at Kazi Sports Arena in Shabgram, Bogura, and book football, cricket nets or badminton. Open 24/7. Pay the advance by bKash.",
+});
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
 function BookFallback() {
     return (
-        <div className="mx-auto max-w-main px-4 py-6 pb-32 lg:pb-10">
-            <div className="h-8 w-48 animate-pulse rounded bg-evergreen/10" />
+        <div role="status" aria-busy className="mx-auto max-w-main px-4 py-6 pb-32 lg:pb-10">
+            <span className="sr-only">Loading booking…</span>
+            <div aria-hidden className="h-8 w-48 animate-pulse rounded bg-evergreen/10" />
             <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
                 <div className="space-y-5">
                     <div className="h-20 animate-pulse rounded-2xl bg-evergreen/10" />

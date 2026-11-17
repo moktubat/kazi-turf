@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import type { InsightsData } from "@/types/insights";
 
-function Kpi({
+export function Kpi({
     icon: Icon,
     label,
     value,
@@ -21,7 +21,7 @@ function Kpi({
                 {label}
                 <Icon size={16} aria-hidden className="text-evergreen/40" />
             </p>
-            <p className="font-heading text-3xl font-extrabold">{value}</p>
+            <p className="break-words font-heading text-2xl font-extrabold sm:text-3xl">{value}</p>
             {sub && <p className="text-xs text-evergreen/70">{sub}</p>}
         </Card>
     );
@@ -102,7 +102,7 @@ export function SourceSplit({ data }: { data: InsightsData["source"] }) {
             <ul className="space-y-3">
                 {rows.map((r) => (
                     <li key={r.label} className="space-y-1">
-                        <div className="flex justify-between gap-2 text-sm">
+                        <div className="flex flex-wrap justify-between gap-x-2 gap-y-0.5 text-sm">
                             <span className="font-semibold">{r.label}</span>
                             <span>
                                 {r.bookings} {r.bookings === 1 ? "booking" : "bookings"} · <strong>{formatBDT(r.collected)}</strong>
@@ -128,7 +128,7 @@ export function OccupancyHeatmap({ data }: { data: InsightsData["heatmap"] }) {
             {data.times.length === 0 ? (
                 <p className="text-sm text-evergreen/70">No slots in this range.</p>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="scrollbar-thin overflow-x-auto">
                     <table className="w-full min-w-[28rem] border-separate border-spacing-1 text-center text-xs">
                         <caption className="sr-only">Occupancy percentage by slot start time and weekday</caption>
                         <thead>

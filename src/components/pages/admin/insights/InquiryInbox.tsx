@@ -35,10 +35,10 @@ export function InquiryInbox({ items }: { items: InquiryDto[] }) {
                 <h2 id="inbox-title" className="text-xl font-bold">Inquiries</h2>
                 <Badge tone={open.length ? "held" : "neutral"}>{open.length} new</Badge>
             </div>
-            {error && <p role="alert" className="text-sm font-medium text-booked">{error}</p>}
+            {error && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{error}</p>}
 
             {open.length === 0 ? (
-                <Card><p className="text-sm text-evergreen/80">No new inquiries from the contact form.</p></Card>
+                <Card><p className="text-sm text-evergreen/70">No new inquiries from the contact form.</p></Card>
             ) : (
                 <ul className="space-y-3">
                     {open.map((q) => (
@@ -52,7 +52,7 @@ export function InquiryInbox({ items }: { items: InquiryDto[] }) {
                                     <p className="text-sm font-bold text-evergreen">{q.subject}</p>
                                 )}
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-evergreen/70">
-                                    {q.email && <span><strong className="text-evergreen/60">Email:</strong> {q.email}</span>}
+                                    {q.email && <span className="break-all"><strong className="text-evergreen/60">Email:</strong> {q.email}</span>}
                                     {q.phone && <span><strong className="text-evergreen/60">Phone:</strong> {q.phone}</span>}
                                     {q.sport && <span><strong className="text-evergreen/60">Sport:</strong> {q.sport}</span>}
                                 </div>
@@ -72,7 +72,7 @@ export function InquiryInbox({ items }: { items: InquiryDto[] }) {
                     <ul className="mt-2 space-y-2">
                         {done.map((q) => (
                             <li key={q.id} className="border-t border-evergreen/10 pt-2">
-                                <p className="font-semibold">{q.name} · <span className="font-normal">{q.contact}</span></p>
+                                <p className="break-words font-semibold">{q.name} · <span className="font-normal">{q.contact}</span></p>
                                 <p className="whitespace-pre-wrap text-evergreen/80">{q.message}</p>
                             </li>
                         ))}

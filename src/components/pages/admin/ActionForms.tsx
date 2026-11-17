@@ -15,7 +15,7 @@ interface FormProps {
 
 function Actions({ busy, label, onBack, danger }: { busy: boolean; label: string; onBack: () => void; danger?: boolean }) {
     return (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
             <Button type="submit" variant={danger ? "danger" : "primary"} className="flex-1" disabled={busy}>
                 {busy ? "Working…" : label}
             </Button>
@@ -55,7 +55,7 @@ export function CheckInForm({ b, busy, onSubmit, onBack }: FormProps) {
                     Last 4 digits of their phone
                 </label>
                 {method === "PHONE" && (
-                    <Input label="Last 4 digits" inputMode="numeric" maxLength={4} value={digits} onChange={(e) => setDigits(e.target.value.replace(/\D/g, ""))} />
+                    <Input label="Last 4 digits" inputMode="numeric" autoComplete="off" maxLength={4} value={digits} onChange={(e) => setDigits(e.target.value.replace(/\D/g, ""))} />
                 )}
                 <label className="flex min-h-11 items-center gap-3 text-sm">
                     <input type="radio" name="idm" className="size-5 accent-teal" checked={method === "NAME"} onChange={() => setMethod("NAME")} />
@@ -80,7 +80,7 @@ export function CheckInForm({ b, busy, onSubmit, onBack }: FormProps) {
                 />
             )}
 
-            {err && <p role="alert" className="text-sm font-medium text-booked">{err}</p>}
+            {err && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{err}</p>}
             <Actions busy={busy} label={b.can.overrideCheckIn ? "Override check-in" : "Check in"} onBack={onBack} />
         </form>
     );
@@ -128,7 +128,7 @@ export function CancelForm({ b, busy, onSubmit, onBack }: FormProps) {
                 </p>
             )}
             <Textarea label="Reason for cancelling" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} />
-            {err && <p role="alert" className="text-sm font-medium text-booked">{err}</p>}
+            {err && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{err}</p>}
             <Actions busy={busy} label="Cancel this booking" onBack={onBack} danger />
         </form>
     );
