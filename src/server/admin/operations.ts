@@ -145,11 +145,13 @@ export async function cancelBooking(user: ServerUser, code: string, reason: stri
     }
 
     // Money already received is never silently kept: it goes to REFUND_PENDING for the Super Admin.
-    const moneyIn = b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID";
     const received = (await PaymentModel.find({ bookingId: b.id, status: "SUCCESS" }, { amount: 1 }).lean<{ amount: number }[]>()).reduce(
         (sum, p) => sum + p.amount,
         0
     );
+    // A walk-in booked with no advance (৳0) is PARTIALLY_PAID but holds no money:
+    // cancelling it has nothing to refund.
+    const moneyIn = (b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID") && (received > 0 || b.advanceAmount > 0);
 
     await tx(async (s) => {
         // Must still be in exactly the state we read, or someone changed it first.

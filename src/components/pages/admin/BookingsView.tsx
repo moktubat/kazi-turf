@@ -254,7 +254,7 @@ export function BookingsView({
                                         <td className="px-3 py-3">
                                             <div className="flex flex-col items-start gap-1.5">
                                                 <BookingStatusBadge status={b.bookingStatus} />
-                                                <PaymentStatusBadge status={b.paymentStatus} />
+                                                <PaymentStatusBadge status={b.paymentStatus} paid={b.advancePaid} />
                                                 {b.changeRequest && <Badge tone="held">Request open</Badge>}
                                             </div>
                                         </td>
@@ -287,7 +287,7 @@ export function BookingsView({
                                     <p className="text-sm text-evergreen/80">{formatDateLong(b.date)} · {formatTime12(b.start)}–{formatTime12(b.end)} · {b.pitchName}</p>
                                     <div className="flex flex-wrap gap-2">
                                         <BookingStatusBadge status={b.bookingStatus} />
-                                        <PaymentStatusBadge status={b.paymentStatus} />
+                                        <PaymentStatusBadge status={b.paymentStatus} paid={b.advancePaid} />
                                         {b.changeRequest && <Badge tone="held">Request open</Badge>}
                                     </div>
                                     <p className="text-sm font-semibold">

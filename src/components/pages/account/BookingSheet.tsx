@@ -79,7 +79,7 @@ export function BookingSheet({
                 <p className="select-all font-mono text-2xl font-extrabold tracking-widest sm:text-3xl">{b.code}</p>
                 <div className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2">
                     <BookingStatusBadge status={b.bookingStatus} />
-                    <PaymentStatusBadge status={b.paymentStatus} />
+                    <PaymentStatusBadge status={b.paymentStatus} paid={b.advancePaid} />
                 </div>
             </div>
 

@@ -67,7 +67,7 @@ export function CustomerBookings({ bookings }: { bookings: CustomerBooking[] }) 
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 <BookingStatusBadge status={b.bookingStatus} />
-                                <PaymentStatusBadge status={b.paymentStatus} />
+                                <PaymentStatusBadge status={b.paymentStatus} paid={b.paid} />
                                 <Badge tone={b.source === "counter" ? "info" : "neutral"}>{b.source === "counter" ? "Counter" : "Online"}</Badge>
                             </div>
                         </div>

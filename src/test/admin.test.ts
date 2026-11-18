@@ -95,7 +95,7 @@ describe("balance and walk-ins", () => {
         expect((await BookingModel.findOne({ bookingCode: "KT-TEST22" }).lean<Booking>())?.paymentStatus).toBe("PAID");
     });
 
-    it("a walk-in cannot take a slot an online customer is holding, and cash must cover the advance", async () => {
+    it("a walk-in cannot take a slot an online customer is holding, and cash must be 0…total", async () => {
         await createBooking(customer, { pitchId: "bogura-b", cellStarts: [cell(12)], phone: "01711111111" });
         await expect(
             createWalkIn(staff, { pitchId: "bogura-b", cellStarts: [cell(12)], phone: "01733334444", name: "Karim", cashReceived: 5000 })
@@ -103,7 +103,10 @@ describe("balance and walk-ins", () => {
 
         const q = await quoteWalkIn(staff, "bogura-b", [cell(15)]);
         await expect(
-            createWalkIn(staff, { pitchId: "bogura-b", cellStarts: [cell(15)], phone: "01733334444", name: "Karim", cashReceived: q.advance - 1 })
+            createWalkIn(staff, { pitchId: "bogura-b", cellStarts: [cell(15)], phone: "01733334444", name: "Karim", cashReceived: -1 })
+        ).rejects.toMatchObject({ code: "INVALID_AMOUNT" });
+        await expect(
+            createWalkIn(staff, { pitchId: "bogura-b", cellStarts: [cell(15)], phone: "01733334444", name: "Karim", cashReceived: q.total + 1 })
         ).rejects.toMatchObject({ code: "INVALID_AMOUNT" });
 
         const b = await createWalkIn(staff, { pitchId: "bogura-b", cellStarts: [cell(15)], phone: "01733334444", name: "Karim", cashReceived: q.advance });

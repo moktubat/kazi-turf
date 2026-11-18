@@ -36,7 +36,7 @@ export function BookingRow({ b, onOpen }: { b: AccountBookingDto; onOpen: () => 
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                     <BookingStatusBadge status={b.bookingStatus} />
-                    <PaymentStatusBadge status={b.paymentStatus} />
+                    <PaymentStatusBadge status={b.paymentStatus} paid={b.advancePaid} />
                 </div>
             </div>
 

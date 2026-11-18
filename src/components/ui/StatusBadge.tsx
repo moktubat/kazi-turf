@@ -36,8 +36,10 @@ export function BookingStatusBadge({ status }: { status: BookingStatus }) {
     );
 }
 
-export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
-    const { label, icon: Icon, cls } = paymentMap[status];
+export function PaymentStatusBadge({ status, paid }: { status: PaymentStatus; /** Advance actually received. */ paid?: number }) {
+    // A walk-in booked with no advance is PARTIALLY_PAID (balance due) with ৳0 in:
+    // "Advance paid" would be untrue, so it reads "Not paid".
+    const { label, icon: Icon, cls } = status === "PARTIALLY_PAID" && paid === 0 ? paymentMap.NOT_STARTED : paymentMap[status];
     return (
         <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold", cls)}>
             <Icon size={14} aria-hidden /> {label}

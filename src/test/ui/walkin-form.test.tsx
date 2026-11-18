@@ -10,6 +10,7 @@ vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof import("@/lib/api"
 vi.mock("@/lib/printReceipt", () => ({ printReceipt: vi.fn() }));
 
 const { WalkInForm } = await import("@/components/pages/admin/WalkInForm");
+const { PaymentStatusBadge } = await import("@/components/ui/StatusBadge");
 
 const QUOTE = { subtotal: 1900, originalSubtotal: 1900, vat: 0, vatRatePercent: null, total: 1900, advance: 570, advancePercent: 30 };
 const cell = (h: number) => ({
@@ -107,5 +108,69 @@ describe("WalkInForm note", () => {
         await waitFor(() => expect(apiMock.mock.calls.some(([u]) => u === "/api/admin/bookings")).toBe(true));
         const call = apiMock.mock.calls.find(([u]) => u === "/api/admin/bookings")!;
         expect(JSON.parse(call[1].body)).not.toHaveProperty("note");
+    });
+});
+
+describe("WalkInForm: no advance", () => {
+    const fillCustomer = () => {
+        fireEvent.change(screen.getByLabelText("Customer phone"), { target: { value: "01733334444" } });
+        fireEvent.change(screen.getByLabelText("Customer name"), { target: { value: "Karim" } });
+    };
+    const bookingBody = () => JSON.parse(apiMock.mock.calls.find(([u]) => u === "/api/admin/bookings")![1].body);
+
+    it("the hint offers ৳0 up to the total, with the advance only suggested", async () => {
+        renderForm();
+        await screen.findByText("Full ৳1,900");
+        expect(screen.getByText(/Any amount from ৳0 \(no advance\) to ৳1,900\. Suggested advance ৳570 \(30%\)\./)).toBeTruthy();
+        expect((screen.getByLabelText("Cash received (৳)") as HTMLInputElement).min).toBe("0");
+    });
+
+    it("No advance ৳0 books with zero cash and shows the full balance due", async () => {
+        renderForm();
+        await screen.findByText("Full ৳1,900");
+        fillCustomer();
+        fireEvent.click(screen.getByRole("button", { name: "No advance ৳0" }));
+        expect((screen.getByLabelText("Cash received (৳)") as HTMLInputElement).value).toBe("0");
+        expect(screen.getByText(/Balance after: ৳1,900\./)).toBeTruthy();
+        fireEvent.click(screen.getByRole("button", { name: "Create booking" }));
+        await screen.findByText("Walk-in booked");
+        expect(bookingBody().cashReceived).toBe(0);
+    });
+
+    it("typing 0 works too; a blank cash box is an error, not ৳0", async () => {
+        renderForm();
+        await screen.findByText("Full ৳1,900");
+        fillCustomer();
+        fireEvent.change(screen.getByLabelText("Cash received (৳)"), { target: { value: "" } });
+        fireEvent.click(screen.getByRole("button", { name: "Create booking" }));
+        expect(await screen.findByText("Enter the cash received (0 if none)")).toBeTruthy();
+        expect(apiMock.mock.calls.some(([u]) => u === "/api/admin/bookings")).toBe(false);
+
+        fireEvent.change(screen.getByLabelText("Cash received (৳)"), { target: { value: "0" } });
+        fireEvent.click(screen.getByRole("button", { name: "Create booking" }));
+        await screen.findByText("Walk-in booked");
+        expect(bookingBody().cashReceived).toBe(0);
+    });
+
+    it("more than the total is refused in the form", async () => {
+        renderForm();
+        await screen.findByText("Full ৳1,900");
+        fillCustomer();
+        fireEvent.change(screen.getByLabelText("Cash received (৳)"), { target: { value: "2000" } });
+        fireEvent.click(screen.getByRole("button", { name: "Create booking" }));
+        expect(await screen.findByText("Between ৳0 and ৳1,900")).toBeTruthy();
+    });
+});
+
+describe("PaymentStatusBadge", () => {
+    it("a balance-due booking with ৳0 received reads Not paid, not Advance paid", () => {
+        render(<PaymentStatusBadge status="PARTIALLY_PAID" paid={0} />);
+        expect(screen.getByText("Not paid")).toBeTruthy();
+        cleanup();
+        render(<PaymentStatusBadge status="PARTIALLY_PAID" paid={570} />);
+        expect(screen.getByText("Advance paid")).toBeTruthy();
+        cleanup();
+        render(<PaymentStatusBadge status="PARTIALLY_PAID" />);
+        expect(screen.getByText("Advance paid")).toBeTruthy();
     });
 });

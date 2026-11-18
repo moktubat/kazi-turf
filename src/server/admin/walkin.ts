@@ -92,12 +92,15 @@ export async function createWalkIn(
     const v = await validateWalkIn(user, input.pitchId, input.cellStarts, now);
     const q = quote(input.pitchId, v.starts);
 
-    if (input.cashReceived < q.advance || input.cashReceived > q.total) {
+    // Counter bookings need no minimum advance: staff may take anything from ৳0
+    // (customer pays everything at the venue) up to the full total. The online
+    // /book flow keeps its required bKash advance — that rule lives in bookings/.
+    if (!Number.isInteger(input.cashReceived) || input.cashReceived < 0 || input.cashReceived > q.total) {
         throw new AppError(
             "INVALID_AMOUNT",
-            `Cash received must be between ${formatBDT(q.advance)} and ${formatBDT(q.total)}.`,
+            `Cash received must be between ${formatBDT(0)} and ${formatBDT(q.total)}.`,
             400,
-            { cashReceived: `Between ${formatBDT(q.advance)} and ${formatBDT(q.total)}` }
+            { cashReceived: `Between ${formatBDT(0)} and ${formatBDT(q.total)}` }
         );
     }
 
@@ -131,6 +134,8 @@ export async function createWalkIn(
         cellStarts: startStrings,
         slotCount: startStrings.length,
         bookingStatus: "CONFIRMED",
+        // PARTIALLY_PAID = confirmed with a balance due — also when nothing was taken
+        // yet (paid 0), so balance collection, check-in and "Due" all keep working.
         paymentStatus: paid >= q.total ? "PAID" : "PARTIALLY_PAID",
         subtotal: q.subtotal,
         originalSubtotal: q.originalSubtotal,
@@ -150,7 +155,8 @@ export async function createWalkIn(
     await tx(async (s) => {
         await insertClaims(input.pitchId, startStrings, { state: "BOOKED", bookingId: id }, now, s);
         await BookingModel.create([booking], { session: s });
-        await PaymentModel.create(
+        // No advance taken: no ৳0 payment row (it would show as a fake receipt line).
+        if (paid > 0) await PaymentModel.create(
             [
                 {
                     id: randomUUID(),

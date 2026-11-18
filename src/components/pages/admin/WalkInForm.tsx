@@ -116,9 +116,12 @@ export function WalkInForm({
         if (!isBdPhone(phone)) next.phone = "Enter a valid Bangladesh mobile number";
         if (!known && name.trim().length < 2) next.name = "Enter the customer's name";
         const amount = Number(cash);
+        // No minimum at the counter: 0 (no advance) up to the full total. A blank box is
+        // an error, not ৳0, so "no advance" is always a deliberate choice.
         if (!quote) next.cashReceived = "Wait for the price to load";
-        else if (!Number.isInteger(amount) || amount < quote.advance || amount > quote.total) {
-            next.cashReceived = `Between ${formatBDT(quote.advance)} and ${formatBDT(quote.total)}`;
+        else if (cash.trim() === "") next.cashReceived = "Enter the cash received (0 if none)";
+        else if (!Number.isInteger(amount) || amount < 0 || amount > quote.total) {
+            next.cashReceived = `Between ${formatBDT(0)} and ${formatBDT(quote.total)}`;
         }
         if (note.trim().length > WALKIN_NOTE_MAX) next.note = `Keep the note under ${WALKIN_NOTE_MAX} characters`;
         setErrors(next);
@@ -252,7 +255,7 @@ export function WalkInForm({
                     label="Cash received (৳)"
                     type="number"
                     inputMode="numeric"
-                    min={quote?.advance}
+                    min={0}
                     max={quote?.total}
                     value={cash}
                     onChange={(e) => {
@@ -262,7 +265,7 @@ export function WalkInForm({
                     error={errors.cashReceived}
                     hint={
                         quote
-                            ? `Minimum ${formatBDT(quote.advance)} (${quote.advancePercent}% advance).${balanceAfter !== null ? ` Balance after: ${formatBDT(balanceAfter)}.` : ""
+                            ? `Any amount from ${formatBDT(0)} (no advance) to ${formatBDT(quote.total)}. Suggested advance ${formatBDT(quote.advance)} (${quote.advancePercent}%).${balanceAfter !== null ? ` Balance after: ${formatBDT(balanceAfter)}.` : ""
                             }`
                             : undefined
                     }
@@ -274,6 +277,9 @@ export function WalkInForm({
                         </Button>
                         <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput(String(quote.advance)); }}>
                             Advance {formatBDT(quote.advance)}
+                        </Button>
+                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput("0"); }}>
+                            No advance {formatBDT(0)}
                         </Button>
                     </div>
                 )}
