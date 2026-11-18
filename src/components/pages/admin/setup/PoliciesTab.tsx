@@ -85,8 +85,8 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
                 <h2 className="text-lg font-bold">Booking rules</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Input label="Slot hold (minutes)" type="number" inputMode="numeric" value={f.holdMinutes} error={fields.holdMinutes} hint="5–30" onChange={(e) => set("holdMinutes", e.target.value)} />
-                    <Input label="Advance payment — day (%) — 6 AM to 12 AM" type="number" inputMode="numeric" value={f.advancePercent} error={fields.advancePercent} hint="Allowed range 30–50" onChange={(e) => set("advancePercent", e.target.value)} />
-                    <Input label="Advance payment — night (%) — 12 AM to 6 AM" type="number" inputMode="numeric" value={f.nightAdvancePercent} error={fields.nightAdvancePercent} hint="Allowed range 50–100. 100 = full payment as advance." onChange={(e) => set("nightAdvancePercent", e.target.value)} />
+                    <Input label="Advance payment — day (%) — 6 AM to 12 AM" type="number" inputMode="numeric" value={f.advancePercent} error={fields.advancePercent} min={1} max={100} hint="Any whole number from 1 to 100 (e.g. 40, 45, 60)." onChange={(e) => set("advancePercent", e.target.value)} />
+                    <Input label="Advance payment — night (%) — 12 AM to 6 AM" type="number" inputMode="numeric" value={f.nightAdvancePercent} error={fields.nightAdvancePercent} min={1} max={100} hint="Any whole number from 1 to 100. 100 = full payment as advance." onChange={(e) => set("nightAdvancePercent", e.target.value)} />
                     <Input label="Check-in opens (minutes before start)" type="number" inputMode="numeric" value={f.checkIn} error={fields.checkInOpensMinutesBefore} onChange={(e) => set("checkIn", e.target.value)} />
                     <Input label="Booking horizon (days ahead)" type="number" inputMode="numeric" value={f.horizon} error={fields.bookingHorizonDays} onChange={(e) => set("horizon", e.target.value)} />
                 </div>

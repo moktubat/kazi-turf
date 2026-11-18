@@ -117,8 +117,8 @@ export type PaymentStatus =
 
 export interface Policies {
   slotMinutes: number;
-  advancePercent: number;           // 06:00–24:00 (day), allowed 30–50
-  nightAdvancePercent: number;      // 00:00–06:00 (night), allowed 50–100, default 100
+  advancePercent: number;           // 06:00–24:00 (day), any whole 1–100
+  nightAdvancePercent: number;      // 00:00–06:00 (night), any whole 1–100, default 100
   holdMinutes: number;
   checkInOpensMinutesBefore: number;
   bookingHorizonDays: number;

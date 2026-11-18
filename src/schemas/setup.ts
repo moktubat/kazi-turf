@@ -251,8 +251,10 @@ const text = (max: number) => z.string().trim().max(max, "Too long");
 
 export const policySchema = z.object({
     holdMinutes: z.number().int().min(5, "At least 5 minutes").max(30, "At most 30 minutes"),
-    advancePercent: z.number().int().min(30, "Allowed range is 30–50").max(50, "Allowed range is 30–50"),
-    nightAdvancePercent: z.number().int().min(50, "Allowed range is 50–100").max(100, "Allowed range is 50–100"),
+    // Any whole percentage the venue wants (e.g. 40, 45, 60, 75). At least 1%, so an
+    // online booking always takes some bKash money; 100 = full payment as advance.
+    advancePercent: z.number({ error: "Enter a whole number from 1 to 100" }).int("Enter a whole number from 1 to 100").min(1, "At least 1%").max(100, "At most 100%"),
+    nightAdvancePercent: z.number({ error: "Enter a whole number from 1 to 100" }).int("Enter a whole number from 1 to 100").min(1, "At least 1%").max(100, "At most 100%"),
     checkInOpensMinutesBefore: z.number().int().min(0, "0 or more").max(120, "At most 120"),
     bookingHorizonDays: z.number().int().min(1, "At least 1 day").max(60, "At most 60 days"),
     vatRatePercent: z.number().min(0.01, "Must be above 0").max(30, "Too high").nullable(),

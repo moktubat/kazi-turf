@@ -118,7 +118,9 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
     const isNight = startMinutes >= NIGHT_START && startMinutes < NIGHT_END;
     const effectiveAdvancePercent = isNight ? (nightAdvancePercent ?? 100) : advancePercent;
 
-    const advance = Math.round((total * effectiveAdvancePercent) / 100);
+    // Any percentage 1–100 is allowed in Setup; a low one must never round an online
+    // advance down to ৳0 (that would confirm a slot with no payment).
+    const advance = Math.min(total, Math.max(1, Math.round((total * effectiveAdvancePercent) / 100)));
     const balance = total - advance;
     if (![subtotal, vat, total, advance, balance].every(Number.isFinite)) {
         throw new AppError("NO_RATE_FOR_SLOT", "We could not price this slot. Pick another time.", 400);
