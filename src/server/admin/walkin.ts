@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
 import { formatBDT } from "@/lib/format";
+import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
 import { addDays, dhakaParts, toHHMM } from "@/lib/time";
 import { BookingModel, PaymentModel, UserModel } from "@/models";
 import { logAudit } from "@/server/audit";
@@ -85,7 +86,7 @@ export async function findCustomerName(phone: string): Promise<string | null> {
 
 export async function createWalkIn(
     user: ServerUser,
-    input: { pitchId: string; cellStarts: string[]; phone: string; name?: string; cashReceived: number },
+    input: { pitchId: string; cellStarts: string[]; phone: string; name?: string; cashReceived: number; note?: string },
     now: Date = new Date()
 ): Promise<AdminBookingDto> {
     const v = await validateWalkIn(user, input.pitchId, input.cellStarts, now);
@@ -114,6 +115,7 @@ export async function createWalkIn(
     const startStrings = v.starts.map((d) => d.toISOString());
     const endAt = new Date(v.starts[v.starts.length - 1].getTime() + (v.pitch.slotMinutes ?? policies.slotMinutes) * 60_000);
     const paid = input.cashReceived;
+    const note = input.note?.trim().slice(0, WALKIN_NOTE_MAX) || null;
 
     const booking: Booking = {
         id,
@@ -142,6 +144,7 @@ export async function createWalkIn(
         holdExpiresAt: now.toISOString(),
         createdAt: now.toISOString(),
         createdFromIp: null,
+        note,
     };
 
     await tx(async (s) => {
@@ -171,7 +174,7 @@ export async function createWalkIn(
                 entityType: "BOOKING",
                 entityId: booking.bookingCode,
                 branchId: booking.branchId,
-                meta: { pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, cash: paid },
+                meta: { pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, cash: paid, ...(note ? { note } : {}) },
             },
             { session: s }
         );

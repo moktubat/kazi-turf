@@ -22,6 +22,8 @@ export interface AdminBookingDto extends BookingDto {
     source: "online" | "counter";
     checkedInAt: string | null;
     cancelReason: string | null;
+    /** Staff note from the walk-in form ("Paid", "Unpaid", …). */
+    note: string | null;
     payments: PaymentDto[];
     changeRequest: { kind: ChangeKind; reason: string; createdAt: string } | null;
     checkIn: { state: CheckInState; message: string; opensAt: string };

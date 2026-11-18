@@ -39,6 +39,9 @@ export interface Booking {
     checkedInAt?: string | null;
     cancelledAt?: string | null;
     cancelReason?: string | null;
+
+    // Staff note added at the counter (walk-ins), e.g. "Paid" or "Unpaid".
+    note?: string | null;
 }
 
 /** What the browser is allowed to see. */

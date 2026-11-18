@@ -204,6 +204,12 @@ export function BookingPanel({
                 </div>
             )}
 
+            {b.note && (
+                <p className="rounded-xl bg-mint p-3 text-sm">
+                    <span className="font-semibold">Note:</span> <span className="break-words">{b.note}</span>
+                </p>
+            )}
+
             {b.cancelReason && (
                 <p className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">Cancelled: {b.cancelReason}</p>
             )}

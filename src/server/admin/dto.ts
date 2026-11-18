@@ -158,6 +158,7 @@ export async function toAdminDto(
 
         checkedInAt: b.checkedInAt ?? null,
         cancelReason: b.cancelReason ?? null,
+        note: b.note ?? null,
 
         payments: pays.map((p) => ({
             id: p.id,

@@ -2,13 +2,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Field";
+import { Input, Textarea } from "@/components/ui/Field";
 import { policies } from "@/data/site";
 import { ApiError, api, isAbort } from "@/lib/api";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { slotLengthMinutes } from "@/lib/time";
 import { isBdPhone, normalizePhone } from "@/lib/phone";
 import { printReceipt } from "@/lib/printReceipt";
+import { WALKIN_NOTE_MAX, WALKIN_NOTE_PICKS, hasNotePick, toggleNotePick } from "@/lib/walkInNote";
 import type { Quote } from "@/server/pricing";
 import type { AdminBookingDto, BoardPitch } from "@/types/admin";
 
@@ -45,6 +46,8 @@ export function WalkInForm({
     // What staff typed or picked. Until then the cash field follows the quoted total (derived below).
     const [cashInput, setCashInput] = useState("");
     const [cashTouched, setCashTouched] = useState(false);
+    // Staff note ("Paid", "Unpaid", …): quick picks below fill it, free text also works.
+    const [note, setNote] = useState("");
     // Keyed by the selection it was priced for: after the slot count changes, the old
     // price (or error) is not shown and Save stays disabled until the new one arrives.
     const [quoted, setQuoted] = useState<{ key: string; quote: Quote | null; error: string | null } | null>(null);
@@ -117,6 +120,7 @@ export function WalkInForm({
         else if (!Number.isInteger(amount) || amount < quote.advance || amount > quote.total) {
             next.cashReceived = `Between ${formatBDT(quote.advance)} and ${formatBDT(quote.total)}`;
         }
+        if (note.trim().length > WALKIN_NOTE_MAX) next.note = `Keep the note under ${WALKIN_NOTE_MAX} characters`;
         setErrors(next);
         if (Object.keys(next).length > 0) return;
 
@@ -130,6 +134,7 @@ export function WalkInForm({
                     phone,
                     name: known ? undefined : name.trim(),
                     cashReceived: amount,
+                    note: note.trim() || undefined,
                 }),
             });
             setCreated(r.booking);
@@ -157,6 +162,9 @@ export function WalkInForm({
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Total</dt><dd className="font-semibold">{formatBDT(created.total)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Cash received</dt><dd className="font-semibold">{formatBDT(created.advancePaid)}</dd></div>
                     <div className="flex justify-between gap-4 font-bold"><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
+                    {created.note && (
+                        <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">Note</dt><dd className="min-w-0 break-words text-right font-semibold">{created.note}</dd></div>
+                    )}
                 </dl>
                 <div className="flex flex-col gap-2">
                     <Button size="lg" onClick={() => printReceipt(created)}>
@@ -271,7 +279,36 @@ export function WalkInForm({
                 )}
             </div>
 
-            {formError && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{formError}</p>}
+            <div className="space-y-2">
+                <Textarea
+                    label="Note (optional)"
+                    rows={2}
+                    maxLength={WALKIN_NOTE_MAX}
+                    placeholder="Paid or unpaid, payment method…"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    error={errors.note}
+                />
+                <div role="group" aria-label="Quick pick note" className="flex flex-wrap gap-2">
+                    {WALKIN_NOTE_PICKS.map((pick) => {
+                        const on = hasNotePick(note, pick);
+                        return (
+                            <button
+                                key={pick}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => setNote((n) => toggleNotePick(n, pick))}
+                                className={`min-h-11 whitespace-nowrap rounded-full border-2 px-4 font-heading text-sm font-semibold transition-colors ${on ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-surface hover:border-teal"
+                                    }`}
+                            >
+                                {pick}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {formError &&<p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{formError}</p>}
 
             <Button type="submit" size="lg" className="w-full" disabled={saving || !quote}>
                 {saving ? "Creating…" : "Create booking"}

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizePhone } from "@/lib/phone";
+import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
 import { phoneInput } from "./common";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -25,6 +26,8 @@ export const walkInSchema = walkInQuoteSchema.extend({
     phone: phoneInput.transform(normalizePhone),
     name: z.string().trim().max(80).optional(),
     cashReceived: z.number().int().min(1).max(1_000_000),
+    // Staff note, e.g. "Paid" / "Unpaid". Blank is stored as no note.
+    note: z.string().trim().max(WALKIN_NOTE_MAX, `Keep the note under ${WALKIN_NOTE_MAX} characters`).optional(),
 });
 
 export const customerLookupSchema = z.object({ phone: phoneInput.transform(normalizePhone) });

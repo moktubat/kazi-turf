@@ -76,6 +76,7 @@ const booking = new Schema(
         checkedInAt: String,
         cancelledAt: String,
         cancelReason: String,
+        note: { type: String, default: null }, // staff note from the walk-in form
     },
     opts
 );
