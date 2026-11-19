@@ -31,7 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
-    "happy-dom": "^20.14.6",
+    "happy-dom": "^21.0.4",
     "mongodb-memory-server": "^11.3.0",
     "postcss": "^8.5.32",
     "tailwindcss": "^4",

@@ -58,7 +58,8 @@ export function Hero({
                     />
                 )}
             </div>
-            <div className="absolute inset-0 bg-gradient-to-b from-evergreen/80 via-evergreen/55 to-evergreen/80" />
+
+            {/* <div className="absolute inset-0 bg-gradient-to-b from-evergreen/80 via-evergreen/55 to-evergreen/80" /> */}
 
             {/* Centered content: just the sport tabs + a bigger search box */}
             <div className="relative z-10 mx-auto flex min-h-svh max-w-3xl flex-col items-center justify-center gap-1 px-4 py-24 lg:max-w-4xl">

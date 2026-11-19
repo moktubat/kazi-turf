@@ -34,7 +34,18 @@ export interface AdminBookingDto extends BookingDto {
         cancel: boolean;
         refund: boolean;
         handleRequest: boolean;
+        /** Staff may add or change the counter discount (Booked or Checked in, no payment in flight). */
+        editDiscount: boolean;
+        /** Staff may add or change the staff note (Booked or Checked in). */
+        editNote: boolean;
+        /** Staff may undo a check-in: the booking goes back to Booked. */
+        undoCheckIn: boolean;
     };
+    /** The discount as staff entered it (null when none) — prefills the panel's discount form. */
+    discountType: "FIXED" | "PERCENT" | null;
+    discountValue: number | null;
+    /** The venue's VAT mode, so the discount form previews totals exactly like the server. */
+    vatMode: "inclusive" | "exclusive";
     vatRegistrationNo: string;
 }
 

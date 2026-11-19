@@ -1,7 +1,7 @@
 // Shared booking drawer content: used by the Staff Desk and /admin/bookings.
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Banknote, Check, CheckCircle2, History, LogIn, Phone, Printer, RotateCcw, XCircle } from "lucide-react";
+import { AlertTriangle, BadgePercent, Banknote, Check, CheckCircle2, History, LogIn, Phone, Printer, RotateCcw, StickyNote, Undo2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
@@ -12,9 +12,9 @@ import { formatDateTime } from "@/lib/formatAdmin";
 import { hasVerifiedPayment, printReceipt } from "@/lib/printReceipt";
 import type { Role } from "@/types";
 import type { AdminBookingDto, AuditEntryDto } from "@/types/admin";
-import { CancelForm, CheckInForm, CollectForm, RefundForm } from "./ActionForms";
+import { CancelForm, CheckInForm, CollectForm, DiscountForm, NoteForm, RefundForm, UndoCheckInForm } from "./ActionForms";
 
-type Mode = null | "checkin" | "collect" | "cancel" | "refund";
+type Mode = null | "checkin" | "collect" | "cancel" | "refund" | "discount" | "note" | "undo";
 type State =
     | { kind: "loading" }
     | { kind: "error"; message: string }
@@ -176,7 +176,16 @@ export function BookingPanel({
 
             <dl className="space-y-1.5 rounded-xl bg-mint p-3 text-sm">
                 <Line label="Subtotal" value={formatBDT(b.subtotal)} />
-                <Line label="Discount" value={formatDiscount(b.discountAmount)} />
+                <Line
+                    label="Discount"
+                    value={
+                        <>
+                            {formatDiscount(b.discountAmount)}
+                            {/* Show how the discount was given when it is a percentage. */}
+                            {b.discountAmount > 0 && b.discountType === "PERCENT" ? ` (${b.discountValue}%)` : ""}
+                        </>
+                    }
+                />
                 {b.vatRatePercent && b.vatAmount > 0 && (
                     <Line label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`} value={formatBDT(b.vatAmount)} />
                 )}
@@ -239,6 +248,16 @@ export function BookingPanel({
                             <Banknote size={18} aria-hidden /> Collect balance (cash {formatBDT(b.balanceDue)})
                         </Button>
                     )}
+                    {b.can.editDiscount && (
+                        <Button variant="secondary" onClick={() => open("discount")}>
+                            <BadgePercent size={18} aria-hidden /> {b.discountAmount > 0 ? "Edit discount" : "Add discount"}
+                        </Button>
+                    )}
+                    {b.can.editNote && (
+                        <Button variant="outline" onClick={() => open("note")}>
+                            <StickyNote size={18} aria-hidden /> {b.note ? "Edit note" : "Add note"}
+                        </Button>
+                    )}
                     {hasVerifiedPayment(b) && (
                         <Button variant="outline" onClick={() => printReceipt(b)}>
                             <Printer size={18} aria-hidden /> Print receipt
@@ -247,6 +266,11 @@ export function BookingPanel({
                     {b.can.refund && (
                         <Button variant="outline" onClick={() => open("refund")}>
                             <RotateCcw size={18} aria-hidden /> Record refund
+                        </Button>
+                    )}
+                    {b.can.undoCheckIn && (
+                        <Button variant="outline" onClick={() => open("undo")}>
+                            <Undo2 size={18} aria-hidden /> Undo check-in (back to Booked)
                         </Button>
                     )}
                     {b.can.cancel && (
@@ -258,8 +282,11 @@ export function BookingPanel({
             )}
             {mode === "checkin" && <CheckInForm {...formProps} onSubmit={(body) => run("check-in", body)} />}
             {mode === "collect" && <CollectForm {...formProps} onSubmit={() => run("collect-balance")} />}
+            {mode === "discount" && <DiscountForm {...formProps} onSubmit={(body) => run("discount", body)} />}
+            {mode === "note" && <NoteForm {...formProps} onSubmit={(body) => run("note", body)} />}
             {mode === "cancel" && <CancelForm {...formProps} onSubmit={(body) => run("cancel", body)} />}
             {mode === "refund" && <RefundForm {...formProps} onSubmit={(body) => run("refund", body)} />}
+            {mode === "undo" && <UndoCheckInForm {...formProps} onSubmit={(body) => run("undo-check-in", body)} />}
 
             <details className="rounded-xl border border-evergreen/10 p-3 text-sm">
                 <summary className="flex min-h-11 cursor-pointer items-center gap-2 font-semibold">

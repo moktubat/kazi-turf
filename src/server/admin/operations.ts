@@ -3,7 +3,11 @@
 import "server-only";
 import { randomUUID } from "crypto";
 import type { ClientSession } from "mongoose";
+import { policies } from "@/data/site";
 import { dhakaParts } from "@/lib/time";
+import { counterDiscountAmount, counterDiscountError, type CounterDiscount } from "@/lib/counterDiscount";
+import { vatTotals } from "@/lib/pricing";
+import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
 import { BookingModel, ChangeRequestModel, CheckInModel, PaymentModel, SlotClaimModel } from "@/models";
 import type { CheckInInput } from "@/schemas/admin";
 import { logAudit } from "@/server/audit";
@@ -129,6 +133,174 @@ export async function checkIn(user: ServerUser, code: string, input: CheckInInpu
                     ...(result === "OVERRIDE" ? { rule: state.message } : {}),
                     ...(overrideReason ? { reason: overrideReason } : {}),
                 },
+            },
+            { session: s }
+        );
+    });
+
+    return toAdminDto(await fresh(b), user, now);
+}
+
+/**
+ * Undo a check-in: the booking goes back to Booked (CONFIRMED) — for example when the
+ * customer was checked in by mistake, or staff still need to fix the note or discount.
+ * Money already collected stays collected (collecting the balance is independent of the
+ * check-in state), and the booking can be checked in again afterwards. The latest
+ * check-in record is marked undone rather than deleted, so the trail stays complete.
+ */
+export async function undoCheckIn(user: ServerUser, code: string, reason: string | undefined, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await findBookingForStaff(user, code);
+    if (b.bookingStatus !== "CHECKED_IN") {
+        throw new AppError("NOT_CHECKED_IN", "This booking is not checked in.", 409);
+    }
+
+    await tx(async (s) => {
+        // Conditional: if someone just changed the booking (re-check-in, cancel…), nothing moves.
+        const r = await BookingModel.updateOne(
+            { id: b.id, bookingStatus: "CHECKED_IN" },
+            { $set: { bookingStatus: "CONFIRMED" }, $unset: { checkedInAt: "" } },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) {
+            throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+        }
+        await CheckInModel.findOneAndUpdate(
+            { bookingId: b.id, undoneAt: null },
+            { $set: { undoneAt: now.toISOString(), undoneBy: user.id } },
+            { sort: { checkedInAt: -1 }, session: s }
+        );
+        await logAudit(
+            user,
+            {
+                action: "CHECKIN_UNDONE",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: {
+                    ...(b.checkedInAt ? { checkedInAt: b.checkedInAt } : {}),
+                    ...(reason ? { reason } : {}),
+                },
+            },
+            { session: s }
+        );
+    });
+
+    return toAdminDto(await fresh(b), user, now);
+}
+
+/**
+ * Add or change the counter discount after the booking was created — the same discount
+ * staff could only give in the walk-in form before. The discount comes off the priced
+ * subtotal, VAT is worked out again on what is left, and the total, balance and payment
+ * status are recalculated from what the customer has actually paid so far.
+ */
+export async function updateDiscount(user: ServerUser, code: string, discount: CounterDiscount | null, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await findBookingForStaff(user, code);
+    if (b.bookingStatus !== "CONFIRMED" && b.bookingStatus !== "CHECKED_IN") {
+        throw new AppError("NOT_EDITABLE", "The discount can only be changed while the booking is Booked or Checked in.", 409);
+    }
+    if (b.paymentStatus === "PENDING") {
+        throw new AppError("PAYMENT_IN_PROGRESS", "A payment is being processed. Try again shortly.", 409);
+    }
+    if (b.paymentStatus !== "PARTIALLY_PAID" && b.paymentStatus !== "PAID") {
+        throw new AppError("NOT_EDITABLE", "The discount can only be changed on a booked or checked-in booking.", 409);
+    }
+
+    // Same rules as the walk-in form: whole taka or whole percent, at most the subtotal.
+    const discountError = counterDiscountError(discount, b.subtotal);
+    if (discountError) {
+        throw new AppError("INVALID_DISCOUNT", `Discount: ${discountError}.`, 400, { discount: discountError });
+    }
+    const discountAmount = counterDiscountAmount(discount, b.subtotal);
+    const { vat, total } = vatTotals(b.subtotal - discountAmount, b.vatRatePercentSnapshot ?? null, policies.vatMode);
+
+    // What the customer has actually paid (successful payments only — the same sum the
+    // panel shows). The new balance is the discounted total minus that.
+    const paid = (await PaymentModel.find({ bookingId: b.id, status: "SUCCESS" }, { amount: 1 }).lean<{ amount: number }[]>()).reduce(
+        (sum, p) => sum + p.amount,
+        0
+    );
+    const balance = Math.max(0, total - paid);
+    const paymentStatus = paid > 0 && total <= paid ? "PAID" : "PARTIALLY_PAID";
+    const applied = discountAmount > 0 ? discount! : null;
+
+    await tx(async (s) => {
+        // Must still be in exactly the state we read, or someone changed it first.
+        const r = await BookingModel.updateOne(
+            { id: b.id, bookingStatus: b.bookingStatus, paymentStatus: b.paymentStatus },
+            {
+                $set: {
+                    discountAmount,
+                    discountType: applied?.type ?? null,
+                    discountValue: applied?.value ?? null,
+                    vatAmount: vat,
+                    total,
+                    balanceAmount: balance,
+                    paymentStatus,
+                },
+            },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) {
+            throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+        }
+        await logAudit(
+            user,
+            {
+                action: "DISCOUNT_UPDATED",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: {
+                    discountType: applied?.type ?? "NONE",
+                    discountValue: applied?.value ?? 0,
+                    discount: discountAmount,
+                    oldTotal: b.total,
+                    newTotal: total,
+                    oldBalance: b.balanceAmount,
+                    newBalance: balance,
+                    paidAtTheTime: paid,
+                },
+            },
+            { session: s }
+        );
+    });
+
+    return toAdminDto(await fresh(b), user, now);
+}
+
+/**
+ * Add or change (or clear, with a null note) the staff note after the booking was
+ * created — the note staff could previously only type in the walk-in form.
+ */
+export async function updateNote(user: ServerUser, code: string, note: string | null, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await findBookingForStaff(user, code);
+    if (b.bookingStatus !== "CONFIRMED" && b.bookingStatus !== "CHECKED_IN") {
+        throw new AppError("NOT_EDITABLE", "The note can only be changed while the booking is Booked or Checked in.", 409);
+    }
+    if (b.paymentStatus === "PENDING") {
+        throw new AppError("PAYMENT_IN_PROGRESS", "A payment is being processed. Try again shortly.", 409);
+    }
+
+    const trimmed = note?.trim().slice(0, WALKIN_NOTE_MAX) || null;
+
+    await tx(async (s) => {
+        const r = await BookingModel.updateOne(
+            { id: b.id, bookingStatus: b.bookingStatus },
+            { $set: { note: trimmed } },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) {
+            throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+        }
+        await logAudit(
+            user,
+            {
+                action: "NOTE_UPDATED",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: { note: trimmed ?? "", previousNote: b.note ?? "" },
             },
             { session: s }
         );

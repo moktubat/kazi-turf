@@ -23,6 +23,17 @@ export const walkInQuoteSchema = z.object({
     cellStarts: z.array(isoStart).min(1).max(4),
 });
 
+// A counter discount: whole taka (FIXED) or whole percent (PERCENT) off the subtotal.
+// Shared by the walk-in form and the booking panel's "add / edit discount" so both
+// validate exactly the same way. The server re-checks it against the real price
+// (lib/counterDiscount) either way.
+const counterDiscountShape = z
+    .object({
+        type: z.enum(["FIXED", "PERCENT"]),
+        value: z.number({ error: "Enter a whole number" }).int("Enter a whole number").min(0, "0 or more").max(1_000_000),
+    })
+    .refine((d) => d.type !== "PERCENT" || d.value <= 100, { path: ["value"], message: "At most 100%" });
+
 export const walkInSchema = walkInQuoteSchema.extend({
     phone: phoneInput.transform(normalizePhone),
     name: z.string().trim().max(80).optional(),
@@ -30,13 +41,7 @@ export const walkInSchema = walkInQuoteSchema.extend({
     cashReceived: z.number().int().min(0).max(1_000_000),
     // Optional counter discount: whole taka (FIXED) or whole percent (PERCENT) off the
     // subtotal. The server re-checks it against the real price (lib/counterDiscount).
-    discount: z
-        .object({
-            type: z.enum(["FIXED", "PERCENT"]),
-            value: z.number({ error: "Enter a whole number" }).int("Enter a whole number").min(0, "0 or more").max(1_000_000),
-        })
-        .refine((d) => d.type !== "PERCENT" || d.value <= 100, { path: ["value"], message: "At most 100%" })
-        .optional(),
+    discount: counterDiscountShape.optional(),
     // Staff note, e.g. "Paid" / "Unpaid". Blank is stored as no note.
     note: z.string().trim().max(WALKIN_NOTE_MAX, `Keep the note under ${WALKIN_NOTE_MAX} characters`).optional(),
 });
@@ -56,6 +61,29 @@ export const checkInSchema = z.object({
     ),
 });
 export type CheckInInput = z.infer<typeof checkInSchema>;
+
+// Add or change (or remove, with discount: null) the counter discount AFTER the
+// booking was created — same rules as at the counter (lib/counterDiscount).
+export const discountUpdateSchema = z.object({
+    discount: counterDiscountShape.nullable().optional(),
+});
+export type DiscountUpdateInput = z.infer<typeof discountUpdateSchema>;
+
+// Undo a check-in: the booking goes back to Booked. The reason is optional and
+// only feeds the audit trail.
+export const undoCheckInSchema = z.object({
+    reason: z.string().trim().max(CHECKIN_REASON_MAX).optional(),
+});
+export type UndoCheckInInput = z.infer<typeof undoCheckInSchema>;
+
+// Add or change (or remove, with note: null) the staff note after the booking exists.
+export const noteUpdateSchema = z.object({
+    note: z.preprocess(
+        (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+        z.string().trim().max(WALKIN_NOTE_MAX, `Keep the note under ${WALKIN_NOTE_MAX} characters`).nullable().optional()
+    ),
+});
+export type NoteUpdateInput = z.infer<typeof noteUpdateSchema>;
 
 export const cancelSchema = z.object({
     reason: z.string().trim().min(5, "Add a short reason (5+ characters)").max(200, "Keep it under 200 characters"),

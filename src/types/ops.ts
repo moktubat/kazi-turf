@@ -7,6 +7,9 @@ export const AUDIT_ACTIONS = [
     "CHECKED_IN",
     "CHECKIN_OVERRIDE",
     "CHECKIN_BLOCKED",
+    "CHECKIN_UNDONE",
+    "DISCOUNT_UPDATED",
+    "NOTE_UPDATED",
     "REFUND_RECORDED",
     "CHANGE_REQUEST_HANDLED",
     "BOOKING_CREATED",
@@ -60,6 +63,9 @@ export interface CheckIn {
     balanceCollected: number;
     /** Reason given for an out-of-rules check-in; null when none was given. */
     reason?: string | null;
+    /** Set when staff undid this check-in (the booking went back to Booked). */
+    undoneAt?: string | null;
+    undoneBy?: string | null;
 }
 
 export interface Payment {

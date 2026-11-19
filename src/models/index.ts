@@ -66,6 +66,7 @@ const booking = new Schema(
         vatAmount: Number,
         // Walk-in counter discount (taka off the subtotal, before VAT). Absent on older
         // bookings, which read as no discount; total is always the net payable amount.
+        // Staff can also add or change it later from the booking panel.
         discountAmount: { type: Number, default: 0 },
         discountType: { type: String, enum: ["FIXED", "PERCENT", null], default: null },
         discountValue: { type: Number, default: null },
@@ -148,6 +149,10 @@ const checkIn = new Schema(
         balanceCollected: Number,
         // Why staff checked in outside the normal rules; null when no reason was given.
         reason: { type: String, default: null },
+        // Set when staff undid this check-in (the booking went back to Booked). The record
+        // is kept — not deleted — so the audit trail stays complete.
+        undoneAt: { type: String, default: null },
+        undoneBy: { type: String, default: null },
     },
     opts
 );

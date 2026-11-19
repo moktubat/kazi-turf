@@ -203,7 +203,28 @@ export async function toAdminDto(
                 b.paymentStatus === "REFUND_PENDING",
 
             handleRequest: !!openReq,
+
+            // The counter discount and the staff note can be added or changed while the
+            // booking is live. A bKash payment in flight (PENDING) locks both; finished
+            // bookings (cancelled / expired / completed) are out of reach.
+            editDiscount:
+                (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN") &&
+                (b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID"),
+
+            editNote:
+                (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN") &&
+                b.paymentStatus !== "PENDING",
+
+            undoCheckIn: b.bookingStatus === "CHECKED_IN",
         },
+
+        // The discount as entered (type + value), so the panel's discount form can prefill
+        // it; null when the booking has no counter discount.
+        discountType: b.discountType ?? null,
+        discountValue: b.discountValue ?? null,
+        // The venue's VAT mode: the discount form re-derives the totals client-side with
+        // the very same helpers the server uses (lib/counterDiscount + lib/pricing).
+        vatMode: policies.vatMode,
 
         vatRegistrationNo:
             b.vatRatePercentSnapshot && policies.vatRegistrationNo

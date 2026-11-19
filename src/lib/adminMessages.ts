@@ -7,7 +7,15 @@ export function countLabel(shown: number, more: boolean): string {
 }
 
 /** Booking actions in the booking drawer (the last part of /api/admin/bookings/[code]/…). */
-export type BookingAction = "check-in" | "collect-balance" | "cancel" | "refund" | "request";
+export type BookingAction =
+    | "check-in"
+    | "collect-balance"
+    | "cancel"
+    | "refund"
+    | "request"
+    | "discount"
+    | "note"
+    | "undo-check-in";
 
 /** Confirmation shown after an action succeeds. */
 export function actionSuccessMessage(action: BookingAction): string {
@@ -22,5 +30,11 @@ export function actionSuccessMessage(action: BookingAction): string {
             return "Refund recorded.";
         case "request":
             return "Request marked as handled.";
+        case "discount":
+            return "Discount updated.";
+        case "note":
+            return "Note saved.";
+        case "undo-check-in":
+            return "Check-in undone. The booking is back to Booked.";
     }
 }
