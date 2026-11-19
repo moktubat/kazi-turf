@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
+import { CHECKIN_OUTSIDE_PROMPT, CHECKIN_REASON_MAX, CHECKIN_REASON_PICKS, checkInReasonError } from "@/lib/checkInReason";
 import { formatBDT } from "@/lib/format";
 import type { AdminBookingDto } from "@/types/admin";
 
@@ -32,17 +33,22 @@ export function CheckInForm({ b, busy, onSubmit, onBack }: FormProps) {
     const [collect, setCollect] = useState(b.can.collectBalance);
     const [reason, setReason] = useState("");
     const [err, setErr] = useState<string | null>(null);
-    const needsReason = b.checkIn.state !== "VALID";
+    // A Super Admin re-check-in still needs a reason; outside the window it is optional.
+    const reasonRequired = b.can.overrideCheckIn;
+    const showReason = reasonRequired || b.checkIn.state === "OUTSIDE_WINDOW";
+    const reasonErr = checkInReasonError(reason);
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
         if (method === "PHONE" && !/^\d{4}$/.test(digits)) return setErr("Enter the last 4 digits of the phone number.");
-        if (needsReason && reason.trim().length < 5) return setErr("Add a reason (5+ characters) to check in outside the normal rules.");
+        if (showReason && reasonRequired && reason.trim().length === 0) return setErr(CHECKIN_OUTSIDE_PROMPT);
+        if (showReason && reasonErr) return setErr(reasonErr);
         setErr(null);
+        const r = reason.trim();
         onSubmit({
             identity: method === "PHONE" ? { method, digits } : { method },
             collectBalance: collect && b.can.collectBalance,
-            ...(needsReason ? { overrideReason: reason.trim() } : {}),
+            ...(showReason && r ? { overrideReason: r } : {}),
         });
     }
 
@@ -70,14 +76,36 @@ export function CheckInForm({ b, busy, onSubmit, onBack }: FormProps) {
                 </label>
             )}
 
-            {needsReason && (
-                <Textarea
-                    label={b.can.overrideCheckIn ? "Reason for the override" : "Reason for checking in outside the window"}
-                    rows={2}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    hint={b.checkIn.message}
-                />
+            {showReason && (
+                <div className="space-y-2">
+                    <p className="rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
+                        {b.checkIn.message} {CHECKIN_OUTSIDE_PROMPT}
+                    </p>
+                    <Textarea
+                        label={reasonRequired ? "Reason for the override" : "Reason (optional)"}
+                        rows={2}
+                        value={reason}
+                        maxLength={CHECKIN_REASON_MAX}
+                        onChange={(e) => setReason(e.target.value)}
+                        hint="Pick one below or type your own."
+                    />
+                    <div role="group" aria-label="Quick pick reason" className="flex flex-wrap gap-2">
+                        {CHECKIN_REASON_PICKS.map((pick) => {
+                            const on = reason.trim() === pick;
+                            return (
+                                <button
+                                    key={pick}
+                                    type="button"
+                                    aria-pressed={on}
+                                    onClick={() => setReason(on ? "" : pick)}
+                                    className={`min-h-11 whitespace-nowrap rounded-full border-2 px-4 font-heading text-sm font-semibold transition-colors ${on ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-surface hover:border-teal"}`}
+                                >
+                                    {pick}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             )}
 
             {err && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{err}</p>}

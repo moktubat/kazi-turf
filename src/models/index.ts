@@ -146,6 +146,8 @@ const checkIn = new Schema(
         checkedInBy: String,
         result: { type: String, enum: ["OK", "OVERRIDE"] },
         balanceCollected: Number,
+        // Why staff checked in outside the normal rules; null when no reason was given.
+        reason: { type: String, default: null },
     },
     opts
 );

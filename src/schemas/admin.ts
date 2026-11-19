@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { normalizePhone } from "@/lib/phone";
 import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
+import { CHECKIN_REASON_MAX, CHECKIN_REASON_MIN, CHECKIN_REASON_TOO_SHORT } from "@/lib/checkInReason";
 import { phoneInput } from "./common";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -48,7 +49,11 @@ export const checkInSchema = z.object({
         z.object({ method: z.literal("NAME") }),
     ]),
     collectBalance: z.boolean(),
-    overrideReason: z.string().trim().min(5, "Add a reason (5+ characters)").max(200).optional(),
+    // Optional. Blank (or only spaces) counts as no reason; a typed reason needs 5+ characters.
+    overrideReason: z.preprocess(
+        (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+        z.string().trim().min(CHECKIN_REASON_MIN, CHECKIN_REASON_TOO_SHORT).max(CHECKIN_REASON_MAX).optional()
+    ),
 });
 export type CheckInInput = z.infer<typeof checkInSchema>;
 

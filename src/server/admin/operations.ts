@@ -85,9 +85,7 @@ export async function checkIn(user: ServerUser, code: string, input: CheckInInpu
         result = "OVERRIDE";
         overrideReason = input.overrideReason;
     } else if (state.state === "OUTSIDE_WINDOW") {
-        if (!input.overrideReason) {
-            throw new AppError("OUTSIDE_WINDOW", `${state.message} Add a reason to check in anyway.`, 409);
-        }
+        // Staff may check in outside the window; the reason is optional and saved when given.
         result = "OVERRIDE";
         overrideReason = input.overrideReason;
     }
@@ -115,7 +113,7 @@ export async function checkIn(user: ServerUser, code: string, input: CheckInInpu
         }
 
         await CheckInModel.create(
-            [{ id: randomUUID(), bookingId: b.id, checkedInAt: now.toISOString(), checkedInBy: user.id, result, balanceCollected: collected }],
+            [{ id: randomUUID(), bookingId: b.id, checkedInAt: now.toISOString(), checkedInBy: user.id, result, balanceCollected: collected, reason: overrideReason ?? null }],
             { session: s }
         );
         await logAudit(
@@ -125,7 +123,12 @@ export async function checkIn(user: ServerUser, code: string, input: CheckInInpu
                 entityType: "BOOKING",
                 entityId: b.bookingCode,
                 branchId: b.branchId,
-                meta: { balanceCollected: collected, verifiedBy: input.identity.method, ...(overrideReason ? { reason: overrideReason } : {}) },
+                meta: {
+                    balanceCollected: collected,
+                    verifiedBy: input.identity.method,
+                    ...(result === "OVERRIDE" ? { rule: state.message } : {}),
+                    ...(overrideReason ? { reason: overrideReason } : {}),
+                },
             },
             { session: s }
         );

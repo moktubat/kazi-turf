@@ -58,6 +58,8 @@ export interface CheckIn {
     checkedInBy: string;
     result: "OK" | "OVERRIDE";
     balanceCollected: number;
+    /** Reason given for an out-of-rules check-in; null when none was given. */
+    reason?: string | null;
 }
 
 export interface Payment {
