@@ -6,7 +6,7 @@ import { Input, Select, Textarea } from "@/components/ui/Field";
 import { policies } from "@/data/site";
 import { ApiError, api, isAbort } from "@/lib/api";
 import { applyCounterDiscount, counterDiscountError, type CounterDiscount, type CounterDiscountType } from "@/lib/counterDiscount";
-import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
+import { formatBDT, formatDateLong, formatDiscount, formatTime12 } from "@/lib/format";
 import { slotLengthMinutes } from "@/lib/time";
 import { isBdPhone, normalizePhone } from "@/lib/phone";
 import { printReceipt } from "@/lib/printReceipt";
@@ -176,9 +176,8 @@ export function WalkInForm({
                 <dl className="space-y-1.5 text-left text-sm">
                     <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">Customer</dt><dd className="min-w-0 break-words text-right font-semibold">{created.customerName}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">When</dt><dd className="text-right font-semibold">{formatDateLong(created.date)}, {formatTime12(created.start)}–{formatTime12(created.end)}</dd></div>
-                    {created.discountAmount > 0 && (
-                        <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Discount</dt><dd className="font-semibold">−{formatBDT(created.discountAmount)}</dd></div>
-                    )}
+                    <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Subtotal</dt><dd className="font-semibold">{formatBDT(created.subtotal)}</dd></div>
+                    <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Discount</dt><dd className="font-semibold">{formatDiscount(created.discountAmount)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Total</dt><dd className="font-semibold">{formatBDT(created.total)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Cash received</dt><dd className="font-semibold">{formatBDT(created.advancePaid)}</dd></div>
                     <div className="flex justify-between gap-4 font-bold"><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
@@ -277,28 +276,18 @@ export function WalkInForm({
             <div className="rounded-xl bg-mint p-3 text-sm" aria-live="polite">
                 {quote ? (
                     <dl className="space-y-1.5">
-                        {priced && priced.discountAmount > 0 ? (
-                            <>
-                                <div className="flex justify-between gap-4"><dt>Original price</dt><dd className="font-semibold">{formatBDT(priced.originalTotal)}</dd></div>
-                                <div className="flex justify-between gap-4 text-teal">
-                                    <dt>Discount{discount?.type === "PERCENT" ? ` (${discount.value}%)` : ""}</dt>
-                                    <dd className="font-semibold">−{formatBDT(priced.discountAmount)}</dd>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="flex justify-between gap-4"><dt>Subtotal</dt><dd className="font-semibold">{formatBDT(quote.subtotal)}</dd></div>
-                        )}
+                        <div className="flex justify-between gap-4"><dt>Subtotal</dt><dd className="font-semibold">{formatBDT(quote.subtotal)}</dd></div>
+                        <div className={`flex justify-between gap-4 ${priced && priced.discountAmount > 0 ? "text-teal" : ""}`}>
+                            <dt>Discount{priced && priced.discountAmount > 0 && discount?.type === "PERCENT" ? ` (${discount.value}%)` : ""}</dt>
+                            <dd className="font-semibold">{formatDiscount(priced?.discountAmount ?? 0)}</dd>
+                        </div>
                         {quote.vatRatePercent && (priced?.vat ?? quote.vat) > 0 && (
                             <div className="flex justify-between gap-4">
                                 <dt>{quote.vatMode === "inclusive" ? `Includes VAT (${quote.vatRatePercent}%)` : `VAT (${quote.vatRatePercent}%)`}</dt>
                                 <dd className="font-semibold">{formatBDT(priced?.vat ?? quote.vat)}</dd>
                             </div>
                         )}
-                        {priced && priced.discountAmount > 0 ? (
-                            <div className="flex justify-between gap-4 font-bold"><dt>Payable</dt><dd>{formatBDT(priced.total)}</dd></div>
-                        ) : (
-                            <div className="flex justify-between gap-4 font-bold"><dt>Total</dt><dd>{formatBDT(quote.total)}</dd></div>
-                        )}
+                        <div className="flex justify-between gap-4 font-bold"><dt>Total</dt><dd>{formatBDT(priced?.total ?? quote.total)}</dd></div>
                     </dl>
                 ) : quoteError ? (
                     <p role="alert" className="font-medium text-booked">{quoteError}</p>

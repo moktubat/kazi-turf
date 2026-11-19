@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { actionSuccessMessage, type BookingAction } from "@/lib/adminMessages";
 import { ApiError, api, isAbort } from "@/lib/api";
-import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
+import { formatBDT, formatDateLong, formatDiscount, formatTime12 } from "@/lib/format";
 import { formatDateTime } from "@/lib/formatAdmin";
 import { hasVerifiedPayment, printReceipt } from "@/lib/printReceipt";
 import type { Role } from "@/types";
@@ -176,7 +176,7 @@ export function BookingPanel({
 
             <dl className="space-y-1.5 rounded-xl bg-mint p-3 text-sm">
                 <Line label="Subtotal" value={formatBDT(b.subtotal)} />
-                {b.discountAmount > 0 && <Line label="Counter discount" value={`−${formatBDT(b.discountAmount)}`} />}
+                <Line label="Discount" value={formatDiscount(b.discountAmount)} />
                 {b.vatRatePercent && b.vatAmount > 0 && (
                     <Line label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`} value={formatBDT(b.vatAmount)} />
                 )}

@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/Card";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { ApiError, api, isAbort } from "@/lib/api";
 import { googleCalendarUrl } from "@/lib/calendar";
-import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
+import { formatBDT, formatDateLong, formatDiscount, formatTime12 } from "@/lib/format";
 import { startBkashPayment } from "@/lib/payments";
 import type { BookingDto } from "@/types/booking";
 import { HoldCountdown } from "./HoldCountdown";
@@ -172,7 +172,14 @@ export function BookingResult({ code }: { code: string }) {
                     <Card className="space-y-4">
                         <Details b={b} when={when} />
                         <dl className="space-y-1.5 rounded-xl bg-mint p-3 text-sm">
-                            {b.discountAmount > 0 && <Line label="Discount" value={`−${formatBDT(b.discountAmount)}`} />}
+                            <Line label="Subtotal" value={formatBDT(b.subtotal)} />
+                            <Line label="Discount" value={formatDiscount(b.discountAmount)} />
+                            {b.vatRatePercent && b.vatAmount > 0 && (
+                                <Line
+                                    label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}
+                                    value={formatBDT(b.vatAmount)}
+                                />
+                            )}
                             <Line label="Total" value={formatBDT(b.total)} />
                             <Line label="Advance paid" value={formatBDT(b.advancePaid)} />
                             <Line label="Balance due at venue" value={formatBDT(b.balanceDue)} strong />

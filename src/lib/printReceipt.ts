@@ -37,7 +37,7 @@ ${row("Date", formatDateLong(b.date))}
 ${row("Time", `${b.start}-${b.end}`)}
 </table><hr><table>
 ${row("Subtotal", formatBDT(b.subtotal))}
-${discount ? row("Discount", `-${formatBDT(discount)}`) : ""}
+${row("Discount", discount ? `-${formatBDT(discount)}` : formatBDT(0))}
 ${b.vatRatePercent && b.vatAmount > 0 ? row(vatLabel, formatBDT(b.vatAmount)) : ""}
 ${row("Total", formatBDT(b.total), true)}
 </table><hr><table>

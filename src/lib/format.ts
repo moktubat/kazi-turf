@@ -8,6 +8,12 @@ export function formatBDT(amount: unknown): string {
     return `৳${bdt.format(n)}`;
 }
 
+/** A discount line's value: "−৳150" when one was given, "৳0" when none (or a bad/missing amount). */
+export function formatDiscount(amount: unknown): string {
+    const n = typeof amount === "number" ? amount : Number(amount);
+    return Number.isFinite(n) && n > 0 ? `−${formatBDT(n)}` : formatBDT(0);
+}
+
 export function isPayableAmount(amount: unknown): amount is number {
     return typeof amount === "number" && Number.isFinite(amount) && amount > 0;
 }

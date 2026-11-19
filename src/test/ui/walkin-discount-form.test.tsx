@@ -54,17 +54,18 @@ describe("WalkInForm discount", () => {
         renderForm();
         await screen.findByText("Full ৳2,000");
         expect(screen.getByLabelText("Discount (optional)")).toBeTruthy();
+        expect(row("Subtotal")).toContain("৳2,000");
+        expect(row("Discount")).toContain("৳0");
         expect(row("Total")).toContain("৳2,000");
-        expect(screen.queryByText("Payable")).toBeNull();
     });
 
-    it("a taka discount shows original price, discount and payable; cash follows the payable", async () => {
+    it("a taka discount shows subtotal, discount and total; cash follows the total", async () => {
         renderForm();
         await screen.findByText("Full ৳2,000");
         fireEvent.change(screen.getByLabelText("Discount (optional)"), { target: { value: "300" } });
-        expect(row("Original price")).toContain("৳2,000");
+        expect(row("Subtotal")).toContain("৳2,000");
         expect(row("Discount")).toContain("−৳300");
-        expect(row("Payable")).toContain("৳1,700");
+        expect(row("Total")).toContain("৳1,700");
         expect((screen.getByLabelText("Cash received (৳)") as HTMLInputElement).value).toBe("1700");
         expect(screen.getByRole("button", { name: "Full ৳1,700" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "Advance ৳510" })).toBeTruthy(); // 30% of the payable
@@ -83,7 +84,7 @@ describe("WalkInForm discount", () => {
         fireEvent.change(screen.getByLabelText("Discount type"), { target: { value: "PERCENT" } });
         fireEvent.change(screen.getByLabelText("Discount (optional)"), { target: { value: "10" } });
         expect(row("Discount (10%)")).toContain("−৳200");
-        expect(row("Payable")).toContain("৳1,800");
+        expect(row("Total")).toContain("৳1,800");
         fillCustomer();
         fireEvent.click(screen.getByRole("button", { name: "Create booking" }));
         await waitFor(() => expect(bookingCall()).toBeTruthy());

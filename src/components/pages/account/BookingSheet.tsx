@@ -9,7 +9,7 @@ import { Select, Textarea } from "@/components/ui/Field";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { cancellationSummary } from "@/data/bookingCopy";
 import { ApiError, api } from "@/lib/api";
-import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
+import { formatBDT, formatDateLong, formatDiscount, formatTime12 } from "@/lib/format";
 import { changeRequestSchema, type ChangeRequestInput } from "@/schemas/account";
 import type { AccountBookingDto, ChangeRequestInfo } from "@/types/account";
 
@@ -110,7 +110,7 @@ export function BookingSheet({
                 <SectionLabel>Payment</SectionLabel>
                 <dl className="space-y-1.5 rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
                     <Line label="Subtotal" value={formatBDT(b.subtotal)} />
-                    {b.discountAmount > 0 && <Line label="Discount" value={`−${formatBDT(b.discountAmount)}`} />}
+                    <Line label="Discount" value={formatDiscount(b.discountAmount)} />
                     {b.vatRatePercent && b.vatAmount > 0 && (
                         <Line
                             label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}
