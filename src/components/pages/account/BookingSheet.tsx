@@ -110,9 +110,10 @@ export function BookingSheet({
                 <SectionLabel>Payment</SectionLabel>
                 <dl className="space-y-1.5 rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
                     <Line label="Subtotal" value={formatBDT(b.subtotal)} />
+                    {b.discountAmount > 0 && <Line label="Discount" value={`−${formatBDT(b.discountAmount)}`} />}
                     {b.vatRatePercent && b.vatAmount > 0 && (
                         <Line
-                            label={b.total === b.subtotal ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}
+                            label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}
                             value={formatBDT(b.vatAmount)}
                         />
                     )}

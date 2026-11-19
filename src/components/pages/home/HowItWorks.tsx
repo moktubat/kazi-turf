@@ -15,7 +15,8 @@ export function HowItWorks({ policies }: { policies: Policies }) {
             id: "pay",
             icon: "wallet",
             title: "Pay the advance",
-            text: `Pay a ${policies.advancePercent}% advance through bKash to confirm your booking${(policies.nightAdvancePercent ?? 100) !== policies.advancePercent ? ` (${policies.nightAdvancePercent ?? 100}% for slots from 12 AM to 6 AM)` : ""}.`,
+            // The advance is set per sport, so no fixed percentage here.
+            text: `Pay the advance required for your sport through bKash to confirm your booking. You see the exact amount before you pay, and your slot is held for ${policies.holdMinutes} minutes.`,
         },
         {
             id: "play",

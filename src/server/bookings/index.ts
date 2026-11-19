@@ -9,6 +9,8 @@ import type { ServerUser } from "@/server/auth/session";
 import { getPitch, getPitchAvailability } from "@/server/availability";
 import { insertClaims, releaseClaims } from "@/server/claims";
 import { connectDb, tx } from "@/server/db/connect";
+import { runAfterResponse } from "@/server/background";
+import { sendBookingConfirmationEmail } from "@/server/email/bookingConfirmation";
 import { plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import { quote } from "@/server/pricing";
@@ -175,13 +177,18 @@ export async function createBooking(
             400
         );
     }
-    if (q.advance <= 0) {
+    if (q.total <= 0) {
         throw new AppError(
             "NO_RATE_FOR_SLOT",
             "This slot cannot be booked online yet. Please contact the venue.",
             400
         );
     }
+    // The sport's advance is 0% (Setup → Venue): nothing is paid online. The booking is
+    // confirmed straight away with the whole total due at the venue — the same state a
+    // walk-in booked with no advance has (PARTIALLY_PAID, ৳0 received), so check-in,
+    // balance collection and cancellation all work unchanged.
+    const noAdvance = q.advance === 0;
 
     const id = randomUUID();
     const holdExpiresAt = new Date(now.getTime() + policies.holdMinutes * 60_000);
@@ -201,8 +208,8 @@ export async function createBooking(
         endAt: endAt.toISOString(),
         cellStarts: startStrings,
         slotCount: startStrings.length,
-        bookingStatus: "PENDING_PAYMENT",
-        paymentStatus: "NOT_STARTED",
+        bookingStatus: noAdvance ? "CONFIRMED" : "PENDING_PAYMENT",
+        paymentStatus: noAdvance ? "PARTIALLY_PAID" : "NOT_STARTED",
         subtotal: q.subtotal,
         originalSubtotal: q.originalSubtotal,
         vatAmount: q.vat,
@@ -212,7 +219,8 @@ export async function createBooking(
         advancePercentSnapshot: q.advancePercent,
         vatRatePercentSnapshot: q.vatRatePercent,
         source: "online",
-        holdExpiresAt: holdExpiresAt.toISOString(),
+        // No hold to time out when nothing has to be paid.
+        holdExpiresAt: noAdvance ? now.toISOString() : holdExpiresAt.toISOString(),
         createdAt: now.toISOString(),
         createdFromIp: opts.ip ?? null,
     };
@@ -222,7 +230,9 @@ export async function createBooking(
         await insertClaims(
             input.pitchId,
             startStrings,
-            { state: "HELD", bookingId: id, expiresAt: holdExpiresAt.toISOString() },
+            noAdvance
+                ? { state: "BOOKED", bookingId: id }
+                : { state: "HELD", bookingId: id, expiresAt: holdExpiresAt.toISOString() },
             now,
             s
         );
@@ -234,11 +244,16 @@ export async function createBooking(
                 entityType: "BOOKING",
                 entityId: booking.bookingCode,
                 branchId: booking.branchId,
-                meta: { pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, advance: q.advance },
+                meta: {
+                    pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, advance: q.advance,
+                    ...(noAdvance ? { noAdvance: true } : {}),
+                },
             },
             { session: s }
         );
     });
+
+    if (noAdvance) runAfterResponse("booking confirmation email", () => sendBookingConfirmationEmail(booking));
 
     return toDto(booking, now);
 }
@@ -304,6 +319,8 @@ export function toDto(b: Booking, now: Date = new Date()): BookingDto {
         originalSubtotal: typeof b.originalSubtotal === "number" ? b.originalSubtotal : b.subtotal,
         vatAmount: b.vatAmount,
         vatRatePercent: b.vatRatePercentSnapshot,
+        // Counter discount given by staff (walk-ins). Older bookings have none.
+        discountAmount: typeof b.discountAmount === "number" && b.discountAmount > 0 ? b.discountAmount : 0,
         total: b.total,
         advanceAmount: b.advanceAmount,
         advancePaid: paidAdvance ? b.advanceAmount : 0,

@@ -11,6 +11,7 @@ import { MobileActionBar } from "@/components/layout/MobileActionBar";
 import { getSessionUser } from "@/server/auth/session";
 import { connectDb } from "@/server/db/connect";
 import { HideOnRoutes } from "@/components/layout/HideOnRoutes";
+import { GoogleAnalytics, GoogleTagManagerNoScript } from "@/components/analytics/GoogleAnalytics";
 import { getPublicVenue } from "@/server/public-data";
 import { site } from "@/data/site";
 import { DEFAULT_TITLE, SHARE_IMAGE } from "@/lib/seo";
@@ -102,6 +103,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     return (
         <html lang="en" className={`${jakarta.variable} ${vietnam.variable}`}>
             <body>
+                <GoogleTagManagerNoScript />
                 <a href="#main" className="skip-link">Skip to content</a>
 
                 <Suspense fallback={<Header user={null} />}>
@@ -119,6 +121,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </HideOnRoutes>
 
                 <MobileActionBar />
+
+                {/* Google Tag Manager (or direct GA4); IDs and on/off live in lib/analytics. */}
+                <GoogleAnalytics />
             </body>
         </html>
     );

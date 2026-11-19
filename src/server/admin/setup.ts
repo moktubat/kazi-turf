@@ -5,6 +5,7 @@ import { legalStatus, refundConfig } from "@/data/legal";
 import { pitches } from "@/data/pitches";
 import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
+import { sportAdvance } from "@/lib/advance";
 import { daysLabel } from "@/lib/grid";
 import { slugify } from "@/lib/slug";
 import { toHHMM, toMinutes } from "@/lib/time";
@@ -979,8 +980,9 @@ export async function updatePolicies(user: ServerUser, input: PolicyInput) {
 
     const scalars = {
         holdMinutes: input.holdMinutes,
-        advancePercent: input.advancePercent,
-        nightAdvancePercent: input.nightAdvancePercent,
+        // Venue-wide defaults; kept as they are when the form does not send them.
+        advancePercent: input.advancePercent ?? policies.advancePercent,
+        nightAdvancePercent: input.nightAdvancePercent ?? policies.nightAdvancePercent ?? 100,
         checkInOpensMinutesBefore: input.checkInOpensMinutesBefore,
         bookingHorizonDays: input.bookingHorizonDays,
         vatRatePercent: input.vatRatePercent,
@@ -1116,7 +1118,15 @@ export async function getSetupData(user: ServerUser, now: Date): Promise<SetupDa
     return {
         tabs,
         slotMinutes: step,
-        venue: myVenue,
+        // Every sport shows the advance it actually uses: its own, or (sports saved
+        // before sport-wise advances existed) the venue-wide default it falls back to.
+        venue: myVenue
+            ? {
+                ...myVenue,
+                sportConfigs: (myVenue.sportConfigs ?? []).map((sc) => ({ ...sc, ...sportAdvance(sc, policies) })),
+            }
+            : null,
+        defaultAdvance: sportAdvance(null, policies),
         pitches: myPitches.map((p) => ({
             ...p,
             facilities: [...p.facilities],

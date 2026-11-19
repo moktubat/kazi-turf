@@ -2,9 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/Field";
+import { Input, Select, Textarea } from "@/components/ui/Field";
 import { policies } from "@/data/site";
 import { ApiError, api, isAbort } from "@/lib/api";
+import { applyCounterDiscount, counterDiscountError, type CounterDiscount, type CounterDiscountType } from "@/lib/counterDiscount";
 import { formatBDT, formatDateLong, formatTime12 } from "@/lib/format";
 import { slotLengthMinutes } from "@/lib/time";
 import { isBdPhone, normalizePhone } from "@/lib/phone";
@@ -48,6 +49,9 @@ export function WalkInForm({
     const [cashTouched, setCashTouched] = useState(false);
     // Staff note ("Paid", "Unpaid", …): quick picks below fill it, free text also works.
     const [note, setNote] = useState("");
+    // Optional counter discount: taka or percent off the subtotal. Blank = no discount.
+    const [discountType, setDiscountType] = useState<CounterDiscountType>("FIXED");
+    const [discountInput, setDiscountInput] = useState("");
     // Keyed by the selection it was priced for: after the slot count changes, the old
     // price (or error) is not shown and Save stays disabled until the new one arrives.
     const [quoted, setQuoted] = useState<{ key: string; quote: Quote | null; error: string | null } | null>(null);
@@ -86,7 +90,15 @@ export function WalkInForm({
     const quote = current?.quote ?? null;
     const quoteError = current?.error ?? null;
 
-    const cash = cashTouched ? cashInput : quote ? String(quote.total) : "";
+    // Discount preview with the same rules the server applies (lib/counterDiscount).
+    const discount: CounterDiscount | null =
+        discountInput.trim() === "" ? null : { type: discountType, value: Number(discountInput) };
+    const discountError = quote ? counterDiscountError(discount, quote.subtotal) : null;
+    const priced = quote && !discountError ? applyCounterDiscount(quote, discount) : null;
+    // Payable after the discount; falls back to the plain total while the discount is invalid.
+    const payable = priced?.total ?? quote?.total ?? 0;
+
+    const cash = cashTouched ? cashInput : quote ? String(payable) : "";
 
     // Find the customer by phone.
     const phoneKey = isBdPhone(phone) ? normalizePhone(phone) : null;
@@ -118,10 +130,11 @@ export function WalkInForm({
         const amount = Number(cash);
         // No minimum at the counter: 0 (no advance) up to the full total. A blank box is
         // an error, not ৳0, so "no advance" is always a deliberate choice.
+        if (discountError) next.discount = discountError;
         if (!quote) next.cashReceived = "Wait for the price to load";
         else if (cash.trim() === "") next.cashReceived = "Enter the cash received (0 if none)";
-        else if (!Number.isInteger(amount) || amount < 0 || amount > quote.total) {
-            next.cashReceived = `Between ${formatBDT(0)} and ${formatBDT(quote.total)}`;
+        else if (!Number.isInteger(amount) || amount < 0 || amount > payable) {
+            next.cashReceived = `Between ${formatBDT(0)} and ${formatBDT(payable)}`;
         }
         if (note.trim().length > WALKIN_NOTE_MAX) next.note = `Keep the note under ${WALKIN_NOTE_MAX} characters`;
         setErrors(next);
@@ -137,6 +150,7 @@ export function WalkInForm({
                     phone,
                     name: known ? undefined : name.trim(),
                     cashReceived: amount,
+                    discount: priced && priced.discountAmount > 0 ? discount : undefined,
                     note: note.trim() || undefined,
                 }),
             });
@@ -162,6 +176,9 @@ export function WalkInForm({
                 <dl className="space-y-1.5 text-left text-sm">
                     <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">Customer</dt><dd className="min-w-0 break-words text-right font-semibold">{created.customerName}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">When</dt><dd className="text-right font-semibold">{formatDateLong(created.date)}, {formatTime12(created.start)}–{formatTime12(created.end)}</dd></div>
+                    {created.discountAmount > 0 && (
+                        <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Discount</dt><dd className="font-semibold">−{formatBDT(created.discountAmount)}</dd></div>
+                    )}
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Total</dt><dd className="font-semibold">{formatBDT(created.total)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Cash received</dt><dd className="font-semibold">{formatBDT(created.advancePaid)}</dd></div>
                     <div className="flex justify-between gap-4 font-bold"><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
@@ -180,7 +197,8 @@ export function WalkInForm({
     }
 
     const cashNum = Number(cash);
-    const balanceAfter = quote && Number.isFinite(cashNum) ? Math.max(0, quote.total - cashNum) : null;
+    const balanceAfter = quote && Number.isFinite(cashNum) ? Math.max(0, payable - cashNum) : null;
+    const suggestedAdvance = priced?.advance ?? quote?.advance ?? 0;
 
     return (
         <form onSubmit={submit} noValidate className="space-y-5" aria-label="Walk-in booking">
@@ -231,17 +249,56 @@ export function WalkInForm({
                 />
             )}
 
+            <div className="grid grid-cols-[1fr_auto] items-start gap-2">
+                <Input
+                    label="Discount (optional)"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={discountType === "PERCENT" ? 100 : quote?.subtotal}
+                    placeholder="0"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value)}
+                    // Live check while typing (the same rule submit uses), so it never goes stale.
+                    error={discountInput.trim() !== "" ? discountError ?? undefined : undefined}
+                    hint={discountType === "PERCENT" ? "Whole percent, 0–100, off the subtotal." : "Whole taka off the subtotal."}
+                />
+                <Select
+                    label="Type"
+                    aria-label="Discount type"
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as CounterDiscountType)}
+                >
+                    <option value="FIXED">৳ Taka</option>
+                    <option value="PERCENT">% Percent</option>
+                </Select>
+            </div>
+
             <div className="rounded-xl bg-mint p-3 text-sm" aria-live="polite">
                 {quote ? (
                     <dl className="space-y-1.5">
-                        <div className="flex justify-between gap-4"><dt>Subtotal</dt><dd className="font-semibold">{formatBDT(quote.subtotal)}</dd></div>
-                        {quote.vatRatePercent && quote.vat > 0 && (
+                        {priced && priced.discountAmount > 0 ? (
+                            <>
+                                <div className="flex justify-between gap-4"><dt>Original price</dt><dd className="font-semibold">{formatBDT(priced.originalTotal)}</dd></div>
+                                <div className="flex justify-between gap-4 text-teal">
+                                    <dt>Discount{discount?.type === "PERCENT" ? ` (${discount.value}%)` : ""}</dt>
+                                    <dd className="font-semibold">−{formatBDT(priced.discountAmount)}</dd>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex justify-between gap-4"><dt>Subtotal</dt><dd className="font-semibold">{formatBDT(quote.subtotal)}</dd></div>
+                        )}
+                        {quote.vatRatePercent && (priced?.vat ?? quote.vat) > 0 && (
                             <div className="flex justify-between gap-4">
-                                <dt>{quote.total === quote.subtotal ? `Includes VAT (${quote.vatRatePercent}%)` : `VAT (${quote.vatRatePercent}%)`}</dt>
-                                <dd className="font-semibold">{formatBDT(quote.vat)}</dd>
+                                <dt>{quote.vatMode === "inclusive" ? `Includes VAT (${quote.vatRatePercent}%)` : `VAT (${quote.vatRatePercent}%)`}</dt>
+                                <dd className="font-semibold">{formatBDT(priced?.vat ?? quote.vat)}</dd>
                             </div>
                         )}
-                        <div className="flex justify-between gap-4 font-bold"><dt>Total</dt><dd>{formatBDT(quote.total)}</dd></div>
+                        {priced && priced.discountAmount > 0 ? (
+                            <div className="flex justify-between gap-4 font-bold"><dt>Payable</dt><dd>{formatBDT(priced.total)}</dd></div>
+                        ) : (
+                            <div className="flex justify-between gap-4 font-bold"><dt>Total</dt><dd>{formatBDT(quote.total)}</dd></div>
+                        )}
                     </dl>
                 ) : quoteError ? (
                     <p role="alert" className="font-medium text-booked">{quoteError}</p>
@@ -256,7 +313,7 @@ export function WalkInForm({
                     type="number"
                     inputMode="numeric"
                     min={0}
-                    max={quote?.total}
+                    max={quote ? payable : undefined}
                     value={cash}
                     onChange={(e) => {
                         setCashTouched(true);
@@ -265,19 +322,23 @@ export function WalkInForm({
                     error={errors.cashReceived}
                     hint={
                         quote
-                            ? `Any amount from ${formatBDT(0)} (no advance) to ${formatBDT(quote.total)}. Suggested advance ${formatBDT(quote.advance)} (${quote.advancePercent}%).${balanceAfter !== null ? ` Balance after: ${formatBDT(balanceAfter)}.` : ""
-                            }`
+                            ? `Any amount from ${formatBDT(0)} (no advance) to ${formatBDT(payable)}. ${quote.advancePercent > 0
+                                ? `Suggested advance ${formatBDT(suggestedAdvance)} (${quote.advancePercent}% for this sport).`
+                                : "This sport needs no advance."
+                            }${balanceAfter !== null ? ` Balance after: ${formatBDT(balanceAfter)}.` : ""}`
                             : undefined
                     }
                 />
                 {quote && (
                     <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput(String(quote.total)); }}>
-                            Full {formatBDT(quote.total)}
+                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput(String(payable)); }}>
+                            Full {formatBDT(payable)}
                         </Button>
-                        <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput(String(quote.advance)); }}>
-                            Advance {formatBDT(quote.advance)}
-                        </Button>
+                        {suggestedAdvance > 0 && suggestedAdvance < payable && (
+                            <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput(String(suggestedAdvance)); }}>
+                                Advance {formatBDT(suggestedAdvance)}
+                            </Button>
+                        )}
                         <Button variant="secondary" className="flex-1" onClick={() => { setCashTouched(true); setCashInput("0"); }}>
                             No advance {formatBDT(0)}
                         </Button>

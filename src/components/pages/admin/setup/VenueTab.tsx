@@ -12,13 +12,20 @@ import { ImageUpload } from "./ImageUpload";
 import { useRouter } from "next/navigation";
 import { SideSheet } from "@/components/ui/SideSheet";
 import { api, ApiError } from "@/lib/api";
+import { DAY_WINDOW_LABEL, NIGHT_WINDOW_LABEL, isValidAdvancePercent, type SportAdvance } from "@/lib/advance";
 
 interface SportConfig {
     id: string;
     name: string;
     image: string;
     active: boolean;
+    // Kept as typed text so a half-typed number is not lost; checked on save.
+    advancePercent: string;
+    nightAdvancePercent: string;
 }
+
+const ADVANCE_ERROR = "Enter a whole number from 0 to 100";
+const advanceNum = (s: string) => (s.trim() === "" ? NaN : Number(s));
 
 interface FormState {
     name: string;
@@ -36,7 +43,7 @@ function slugify(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-export function VenueTab({ venue }: { venue: Branch }) {
+export function VenueTab({ venue, defaultAdvance }: { venue: Branch; defaultAdvance: SportAdvance }) {
     return (
         <div className="space-y-4">
             <div>
@@ -45,12 +52,12 @@ export function VenueTab({ venue }: { venue: Branch }) {
                     Contact information, address and operating status for the venue.
                 </p>
             </div>
-            <VenueForm venue={venue} />
+            <VenueForm venue={venue} defaultAdvance={defaultAdvance} />
         </div>
     );
 }
 
-function buildVenueFormState(venue: Branch): FormState {
+function buildVenueFormState(venue: Branch, defaultAdvance: SportAdvance): FormState {
     return {
         name: venue.name,
         address: venue.address,
@@ -65,18 +72,22 @@ function buildVenueFormState(venue: Branch): FormState {
             name: sc.name,
             image: sc.image || "",
             active: sc.active ?? true,
+            advancePercent: String(sc.advancePercent ?? defaultAdvance.advancePercent),
+            nightAdvancePercent: String(sc.nightAdvancePercent ?? defaultAdvance.nightAdvancePercent),
         })),
     };
 }
 
-function VenueForm({ venue }: { venue: Branch }) {
+function VenueForm({ venue, defaultAdvance }: { venue: Branch; defaultAdvance: SportAdvance }) {
     const router = useRouter();
-    const [f, setF] = useState<FormState>(() => buildVenueFormState(venue));
+    const [f, setF] = useState<FormState>(() => buildVenueFormState(venue, defaultAdvance));
     const [prevVenue, setPrevVenue] = useState(venue);
     if (venue !== prevVenue) {
         setPrevVenue(venue);
-        setF(buildVenueFormState(venue));
+        setF(buildVenueFormState(venue, defaultAdvance));
     }
+    // Advance boxes checked before saving (a blank box is an error, never a silent default).
+    const [advErrors, setAdvErrors] = useState<Record<string, string>>({});
 
     // Sport-delete confirmation modal state.
     const [deletingSport, setDeletingSport] = useState<SportConfig | null>(null);
@@ -108,7 +119,17 @@ function VenueForm({ venue }: { venue: Branch }) {
     function addSport() {
         setF((s) => ({
             ...s,
-            sportConfigs: [...s.sportConfigs, { id: "", name: "", image: "", active: true }],
+            sportConfigs: [
+                ...s.sportConfigs,
+                {
+                    id: "",
+                    name: "",
+                    image: "",
+                    active: true,
+                    advancePercent: String(defaultAdvance.advancePercent),
+                    nightAdvancePercent: String(defaultAdvance.nightAdvancePercent),
+                },
+            ],
         }));
     }
 
@@ -188,12 +209,25 @@ function VenueForm({ venue }: { venue: Branch }) {
             .filter((sc) => sc.name.trim().length > 0)
             .map((sc) => sc.name);
 
-        const sportConfigs = f.sportConfigs
-            .filter((sc) => sc.name.trim().length > 0)
-            .map((sc) => ({
-                ...sc,
-                id: sc.id || slugify(sc.name),
-            }));
+        const named = f.sportConfigs.filter((sc) => sc.name.trim().length > 0);
+
+        // Each sport's own advance: any whole 0–100. Errors are keyed like the schema's
+        // so they show under the right box.
+        const nextAdvErrors: Record<string, string> = {};
+        named.forEach((sc) => {
+            const i = f.sportConfigs.indexOf(sc);
+            if (!isValidAdvancePercent(advanceNum(sc.advancePercent))) nextAdvErrors[`sportConfigs.${i}.advancePercent`] = ADVANCE_ERROR;
+            if (!isValidAdvancePercent(advanceNum(sc.nightAdvancePercent))) nextAdvErrors[`sportConfigs.${i}.nightAdvancePercent`] = ADVANCE_ERROR;
+        });
+        setAdvErrors(nextAdvErrors);
+        if (Object.keys(nextAdvErrors).length > 0) return;
+
+        const sportConfigs = named.map((sc) => ({
+            ...sc,
+            id: sc.id || slugify(sc.name),
+            advancePercent: Number(sc.advancePercent),
+            nightAdvancePercent: Number(sc.nightAdvancePercent),
+        }));
 
         // Sports this save actually changed (or added), diffed against the venue
         // snapshot this form was loaded with. The server applies only these and
@@ -207,7 +241,13 @@ function VenueForm({ venue }: { venue: Branch }) {
             .filter((sc) => {
                 const sv = serverById.get(sc.id);
                 if (!sv) return true; // newly added sport
-                return sv.name !== sc.name || (sv.image || "") !== sc.image || (sv.active ?? true) !== sc.active;
+                return (
+                    sv.name !== sc.name ||
+                    (sv.image || "") !== sc.image ||
+                    (sv.active ?? true) !== sc.active ||
+                    sv.advancePercent !== sc.advancePercent ||
+                    sv.nightAdvancePercent !== sc.nightAdvancePercent
+                );
             })
             .map((sc) => sc.id);
 
@@ -264,7 +304,7 @@ function VenueForm({ venue }: { venue: Branch }) {
                                 </span>
                             </p>
                             <p className="text-xs text-evergreen/70">
-                                Each sport gets a hero background shown on the homepage. Add or remove sports here.
+                                Each sport gets a hero background shown on the homepage and its own advance payment. Add or remove sports here.
                             </p>
                         </div>
                         <Button type="button" variant="outline" onClick={addSport}>
@@ -351,6 +391,36 @@ function VenueForm({ venue }: { venue: Branch }) {
                                     </span>
                                 </div>
 
+                                {/* Sport-wise advance payment (0–100%) for day and night slots */}
+                                <fieldset className="space-y-2">
+                                    <legend className="text-sm font-semibold">Advance payment</legend>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <Input
+                                            label={`Day (%) · ${DAY_WINDOW_LABEL}`}
+                                            type="number"
+                                            inputMode="numeric"
+                                            min={0}
+                                            max={100}
+                                            value={s.advancePercent}
+                                            error={advErrors[`sportConfigs.${i}.advancePercent`] ?? fields[`sportConfigs.${i}.advancePercent`]}
+                                            onChange={(e) => updateSport(i, { advancePercent: e.target.value })}
+                                        />
+                                        <Input
+                                            label={`Night (%) · ${NIGHT_WINDOW_LABEL}`}
+                                            type="number"
+                                            inputMode="numeric"
+                                            min={0}
+                                            max={100}
+                                            value={s.nightAdvancePercent}
+                                            error={advErrors[`sportConfigs.${i}.nightAdvancePercent`] ?? fields[`sportConfigs.${i}.nightAdvancePercent`]}
+                                            onChange={(e) => updateSport(i, { nightAdvancePercent: e.target.value })}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-evergreen/70">
+                                        Any whole number from 0 to 100. 0 = no advance (the full price is paid at the venue); 100 = full payment online.
+                                    </p>
+                                </fieldset>
+
                                 {/* Image upload */}
                                 <ImageUpload
                                     label="Hero background"
@@ -390,7 +460,8 @@ function VenueForm({ venue }: { venue: Branch }) {
                     error={error}
                     label="Save changes"
                     onCancel={() => {
-                        setF(buildVenueFormState(venue));
+                        setF(buildVenueFormState(venue, defaultAdvance));
+                        setAdvErrors({});
                         setSaved(false);
                     }}
                 />

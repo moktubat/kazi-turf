@@ -64,6 +64,11 @@ const booking = new Schema(
         // "৳3,500 → ৳2,700". Old bookings may not have it; toDto falls back to subtotal.
         originalSubtotal: Number,
         vatAmount: Number,
+        // Walk-in counter discount (taka off the subtotal, before VAT). Absent on older
+        // bookings, which read as no discount; total is always the net payable amount.
+        discountAmount: { type: Number, default: 0 },
+        discountType: { type: String, enum: ["FIXED", "PERCENT", null], default: null },
+        discountValue: { type: Number, default: null },
         total: Number,
         advanceAmount: Number,
         balanceAmount: Number,

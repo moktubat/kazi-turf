@@ -1,6 +1,7 @@
-// Home page FAQ: six questions, each answer 25–28 words. Built from the LIVE booking policies
+// Home page FAQ: seven questions, each answer 25–28 words. Built from the LIVE booking policies
 // (Admin › Setup › Policies), so numbers never go stale; numbers are single words, so the
 // word count holds whatever the values are. Answers describe only what the app actually does.
+// The advance is set per sport (Setup → Venue), so answers never state one fixed percentage.
 import { site } from "@/data/site";
 import type { Policies } from "@/types";
 
@@ -12,7 +13,6 @@ export interface FaqItem {
 }
 
 export function getFaqItems(policies: Policies): FaqItem[] {
-    const night = policies.nightAdvancePercent ?? 100;
     return [
         {
             id: "open-24-7",
@@ -24,20 +24,29 @@ export function getFaqItems(policies: Policies): FaqItem[] {
             id: "how-book",
             question: "How do I book a slot?",
             answer:
-                "Choose a sport, date and open slot on the booking page, then sign in and pay the advance with bKash. You will see the full price first.",
+                "Choose a sport, date and open slot on the booking page, then sign in and pay any advance with bKash. You will see the full price first.",
             link: { label: "Book a slot", href: "/book" },
         },
         {
             id: "advance",
             question: "How much do I pay online?",
-            answer: `You pay a ${policies.advancePercent}% advance with bKash and the rest in cash at the arena. Slots starting between 12 AM and 6 AM need a ${night}% advance.`,
+            answer:
+                "It depends on the sport and start time. The booking page shows the bKash advance before you pay, and the rest is paid in cash at the arena.",
+            link: { label: "See prices and advance", href: "/book" },
         },
         {
             id: "confirmed",
             question: "How do I know my booking is confirmed?",
             answer:
-                "Only after we verify your advance with bKash. Your booking code and status then appear in your account, and we email you a confirmation with the details.",
+                "Your booking code and status appear in your account, and we email you a confirmation. Where an advance is due, this happens only after bKash verifies it.",
             link: { label: "Go to my account", href: "/account" },
+        },
+        {
+            id: "payment-failed",
+            question: "What if my bKash payment fails?",
+            answer:
+                "Your booking is not confirmed until bKash verifies the advance. You can try again while your slot is still held; after that, the slot is released for others.",
+            link: { label: "Read the payment rules", href: "/legal#refund" },
         },
         {
             id: "cancel",

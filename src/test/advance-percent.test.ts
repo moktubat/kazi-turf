@@ -75,23 +75,14 @@ describe("saved percentages drive the quote", () => {
     });
 });
 
-describe("home page wording follows the saved night advance", () => {
+// The advance is now set per sport, so the home page names no fixed percentage at all.
+describe("home page wording names no fixed advance percentage", () => {
     const payText = () => getHowSteps().find((s) => s.id === "pay")!.text;
 
-    it("full payment wording only at 100%", () => {
-        Object.assign(policies, { advancePercent: 30, nightAdvancePercent: 100 });
-        expect(payText()).toContain("Night slots (12 AM–6 AM) require full payment as advance.");
-    });
-
-    it("a partial night advance shows its percentage", () => {
-        Object.assign(policies, { advancePercent: 45, nightAdvancePercent: 60 });
-        expect(payText()).toContain("Pay 45% of the total");
-        expect(payText()).toContain("Night slots (12 AM–6 AM) need a 60% advance.");
-        expect(payText()).not.toContain("full payment");
-    });
-
-    it("no separate night line when day and night match", () => {
-        Object.assign(policies, { advancePercent: 40, nightAdvancePercent: 40 });
-        expect(payText()).not.toContain("Night slots");
+    it.each([[30, 100], [45, 60], [40, 40]])("day %i%% / night %i%%: generic wording, live hold time", (day, night) => {
+        Object.assign(policies, { advancePercent: day, nightAdvancePercent: night, holdMinutes: 10 });
+        expect(payText()).toContain("advance required for your sport");
+        expect(payText()).toContain("held for 10 minutes");
+        expect(payText()).not.toMatch(/\d+%/);
     });
 });

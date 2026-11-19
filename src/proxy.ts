@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { site } from "@/data/site";
+import { ANALYTICS_ENABLED, GA_CSP } from "@/lib/analytics";
 
 const PROD = process.env.NODE_ENV === "production";
+
+// Google Tag Manager / Analytics hosts are allowed only when one of them is configured.
+const ga = (hosts: readonly string[]) => (ANALYTICS_ENABLED ? ` ${hosts.join(" ")}` : "");
 
 // 'self' is tied to the origin the page was opened on. If the page is opened
 // over http://, upgrade-insecure-requests rewrites the form POST to https://
@@ -30,12 +34,12 @@ export function proxy(req: NextRequest) {
         "default-src 'self'",
         // Next.js injects inline bootstrap scripts without a nonce attribute,
         // so 'unsafe-inline' is required in production. 'unsafe-eval' only in dev.
-        `script-src 'self' 'unsafe-inline'${PROD ? "" : " 'unsafe-eval'"}`,
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "img-src 'self' data: blob: https://res.cloudinary.com",
+        `script-src 'self' 'unsafe-inline'${PROD ? "" : " 'unsafe-eval'"}${ga(GA_CSP.script)}`,
+        `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com${ga(GA_CSP.style)}`,
+        `img-src 'self' data: blob: https://res.cloudinary.com${ga(GA_CSP.img)}`,
         "font-src 'self' https://fonts.gstatic.com",
-        "frame-src 'self' https://www.google.com https://maps.google.com",
-        `connect-src 'self'${PROD ? "" : " ws: wss:"}`,
+        `frame-src 'self' https://www.google.com https://maps.google.com${ga(GA_CSP.frame)}`,
+        `connect-src 'self'${PROD ? "" : " ws: wss:"}${ga(GA_CSP.connect)}`,
         "object-src 'none'",
         "base-uri 'self'",
         formAction,

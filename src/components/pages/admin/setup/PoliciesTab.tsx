@@ -12,8 +12,6 @@ import { useSave } from "./useSave";
 function buildPolicyFormState(policies: PolicyForm) {
     return {
         holdMinutes: String(policies.holdMinutes),
-        advancePercent: String(policies.advancePercent),
-        nightAdvancePercent: String(policies.nightAdvancePercent ?? 100),
         checkIn: String(policies.checkInOpensMinutesBefore),
         horizon: String(policies.bookingHorizonDays),
         vatRate: policies.vatRatePercent === null ? "" : String(policies.vatRatePercent),
@@ -53,8 +51,8 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
             policySchema,
             {
                 holdMinutes: num(f.holdMinutes),
-                advancePercent: num(f.advancePercent),
-                nightAdvancePercent: num(f.nightAdvancePercent),
+                // Advance payment is set per sport (Setup → Venue); not sent from here, so
+                // the venue-wide defaults stay as they are.
                 checkInOpensMinutesBefore: num(f.checkIn),
                 bookingHorizonDays: num(f.horizon),
                 vatRatePercent: f.vatRate.trim() === "" ? null : Number(f.vatRate),
@@ -80,13 +78,15 @@ export function PoliciesTab({ policies }: { policies: PolicyForm }) {
                 Changes apply to <strong>new bookings only</strong>. Existing bookings keep the price, VAT and advance percentage
                 they were saved with.
             </p>
+            <p className="rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
+                <strong>Advance payment</strong> is now set for each sport in <strong>Setup → Venue → Sports offered</strong>, with
+                its own day (6 AM–12 AM) and night (12 AM–6 AM) percentage from 0 to 100.
+            </p>
 
             <Card className="space-y-4">
                 <h2 className="text-lg font-bold">Booking rules</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Input label="Slot hold (minutes)" type="number" inputMode="numeric" value={f.holdMinutes} error={fields.holdMinutes} hint="5–30" onChange={(e) => set("holdMinutes", e.target.value)} />
-                    <Input label="Advance payment — day (%) — 6 AM to 12 AM" type="number" inputMode="numeric" value={f.advancePercent} error={fields.advancePercent} min={1} max={100} hint="Any whole number from 1 to 100 (e.g. 40, 45, 60)." onChange={(e) => set("advancePercent", e.target.value)} />
-                    <Input label="Advance payment — night (%) — 12 AM to 6 AM" type="number" inputMode="numeric" value={f.nightAdvancePercent} error={fields.nightAdvancePercent} min={1} max={100} hint="Any whole number from 1 to 100. 100 = full payment as advance." onChange={(e) => set("nightAdvancePercent", e.target.value)} />
                     <Input label="Check-in opens (minutes before start)" type="number" inputMode="numeric" value={f.checkIn} error={fields.checkInOpensMinutesBefore} onChange={(e) => set("checkIn", e.target.value)} />
                     <Input label="Booking horizon (days ahead)" type="number" inputMode="numeric" value={f.horizon} error={fields.bookingHorizonDays} onChange={(e) => set("horizon", e.target.value)} />
                 </div>

@@ -13,6 +13,10 @@ export interface SportConfig {
   name: string;     // display name: "Football"
   image: string;    // path to bg image: "/sports/football.jpg"
   active: boolean;  // shown in hero tabs when true
+  // Sport-wise advance payment, any whole 0–100 (0 = no advance, pay at the venue).
+  // Optional: sports saved before this existed fall back to Policies' venue-wide values.
+  advancePercent?: number;       // slots starting 6 AM–12 AM
+  nightAdvancePercent?: number;  // slots starting 12 AM–6 AM
 }
 
 export interface Branch {
@@ -117,6 +121,8 @@ export type PaymentStatus =
 
 export interface Policies {
   slotMinutes: number;
+  // Venue-wide default advance. Each sport now sets its own (SportConfig); these are
+  // used only by sports that have no percentage of their own yet, and to prefill new sports.
   advancePercent: number;           // 06:00–24:00 (day), any whole 1–100
   nightAdvancePercent: number;      // 00:00–06:00 (night), any whole 1–100, default 100
   holdMinutes: number;

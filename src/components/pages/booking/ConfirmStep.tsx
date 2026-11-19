@@ -35,6 +35,8 @@ interface ConfirmStepProps {
     onTaken: (message: string) => void;
     onPickAgain: () => void;
     onAuthed: () => void;
+    /** The sport needs no advance: the booking was confirmed straight away. */
+    onConfirmed: (code: string) => void;
 }
 
 export function ConfirmStep({
@@ -50,6 +52,7 @@ export function ConfirmStep({
     onTaken,
     onPickAgain,
     onAuthed,
+    onConfirmed,
 }: ConfirmStepProps) {
     const [formError, setFormError] = useState<string | null>(null);
     const [expired, setExpired] = useState(false);
@@ -84,6 +87,8 @@ export function ConfirmStep({
                     acceptPolicy: v.acceptPolicy,
                 }),
             });
+            // 0% advance sport: nothing to pay online, the booking is already confirmed.
+            if (r.booking.bookingStatus === "CONFIRMED") return onConfirmed(r.booking.code);
             onHeld(r.booking);
         } catch (e) {
             if (e instanceof ApiError) {
@@ -116,6 +121,8 @@ export function ConfirmStep({
     const advanceReady = isPayableAmount(advance);
 
     const canContinue = !!user && !!amounts && !loading && !isSubmitting;
+    // The selected sport's advance is 0%: confirm without any online payment.
+    const noAdvance = !hold && !!amounts && amounts.advance === 0 && amounts.total > 0;
 
     const primary = hold ? (
         <Button
@@ -135,7 +142,9 @@ export function ConfirmStep({
         </Button>
     ) : (
         <Button type="submit" form="confirm-form" size="lg" className="w-full" disabled={!canContinue}>
-            {isSubmitting ? "Holding your slot…" : "Continue to payment"}
+            {isSubmitting
+                ? noAdvance ? "Confirming your booking…" : "Holding your slot…"
+                : noAdvance ? "Confirm booking" : "Continue to payment"}
         </Button>
     );
 
@@ -168,7 +177,7 @@ export function ConfirmStep({
 
             {!user && (
                 <Card className="space-y-3">
-                    <h2 className="text-lg font-bold">Sign in to pay</h2>
+                    <h2 className="text-lg font-bold">{noAdvance ? "Sign in to book" : "Sign in to pay"}</h2>
                     <p className="text-sm text-evergreen/80">Your selection is saved. Sign in or create an account to continue.</p>
                     <AuthForm onSuccess={onAuthed} />
                 </Card>
@@ -192,6 +201,12 @@ export function ConfirmStep({
                 </Card>
             ) : (
                 <form id="confirm-form" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+                    {noAdvance && (
+                        <p className="rounded-xl bg-mint p-3 text-sm">
+                            No advance is needed for this booking. It is confirmed as soon as you continue, and the full{" "}
+                            <strong>{formatBDT(amounts!.total)}</strong> is paid at the venue.
+                        </p>
+                    )}
                     <Card className="space-y-4">
                         <h2 className="text-lg font-bold">Contact</h2>
                         <Input

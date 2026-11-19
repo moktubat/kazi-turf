@@ -22,6 +22,11 @@ export interface Booking {
     // before this field existed still load; treat missing as "same as subtotal".
     originalSubtotal?: number;
     vatAmount: number;
+    // Counter discount staff gave on a walk-in, in taka, taken off the subtotal before VAT.
+    // total is already net of it. Optional: older bookings have none (= 0).
+    discountAmount?: number;
+    discountType?: "FIXED" | "PERCENT" | null;
+    discountValue?: number | null;
     total: number;
     advanceAmount: number;
     balanceAmount: number;
@@ -68,6 +73,8 @@ export interface BookingDto {
     originalSubtotal: number;
     vatAmount: number;
     vatRatePercent: number | null;
+    /** Counter discount in taka (0 when none). subtotal − discount (+ VAT) = total. */
+    discountAmount: number;
     total: number;
     advanceAmount: number;
     advancePaid: number;

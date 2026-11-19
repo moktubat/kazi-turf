@@ -17,7 +17,8 @@ import { Stepper } from "./Stepper";
 import { SummaryBar } from "./SummaryBar";
 import { SummaryCard, type Amounts, type SelectionInfo } from "./SummaryCard";
 import DateStrip from "./DateStrip";
-import { addDays, slotLengthMinutes } from "@/lib/time";
+import { addDays, slotLengthMinutes, toMinutes } from "@/lib/time";
+import { advanceAmount, advancePercentAt, type SportAdvance } from "@/lib/advance";
 
 export interface FlowInitial {
     sport: string;
@@ -49,7 +50,8 @@ export function BookingFlow({
     minDate: string;
     maxDate: string;
     user: FlowUser | null;
-    policy: { advancePercent: number; nightAdvancePercent: number; holdMinutes: number; slotMinutes: number };
+    /** advanceBySport: each sport's own day / night advance (Setup → Venue). */
+    policy: { advanceBySport: Record<string, SportAdvance>; holdMinutes: number; slotMinutes: number };
 }) {
     const router = useRouter();
 
@@ -238,13 +240,16 @@ export function BookingFlow({
         return subtotal > 0 ? { subtotal, originalSubtotal } : null;
     }, [data, sel]);
 
-    // --- Time-based advance display: night slots (12 AM–6 AM) use nightAdvancePercent ---
-    const displayAdvancePercent = useMemo(() => {
-        if (!info) return policy.advancePercent;
-        const startHour = parseInt(info.start.split(":")[0], 10);
-        if (startHour >= 0 && startHour < 6) return policy.nightAdvancePercent;
-        return policy.advancePercent;
-    }, [info, policy.advancePercent, policy.nightAdvancePercent]);
+    // --- Sport-wise, time-based advance: the selected sport's own day / night percentage.
+    // The server quote is the source of truth; this preview uses the same rule
+    // (lib/advance) so the numbers match while the quote is loading.
+    const sportAdv = policy.advanceBySport[info?.sport ?? sport] ?? policy.advanceBySport[sport];
+    const displayAdvancePercent =
+        quoteState.status === "ready" && quoteState.quote
+            ? quoteState.quote.advancePercent
+            : sportAdv && info
+                ? advancePercentAt(sportAdv, toMinutes(info.start))
+                : sportAdv?.advancePercent ?? 0;
 
     // After the hold exists, show the server's saved amounts, not the preview.
     // While the quote is loading or has failed, fall back to the per-cell estimate
@@ -276,8 +281,8 @@ export function BookingFlow({
                     vat: 0,
                     vatRate: null,
                     total: estimate.subtotal,
-                    advance: Math.round((estimate.subtotal * displayAdvancePercent) / 100),
-                    balance: estimate.subtotal - Math.round((estimate.subtotal * displayAdvancePercent) / 100),
+                    advance: advanceAmount(estimate.subtotal, displayAdvancePercent),
+                    balance: estimate.subtotal - advanceAmount(estimate.subtotal, displayAdvancePercent),
                 }
                 : null;
 
@@ -462,7 +467,7 @@ export function BookingFlow({
                                 info={info}
                                 amounts={amounts}
                                 loading={quoteLoading}
-                                advancePercent={policy.advancePercent}
+                                advancePercent={displayAdvancePercent}
                                 user={user}
                                 selection={{ pitchId: sel.pitchId, cellStarts: sel.cellStarts }}
                                 hold={hold}
@@ -471,6 +476,7 @@ export function BookingFlow({
                                 onTaken={taken}
                                 onPickAgain={pickAgain}
                                 onAuthed={() => router.refresh()}
+                                onConfirmed={(code) => router.push(`/book?booking=${encodeURIComponent(code)}`)}
                             />
                         )}
                     </div>
@@ -500,7 +506,7 @@ export function BookingFlow({
                         total={amounts?.total ?? null}
                         detail={
                             info
-                                ? `${info.pitchName} · ${info.start}–${info.end}${amounts ? ` · ${displayAdvancePercent}% advance` : ""}`
+                                ? `${info.pitchName} · ${info.start}–${info.end}${amounts ? (amounts.advance > 0 ? ` · ${displayAdvancePercent}% advance` : " · No advance") : ""}`
                                 : "Pick a slot to continue"
                         }
                         disabled={!canContinue}

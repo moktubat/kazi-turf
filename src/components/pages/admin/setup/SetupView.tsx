@@ -125,7 +125,7 @@ export function SetupView({ data, initialTab = "venue" }: { data: SetupData; ini
             </nav>
 
             <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-                {tab === "venue" && data.venue && <VenueTab venue={data.venue} />}
+                {tab === "venue" && data.venue && <VenueTab venue={data.venue} defaultAdvance={data.defaultAdvance} />}
                 {tab === "pitches" && <PitchesTab pitches={data.pitches} slotMinutes={data.slotMinutes} />}
                 {tab === "rates" && (
                     <RatesTab
