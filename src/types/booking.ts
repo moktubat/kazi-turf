@@ -27,6 +27,11 @@ export interface Booking {
     discountAmount?: number;
     discountType?: "FIXED" | "PERCENT" | null;
     discountValue?: number | null;
+    // Additional charge staff added on a walk-in (taka, ADDED to the subtotal before
+    // VAT, e.g. drinks or damage). total is already net of it. Optional: older
+    // bookings have none (= 0).
+    additionalChargeAmount?: number;
+    additionalChargeReason?: string | null;
     total: number;
     advanceAmount: number;
     balanceAmount: number;
@@ -73,8 +78,11 @@ export interface BookingDto {
     originalSubtotal: number;
     vatAmount: number;
     vatRatePercent: number | null;
-    /** Counter discount in taka (0 when none). subtotal − discount (+ VAT) = total. */
+    /** Counter discount in taka (0 when none). subtotal − discount (+ charge) (+ VAT) = total. */
     discountAmount: number;
+    /** Additional charge in taka ADDED to the total (0 when none), with its optional reason. */
+    additionalChargeAmount: number;
+    additionalChargeReason: string | null;
     total: number;
     advanceAmount: number;
     advancePaid: number;

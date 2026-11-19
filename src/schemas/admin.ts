@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { normalizePhone } from "@/lib/phone";
 import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
+import { EXTRA_CHARGE_REASON_MAX, EXTRA_CHARGE_MAX } from "@/lib/extraCharge";
 import { CHECKIN_REASON_MAX, CHECKIN_REASON_MIN, CHECKIN_REASON_TOO_SHORT } from "@/lib/checkInReason";
 import { phoneInput } from "./common";
 
@@ -42,6 +43,26 @@ export const walkInSchema = walkInQuoteSchema.extend({
     // Optional counter discount: whole taka (FIXED) or whole percent (PERCENT) off the
     // subtotal. The server re-checks it against the real price (lib/counterDiscount).
     discount: counterDiscountShape.optional(),
+    // Optional additional charge ADDED to the total (drinks, damage, extras…). Both
+    // fields are optional: a charge without an amount is dropped, an amount without a
+    // reason is fine. The server re-checks the amount (lib/extraCharge).
+    additionalCharge: z
+        .preprocess(
+            (v) => (v && typeof v === "object" && Number((v as { amount?: unknown }).amount) > 0 ? v : undefined),
+            z.object({
+                reason: z
+                    .string()
+                    .trim()
+                    .max(EXTRA_CHARGE_REASON_MAX, `Keep the reason under ${EXTRA_CHARGE_REASON_MAX} characters`)
+                    .optional(),
+                amount: z
+                    .number({ error: "Enter a whole number" })
+                    .int("Enter a whole number")
+                    .min(1, "At least ৳1")
+                    .max(EXTRA_CHARGE_MAX),
+            })
+        )
+        .optional(),
     // Staff note, e.g. "Paid" / "Unpaid". Blank is stored as no note.
     note: z.string().trim().max(WALKIN_NOTE_MAX, `Keep the note under ${WALKIN_NOTE_MAX} characters`).optional(),
 });

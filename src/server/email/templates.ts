@@ -67,10 +67,15 @@ export function bookingConfirmationTemplate(input: {
   total: number;
   /** Counter discount in taka, if any (walk-ins). */
   discount?: number;
+  /** Additional charge in taka added to the total, if any (walk-ins). */
+  additionalCharge?: number;
+  additionalChargeReason?: string | null;
   advance: number;
   balance: number;
 }): { subject: string; html: string; text: string } {
   const discount = input.discount && input.discount > 0 ? input.discount : 0;
+  const charge = input.additionalCharge && input.additionalCharge > 0 ? input.additionalCharge : 0;
+  const chargeLabel = `Additional charge${input.additionalChargeReason ? ` (${input.additionalChargeReason})` : ""}`;
   const when = `${formatDateLong(input.date)}, ${formatTime12(input.start)}–${formatTime12(input.end)}`;
   const subject = `Booking confirmed — ${input.code}`;
   const body = `
@@ -81,6 +86,7 @@ export function bookingConfirmationTemplate(input: {
         <tr><td style="padding:7px 0;color:#6b7280;width:110px;">Field</td><td style="padding:7px 0;font-weight:600;">${escapeHtml(input.pitchName)} · ${escapeHtml(input.sport)}</td></tr>
         <tr><td style="padding:7px 0;color:#6b7280;">When</td><td style="padding:7px 0;font-weight:600;">${when}</td></tr>
         ${discount ? `<tr><td style="padding:7px 0;color:#6b7280;">Discount</td><td style="padding:7px 0;font-weight:600;">−${formatBDT(discount)}</td></tr>` : ""}
+        ${charge ? `<tr><td style="padding:7px 0;color:#6b7280;">${escapeHtml(chargeLabel)}</td><td style="padding:7px 0;font-weight:600;">+${formatBDT(charge)}</td></tr>` : ""}
         <tr><td style="padding:7px 0;color:#6b7280;">Total</td><td style="padding:7px 0;font-weight:600;">${formatBDT(input.total)}</td></tr>
         <tr><td style="padding:7px 0;color:#6b7280;">Advance paid</td><td style="padding:7px 0;font-weight:600;">${formatBDT(input.advance)}</td></tr>
         <tr><td style="padding:7px 0;color:#6b7280;">Balance at venue</td><td style="padding:7px 0;font-weight:700;color:#92400e;">${formatBDT(input.balance)}</td></tr>
@@ -88,7 +94,7 @@ export function bookingConfirmationTemplate(input: {
       <p style="margin:24px 0 0;padding:12px 14px;background:#fef3c7;border-radius:10px;font-size:13px;color:#92400e;">
         Arrive early. Check-in opens 30 minutes before your slot starts.
       </p>`;
-  const text = `Booking confirmed: ${input.code}\n\nField: ${input.pitchName} (${input.sport})\nWhen: ${when}${discount ? `\nDiscount: −${formatBDT(discount)}` : ""}\nTotal: ${formatBDT(input.total)}\nAdvance paid: ${formatBDT(input.advance)}\nBalance at venue: ${formatBDT(input.balance)}\n\nShow this code at the venue.`;
+  const text = `Booking confirmed: ${input.code}\n\nField: ${input.pitchName} (${input.sport})\nWhen: ${when}${discount ? `\nDiscount: −${formatBDT(discount)}` : ""}${charge ? `\n${chargeLabel}: +${formatBDT(charge)}` : ""}\nTotal: ${formatBDT(input.total)}\nAdvance paid: ${formatBDT(input.advance)}\nBalance at venue: ${formatBDT(input.balance)}\n\nShow this code at the venue.`;
   return { subject, html: shell(subject, body), text };
 }
 

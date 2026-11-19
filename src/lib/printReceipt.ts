@@ -18,7 +18,9 @@ export function receiptHtml(b: AdminBookingDto): string {
         `<tr${bold ? ' style="font-weight:700"' : ""}><td>${esc(l)}</td><td style="text-align:right">${esc(v)}</td></tr>`;
 
     const discount = b.discountAmount > 0 ? b.discountAmount : 0;
-    const vatLabel = b.total === b.subtotal - discount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`;
+    const charge = b.additionalChargeAmount > 0 ? b.additionalChargeAmount : 0;
+    const vatLabel =
+        b.total === b.subtotal - discount + charge ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`;
 
     return `<!doctype html><html><head><meta charset="utf-8"><title>Receipt ${esc(b.code)}</title>
 <style>
@@ -38,6 +40,7 @@ ${row("Time", `${b.start}-${b.end}`)}
 </table><hr><table>
 ${row("Subtotal", formatBDT(b.subtotal))}
 ${row("Discount", discount ? `-${formatBDT(discount)}` : formatBDT(0))}
+${charge > 0 ? row(`Additional charge${b.additionalChargeReason ? ` (${b.additionalChargeReason})` : ""}`, `+${formatBDT(charge)}`) : ""}
 ${b.vatRatePercent && b.vatAmount > 0 ? row(vatLabel, formatBDT(b.vatAmount)) : ""}
 ${row("Total", formatBDT(b.total), true)}
 </table><hr><table>

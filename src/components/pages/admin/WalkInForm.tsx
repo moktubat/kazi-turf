@@ -6,6 +6,7 @@ import { Input, Select, Textarea } from "@/components/ui/Field";
 import { policies } from "@/data/site";
 import { ApiError, api, isAbort } from "@/lib/api";
 import { applyCounterDiscount, counterDiscountError, type CounterDiscount, type CounterDiscountType } from "@/lib/counterDiscount";
+import { extraChargeAmount, extraChargeError, type ExtraCharge } from "@/lib/extraCharge";
 import { formatBDT, formatDateLong, formatDiscount, formatTime12 } from "@/lib/format";
 import { slotLengthMinutes } from "@/lib/time";
 import { isBdPhone, normalizePhone } from "@/lib/phone";
@@ -52,6 +53,10 @@ export function WalkInForm({
     // Optional counter discount: taka or percent off the subtotal. Blank = no discount.
     const [discountType, setDiscountType] = useState<CounterDiscountType>("FIXED");
     const [discountInput, setDiscountInput] = useState("");
+    // Optional additional charge ADDED to the total (drinks, damage, extras…).
+    // Reason and amount are BOTH optional: a reason without an amount adds nothing.
+    const [chargeReason, setChargeReason] = useState("");
+    const [chargeInput, setChargeInput] = useState("");
     // Keyed by the selection it was priced for: after the slot count changes, the old
     // price (or error) is not shown and Save stays disabled until the new one arrives.
     const [quoted, setQuoted] = useState<{ key: string; quote: Quote | null; error: string | null } | null>(null);
@@ -94,8 +99,13 @@ export function WalkInForm({
     const discount: CounterDiscount | null =
         discountInput.trim() === "" ? null : { type: discountType, value: Number(discountInput) };
     const discountError = quote ? counterDiscountError(discount, quote.subtotal) : null;
-    const priced = quote && !discountError ? applyCounterDiscount(quote, discount) : null;
-    // Payable after the discount; falls back to the plain total while the discount is invalid.
+    // Additional charge preview with the same rules the server applies (lib/extraCharge).
+    // A reason without an amount is no charge at all — the box stays valid either way.
+    const charge: ExtraCharge | null =
+        chargeInput.trim() === "" ? null : { reason: chargeReason.trim() || undefined, amount: Number(chargeInput) };
+    const chargeError = charge ? extraChargeError(charge) : null;
+    const priced = quote && !discountError && !chargeError ? applyCounterDiscount(quote, discount, extraChargeAmount(charge)) : null;
+    // Payable after the discount and the charge; falls back to the plain total while either is invalid.
     const payable = priced?.total ?? quote?.total ?? 0;
 
     const cash = cashTouched ? cashInput : quote ? String(payable) : "";
@@ -131,6 +141,7 @@ export function WalkInForm({
         // No minimum at the counter: 0 (no advance) up to the full total. A blank box is
         // an error, not ৳0, so "no advance" is always a deliberate choice.
         if (discountError) next.discount = discountError;
+        if (chargeError) next.additionalCharge = chargeError;
         if (!quote) next.cashReceived = "Wait for the price to load";
         else if (cash.trim() === "") next.cashReceived = "Enter the cash received (0 if none)";
         else if (!Number.isInteger(amount) || amount < 0 || amount > payable) {
@@ -151,6 +162,10 @@ export function WalkInForm({
                     name: known ? undefined : name.trim(),
                     cashReceived: amount,
                     discount: priced && priced.discountAmount > 0 ? discount : undefined,
+                    additionalCharge:
+                        charge && extraChargeAmount(charge) > 0
+                            ? { reason: chargeReason.trim() || undefined, amount: extraChargeAmount(charge) }
+                            : undefined,
                     note: note.trim() || undefined,
                 }),
             });
@@ -178,6 +193,12 @@ export function WalkInForm({
                     <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">When</dt><dd className="text-right font-semibold">{formatDateLong(created.date)}, {formatTime12(created.start)}–{formatTime12(created.end)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Subtotal</dt><dd className="font-semibold">{formatBDT(created.subtotal)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Discount</dt><dd className="font-semibold">{formatDiscount(created.discountAmount)}</dd></div>
+                    {created.additionalChargeAmount > 0 && (
+                        <div className="flex justify-between gap-4">
+                            <dt className="shrink-0 text-evergreen/80">Additional charge{created.additionalChargeReason ? ` · ${created.additionalChargeReason}` : ""}</dt>
+                            <dd className="font-semibold">+{formatBDT(created.additionalChargeAmount)}</dd>
+                        </div>
+                    )}
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Total</dt><dd className="font-semibold">{formatBDT(created.total)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Cash received</dt><dd className="font-semibold">{formatBDT(created.advancePaid)}</dd></div>
                     <div className="flex justify-between gap-4 font-bold"><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
@@ -248,6 +269,33 @@ export function WalkInForm({
                 />
             )}
 
+            {/* Additional charge (optional): reason on the left, taka amount on the right.
+                Both are optional — anything typed without an amount adds nothing. */}
+            <div className="grid grid-cols-[1fr_auto] items-start gap-2">
+                <Input
+                    label="Additional charge reason (optional)"
+                    autoComplete="off"
+                    maxLength={120}
+                    placeholder="e.g. Drinks, damaged net"
+                    value={chargeReason}
+                    onChange={(e) => setChargeReason(e.target.value)}
+                    hint="Shown on the receipt when an amount is entered."
+                />
+                <Input
+                    label="Amount (৳)"
+                    aria-label="Additional charge amount"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    placeholder="0"
+                    className="w-24 sm:w-28"
+                    value={chargeInput}
+                    onChange={(e) => setChargeInput(e.target.value)}
+                    error={chargeInput.trim() !== "" ? chargeError ?? undefined : undefined}
+                    hint="Added to the total."
+                />
+            </div>
+
             <div className="grid grid-cols-[1fr_auto] items-start gap-2">
                 <Input
                     label="Discount (optional)"
@@ -281,6 +329,12 @@ export function WalkInForm({
                             <dt>Discount{priced && priced.discountAmount > 0 && discount?.type === "PERCENT" ? ` (${discount.value}%)` : ""}</dt>
                             <dd className="font-semibold">{formatDiscount(priced?.discountAmount ?? 0)}</dd>
                         </div>
+                        {(priced?.extraChargeAmount ?? 0) > 0 && (
+                            <div className="flex justify-between gap-4 text-held">
+                                <dt className="min-w-0 break-words text-right">Additional charge{charge?.reason ? ` · ${charge.reason}` : ""}</dt>
+                                <dd className="shrink-0 font-semibold">+{formatBDT(priced!.extraChargeAmount)}</dd>
+                            </div>
+                        )}
                         {quote.vatRatePercent && (priced?.vat ?? quote.vat) > 0 && (
                             <div className="flex justify-between gap-4">
                                 <dt>{quote.vatMode === "inclusive" ? `Includes VAT (${quote.vatRatePercent}%)` : `VAT (${quote.vatRatePercent}%)`}</dt>
@@ -364,7 +418,7 @@ export function WalkInForm({
                 </div>
             </div>
 
-            {formError &&<p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{formError}</p>}
+            {formError && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{formError}</p>}
 
             <Button type="submit" size="lg" className="w-full" disabled={saving || !quote}>
                 {saving ? "Creating…" : "Create booking"}

@@ -20,6 +20,10 @@ export interface Cell {
     originalPrice: number;   // pre-dispatch price (same as price when no discount)
     hasDiscount: boolean;    // price differs from originalPrice (reduction or increase)
     tier: string;
+    // True when this HELD claim is a staff hold (admin "Hold this slot", no booking
+    // attached). /book renders those as "Booked" so customers cannot tell the
+    // difference; the Staff Desk board keeps showing the real "Held" state.
+    staffHold?: boolean;
 }
 
 export interface AvailabilityOptions {
@@ -92,8 +96,14 @@ function buildCells(pitch: Pitch, date: string, claims: SlotClaim[], now: Date, 
         const rate = priceForCell(pitch.id, startDate);
         if (!rate) continue;
         let status: SlotStatus = "AVAILABLE";
+        let staffHold: boolean | undefined;
         const claim = active.get(iso);
-        if (claim) status = claim.state;
+        if (claim) {
+            status = claim.state;
+            // A HELD claim without a booking is a staff hold; a customer's online
+            // payment hold carries a bookingId and keeps showing as "Held".
+            staffHold = claim.state === "HELD" && !claim.bookingId;
+        }
         else if ((opts.allowStarted ? endDate : startDate) <= now) status = "PAST";
         cells.push({
             pitchId: pitch.id,
@@ -101,6 +111,7 @@ function buildCells(pitch: Pitch, date: string, claims: SlotClaim[], now: Date, 
             start: toHHMM(m),
             end: toHHMM(m + step),
             status,
+            staffHold,
             price: rate.price,
             originalPrice: rate.originalPrice,
             // Any change from the normal price (up OR down): the /book chips use

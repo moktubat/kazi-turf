@@ -111,9 +111,19 @@ export function BookingSheet({
                 <dl className="space-y-1.5 rounded-xl border border-evergreen/10 bg-surface p-3 text-sm">
                     <Line label="Subtotal" value={formatBDT(b.subtotal)} />
                     <Line label="Discount" value={formatDiscount(b.discountAmount)} />
+                    {b.additionalChargeAmount > 0 && (
+                        <Line
+                            label={`Additional charge${b.additionalChargeReason ? ` · ${b.additionalChargeReason}` : ""}`}
+                            value={`+${formatBDT(b.additionalChargeAmount)}`}
+                        />
+                    )}
                     {b.vatRatePercent && b.vatAmount > 0 && (
                         <Line
-                            label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}
+                            label={
+                                b.total === b.subtotal - b.discountAmount + (b.additionalChargeAmount > 0 ? b.additionalChargeAmount : 0)
+                                    ? `Includes VAT (${b.vatRatePercent}%)`
+                                    : `VAT (${b.vatRatePercent}%)`
+                            }
                             value={formatBDT(b.vatAmount)}
                         />
                     )}

@@ -29,14 +29,16 @@ export interface DiscountableQuote {
 export interface DiscountedTotals {
     /** Taka taken off the subtotal (0 when there is no discount). */
     discountAmount: number;
+    /** Taka added on top of the discounted subtotal (0 when there is no charge). */
+    extraChargeAmount: number;
     /** Subtotal before the discount, as priced. */
     subtotal: number;
     vat: number;
-    /** Payable total after the discount (and VAT). */
+    /** Payable total after the discount, the additional charge and VAT. */
     total: number;
     /** Payable total without the discount, for "was ৳X" displays. */
     originalTotal: number;
-    /** Suggested advance on the discounted total, at the sport's percentage. */
+    /** Suggested advance on the final total, at the sport's percentage. */
     advance: number;
 }
 
@@ -55,22 +57,22 @@ export function counterDiscountAmount(d: CounterDiscount | null | undefined, sub
     return Math.min(subtotal, Math.max(0, raw));
 }
 
-/** Totals after the discount. Throws nothing: validate with counterDiscountError first. */
-export function applyCounterDiscount(q: DiscountableQuote, d: CounterDiscount | null | undefined): DiscountedTotals {
+/**
+ * Totals after the discount and the optional additional charge. The charge is ADDED
+ * after the discount: subtotal − discount + charge, then VAT on that. Throws nothing:
+ * validate with counterDiscountError / extraChargeError first.
+ */
+export function applyCounterDiscount(
+    q: DiscountableQuote,
+    d: CounterDiscount | null | undefined,
+    extraCharge = 0
+): DiscountedTotals {
     const discountAmount = counterDiscountAmount(d, q.subtotal);
-    if (discountAmount === 0) {
-        return {
-            discountAmount: 0,
-            subtotal: q.subtotal,
-            vat: q.vat,
-            total: q.total,
-            originalTotal: q.total,
-            advance: advanceAmount(q.total, q.advancePercent),
-        };
-    }
-    const { vat, total } = vatTotals(q.subtotal - discountAmount, q.vatRatePercent, q.vatMode);
+    const charge = extraCharge > 0 && Number.isFinite(extraCharge) ? Math.round(extraCharge) : 0;
+    const { vat, total } = vatTotals(q.subtotal - discountAmount + charge, q.vatRatePercent, q.vatMode);
     return {
         discountAmount,
+        extraChargeAmount: charge,
         subtotal: q.subtotal,
         vat,
         total,

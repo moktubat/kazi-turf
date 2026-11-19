@@ -186,8 +186,21 @@ export function BookingPanel({
                         </>
                     }
                 />
+                {b.additionalChargeAmount > 0 && (
+                    <Line
+                        label={`Additional charge${b.additionalChargeReason ? ` · ${b.additionalChargeReason}` : ""}`}
+                        value={`+${formatBDT(b.additionalChargeAmount)}`}
+                    />
+                )}
                 {b.vatRatePercent && b.vatAmount > 0 && (
-                    <Line label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`} value={formatBDT(b.vatAmount)} />
+                    <Line
+                        label={
+                            b.total === b.subtotal - b.discountAmount + (b.additionalChargeAmount > 0 ? b.additionalChargeAmount : 0)
+                                ? `Includes VAT (${b.vatRatePercent}%)`
+                                : `VAT (${b.vatRatePercent}%)`
+                        }
+                        value={formatBDT(b.vatAmount)}
+                    />
                 )}
                 <Line label="Total" value={formatBDT(b.total)} strong />
                 <Line label="Paid so far" value={formatBDT(b.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0))} />

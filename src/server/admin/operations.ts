@@ -212,7 +212,11 @@ export async function updateDiscount(user: ServerUser, code: string, discount: C
         throw new AppError("INVALID_DISCOUNT", `Discount: ${discountError}.`, 400, { discount: discountError });
     }
     const discountAmount = counterDiscountAmount(discount, b.subtotal);
-    const { vat, total } = vatTotals(b.subtotal - discountAmount, b.vatRatePercentSnapshot ?? null, policies.vatMode);
+    // An additional charge saved on the walk-in stays on the booking: it is ADDED after
+    // the discount, so the recomputed total keeps it.
+    const charge =
+        typeof b.additionalChargeAmount === "number" && b.additionalChargeAmount > 0 ? b.additionalChargeAmount : 0;
+    const { vat, total } = vatTotals(b.subtotal - discountAmount + charge, b.vatRatePercentSnapshot ?? null, policies.vatMode);
 
     // What the customer has actually paid (successful payments only — the same sum the
     // panel shows). The new balance is the discounted total minus that.

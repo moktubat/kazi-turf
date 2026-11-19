@@ -21,6 +21,15 @@ const HEAD = "px-3 py-2.5 text-left font-heading text-xs font-bold uppercase tra
 const GRID =
     "grid grid-cols-[minmax(0,1fr)_5rem_7.5rem] items-center md:grid-cols-[minmax(0,1fr)_8.5rem_9rem_8.5rem]";
 
+/**
+ * What the customer sees for a cell. A staff hold (admin "Hold this slot") shows as
+ * "Booked" — clients book it exactly like a real booking and are never told someone
+ * is holding it. A customer's own 10-minute payment keep shows as "Held" as before.
+ */
+function displayStatus(cell: Cell): SlotStatus {
+    return cell.status === "HELD" && cell.staffHold ? "BOOKED" : cell.status;
+}
+
 export function SlotTable({
     pitches,
     selectedPitchId,
@@ -167,7 +176,7 @@ export function SlotTable({
 
 function SlotRow({ cell, selected, onToggle }: { cell: Cell; selected: boolean; onToggle: () => void }) {
     const available = cell.status === "AVAILABLE";
-    const look = statusLook[cell.status];
+    const look = statusLook[displayStatus(cell)];
     const StatusIcon = selected ? Check : look.icon;
 
     const isSurcharge = cell.hasDiscount && cell.price > cell.originalPrice;

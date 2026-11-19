@@ -13,6 +13,14 @@ export const slotLook: Record<SlotStatus, { label: string; icon: React.ElementTy
     PAST: { label: "Past", icon: Clock, cls: "border-evergreen/10 bg-evergreen/5 text-evergreen/60" },
 };
 
+/**
+ * What the customer sees for a cell. A staff hold (admin "Hold this slot") shows as
+ * "Booked"; a customer's own 10-minute payment hold keeps showing as "Held".
+ */
+function displayStatus(cell: Cell): SlotStatus {
+    return cell.status === "HELD" && cell.staffHold ? "BOOKED" : cell.status;
+}
+
 export function SlotChip({
     cell,
     selected,
@@ -23,7 +31,7 @@ export function SlotChip({
     onSelect: () => void;
 }) {
     const available = cell.status === "AVAILABLE";
-    const look = slotLook[cell.status];
+    const look = slotLook[displayStatus(cell)];
     const Icon = selected ? Check : look.icon;
 
     const isSurcharge = cell.hasDiscount && cell.price > cell.originalPrice;

@@ -248,7 +248,9 @@ export function DiscountForm({ b, busy, onSubmit, onBack }: FormProps) {
     const discount: CounterDiscount | null = value.trim() === "" ? null : { type, value: Number(value) };
     const discountError = discount ? counterDiscountError(discount, b.subtotal) : null;
     const amount = discount && !discountError ? counterDiscountAmount(discount, b.subtotal) : 0;
-    const { vat, total } = vatTotals(b.subtotal - amount, b.vatRatePercent, b.vatMode);
+    // An additional charge saved on the walk-in stays on the booking: added after the discount.
+    const charge = b.additionalChargeAmount > 0 ? b.additionalChargeAmount : 0;
+    const { vat, total } = vatTotals(b.subtotal - amount + charge, b.vatRatePercent, b.vatMode);
     // The same "paid so far" sum the panel shows.
     const paid = b.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
     const balance = Math.max(0, total - paid);
@@ -300,9 +302,15 @@ export function DiscountForm({ b, busy, onSubmit, onBack }: FormProps) {
                         <dt>Discount{amount > 0 && discount?.type === "PERCENT" ? ` (${discount.value}%)` : ""}</dt>
                         <dd className="font-semibold">{formatDiscount(amount)}</dd>
                     </div>
+                    {charge > 0 && (
+                        <div className="flex justify-between gap-4">
+                            <dt className="min-w-0 break-words text-right">Additional charge{b.additionalChargeReason ? ` · ${b.additionalChargeReason}` : ""}</dt>
+                            <dd className="shrink-0 font-semibold">+{formatBDT(charge)}</dd>
+                        </div>
+                    )}
                     {b.vatRatePercent && vat > 0 && (
                         <div className="flex justify-between gap-4">
-                            <dt>{total === b.subtotal - amount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}</dt>
+                            <dt>{total === b.subtotal - amount + charge ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}</dt>
                             <dd className="font-semibold">{formatBDT(vat)}</dd>
                         </div>
                     )}

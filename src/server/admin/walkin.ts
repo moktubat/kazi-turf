@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
 import { applyCounterDiscount, counterDiscountError, type CounterDiscount } from "@/lib/counterDiscount";
+import { extraChargeAmount, extraChargeError, EXTRA_CHARGE_REASON_MAX, type ExtraCharge } from "@/lib/extraCharge";
 import { formatBDT } from "@/lib/format";
 import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
 import { addDays, dhakaParts, toHHMM } from "@/lib/time";
@@ -95,6 +96,7 @@ export async function createWalkIn(
         cashReceived: number;
         note?: string;
         discount?: CounterDiscount;
+        additionalCharge?: ExtraCharge;
     },
     now: Date = new Date()
 ): Promise<AdminBookingDto> {
@@ -107,7 +109,17 @@ export async function createWalkIn(
     if (discountError) {
         throw new AppError("INVALID_DISCOUNT", `Discount: ${discountError}.`, 400, { discount: discountError });
     }
-    const priced = applyCounterDiscount(q, input.discount);
+    // Optional additional charge, ADDED after the discount. Same pattern as the
+    // discount: the server re-checks the amount with the very same code the form
+    // previews with (lib/extraCharge).
+    const chargeError = extraChargeError(input.additionalCharge);
+    if (chargeError) {
+        throw new AppError("INVALID_CHARGE", `Additional charge: ${chargeError}.`, 400, {
+            additionalCharge: chargeError,
+        });
+    }
+    const charge = extraChargeAmount(input.additionalCharge);
+    const priced = applyCounterDiscount(q, input.discount, charge);
     const discount = priced.discountAmount > 0 ? input.discount! : null;
 
     // Counter bookings need no minimum advance: staff may take anything from ৳0
@@ -161,6 +173,9 @@ export async function createWalkIn(
         discountAmount: priced.discountAmount,
         discountType: discount?.type ?? null,
         discountValue: discount?.value ?? null,
+        additionalChargeAmount: charge,
+        additionalChargeReason:
+            charge > 0 ? input.additionalCharge?.reason?.trim().slice(0, EXTRA_CHARGE_REASON_MAX) || null : null,
         total: priced.total,
         advanceAmount: paid, // what was actually received at the counter
         balanceAmount: priced.total - paid,
@@ -206,6 +221,7 @@ export async function createWalkIn(
                     ...(priced.discountAmount > 0
                         ? { originalTotal: priced.originalTotal, discount: priced.discountAmount, discountType: discount!.type, discountValue: discount!.value }
                         : {}),
+                    ...(charge > 0 ? { additionalCharge: charge, additionalChargeReason: booking.additionalChargeReason ?? undefined } : {}),
                     ...(note ? { note } : {}),
                 },
             },
@@ -236,6 +252,8 @@ export async function createWalkIn(
                 end,
                 total: priced.total,
                 discount: priced.discountAmount,
+                additionalCharge: charge > 0 ? charge : undefined,
+                additionalChargeReason: booking.additionalChargeReason,
                 advance: paid,
                 balance: priced.total - paid,
             });
