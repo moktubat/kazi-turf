@@ -88,7 +88,14 @@ export interface BoardResponse {
     stats: {
         arrivalsPending: number;
         checkedIn: number;
+        /** Kept for the API; the desk now shows the sales/advance/pending trio below. */
         cashCollected: number;
+        /** Gross total of the day's active bookings (confirmed + checked in + completed). */
+        totalSales: number;
+        /** CASH payments of kind ADVANCE verified today. */
+        advanceCollected: number;
+        /** What is still to be collected today: totalSales minus cash collected today. */
+        pendingCash: number;
         openRequests: number;
     };
 }

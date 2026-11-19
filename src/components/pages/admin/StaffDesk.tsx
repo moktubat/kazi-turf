@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, Banknote, ChevronLeft, ChevronRight, Inbox, LogIn, RefreshCw, Users } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, HandCoins, Hourglass, Inbox, LogIn, Receipt, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Field";
@@ -189,10 +189,12 @@ export function StaffDesk({
                 </div>
             </Card>
 
-            <div role="group" className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Day summary">
+            <div role="group" className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Day summary">
                 <Stat icon={Users} label="Arrivals pending" value={board?.stats.arrivalsPending ?? "–"} />
                 <Stat icon={LogIn} label="Checked in" value={board?.stats.checkedIn ?? "–"} />
-                <Stat icon={Banknote} label="Cash collected" value={board ? formatBDT(board.stats.cashCollected) : "–"} />
+                <Stat icon={Receipt} label="Total sales" value={board ? formatBDT(board.stats.totalSales) : "–"} />
+                <Stat icon={HandCoins} label="Advance collected" value={board ? formatBDT(board.stats.advanceCollected) : "–"} />
+                <Stat icon={Hourglass} label="Pending cash" value={board ? formatBDT(board.stats.pendingCash) : "–"} />
                 <Stat
                     icon={Inbox}
                     label="Open requests"

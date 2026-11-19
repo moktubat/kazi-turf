@@ -1,5 +1,5 @@
 // Server-rendered, no chart library. Every bar and cell also shows its number as text.
-import { Banknote, CalendarCheck, Gauge, Hourglass } from "lucide-react";
+import { Banknote, CalendarCheck, Gauge, HandCoins, Hourglass, Receipt } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import type { InsightsData } from "@/types/insights";
@@ -29,9 +29,11 @@ export function Kpi({
 
 export function KpiCards({ k }: { k: InsightsData["kpis"] }) {
     return (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <Kpi icon={CalendarCheck} label="Bookings" value={String(k.bookings)} sub="Confirmed, checked in or completed" />
+            <Kpi icon={Receipt} label="Total sales" value={formatBDT(k.totalAmount)} sub="Gross booking value in range" />
             <Kpi icon={Banknote} label="Collected" value={formatBDT(k.collected)} sub="Cash and bKash actually received" />
+            <Kpi icon={HandCoins} label="Advance collected" value={formatBDT(k.advanceAmount)} sub="Part of collected received as advance" />
             <Kpi
                 icon={Hourglass}
                 label="Pending"

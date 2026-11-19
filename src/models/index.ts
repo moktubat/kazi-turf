@@ -168,10 +168,14 @@ const auditLog = new Schema(
         branchId: { type: String, default: null },
         meta: { type: Schema.Types.Mixed, default: {} },
         at: { type: String, required: true },
+        // Real Date twin of `at`, required for the TTL below: Mongo deletes each
+        // document 30 days after createdAt, i.e. 30 days after the entry was written.
+        createdAt: { type: Date, default: null },
     },
     opts
 );
 auditLog.index({ at: -1 });
+auditLog.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 86_400 });
 auditLog.index({ entityType: 1, entityId: 1, at: -1 });
 auditLog.index({ branchId: 1, at: -1 });
 

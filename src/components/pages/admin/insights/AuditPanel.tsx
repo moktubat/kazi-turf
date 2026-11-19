@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Field";
@@ -7,18 +8,54 @@ import type { AuditRow } from "@/types/insights";
 
 const label = (a: string) => a.replace(/_/g, " ").toLowerCase();
 
-// Plain GET form: the search lives in the URL, so it can be shared and reloaded.
+const PAGE_SIZE = 25;
+
+/** Page numbers to show: all when few, a 7-wide window around the current page otherwise. */
+function pageNumbers(page: number, pages: number): (number | "…")[] {
+    if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+    const nums = new Set<number>([1, pages, page - 1, page, page + 1]);
+    const list = [...nums].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+    const out: (number | "…")[] = [];
+    for (let i = 0; i < list.length; i++) {
+        if (i > 0 && list[i] - list[i - 1] > 1) out.push("…");
+        out.push(list[i]);
+    }
+    return out;
+}
+
+// Plain GET form + links: the search and the page live in the URL, so they can be shared and reloaded.
 export function AuditPanel({
     rows,
     q,
     action,
     keep,
+    page,
+    pages,
+    total,
 }: {
     rows: AuditRow[];
     q: string;
     action: string;
     keep: { from: string; to: string; sport?: string };
+    page: number;
+    pages: number;
+    total: number;
 }) {
+    // Rebuild the query string for a given audit page, preserving every filter.
+    const hrefFor = (p: number) => {
+        const sp = new URLSearchParams();
+        sp.set("from", keep.from);
+        sp.set("to", keep.to);
+        if (keep.sport) sp.set("sport", keep.sport);
+        if (q) sp.set("aq", q);
+        if (action) sp.set("aa", action);
+        sp.set("ap", String(p));
+        return `/admin/insights?${sp.toString()}`;
+    };
+
+    const fromRow = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+    const toRow = Math.min(total, page * PAGE_SIZE);
+
     return (
         <section aria-labelledby="audit-title" className="space-y-3">
             <h2 id="audit-title" className="text-xl font-bold">Audit log</h2>
@@ -73,7 +110,43 @@ export function AuditPanel({
                     </table>
                 </div>
             )}
-            {rows.length >= 100 && <p className="text-xs text-evergreen/70">Showing the latest 100. Narrow the search to see older entries.</p>}
+
+            {total > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-evergreen/70">
+                        {fromRow}–{toRow} of {total} · {PAGE_SIZE} per page · entries older than 30 days are deleted automatically
+                    </p>
+                    {pages > 1 && (
+                        <nav aria-label="Audit log pages" className="flex flex-wrap items-center gap-1">
+                            {page > 1 ? (
+                                <Link href={hrefFor(page - 1)} className="rounded-lg border border-evergreen/15 px-2.5 py-1 text-xs font-semibold hover:border-teal">
+                                    ‹ Prev
+                                </Link>
+                            ) : (
+                                <span aria-disabled="true" className="rounded-lg border border-evergreen/10 px-2.5 py-1 text-xs text-evergreen/40">‹ Prev</span>
+                            )}
+                            {pageNumbers(page, pages).map((n, i) =>
+                                n === "…" ? (
+                                    <span key={`e${i}`} className="px-1 text-xs text-evergreen/40">…</span>
+                                ) : n === page ? (
+                                    <span key={n} aria-current="page" className="rounded-lg bg-teal px-2.5 py-1 text-xs font-semibold text-white">{n}</span>
+                                ) : (
+                                    <Link key={n} href={hrefFor(n)} className="rounded-lg border border-evergreen/15 px-2.5 py-1 text-xs font-semibold hover:border-teal">
+                                        {n}
+                                    </Link>
+                                )
+                            )}
+                            {page < pages ? (
+                                <Link href={hrefFor(page + 1)} className="rounded-lg border border-evergreen/15 px-2.5 py-1 text-xs font-semibold hover:border-teal">
+                                    Next ›
+                                </Link>
+                            ) : (
+                                <span aria-disabled="true" className="rounded-lg border border-evergreen/10 px-2.5 py-1 text-xs text-evergreen/40">Next ›</span>
+                            )}
+                        </nav>
+                    )}
+                </div>
+            )}
         </section>
     );
 }

@@ -67,8 +67,8 @@ export async function getInsights(
                 date: { $gte: f.from, $lte: f.to },
                 ...(sport ? { pitchId: { $in: [...scopePitchIds] } } : {}),
             },
-            { id: 1, branchId: 1, pitchId: 1, source: 1, paymentStatus: 1, balanceAmount: 1, cellStarts: 1 }
-        ).lean<Pick<Booking, "id" | "branchId" | "pitchId" | "source" | "paymentStatus" | "balanceAmount" | "cellStarts">[]>(),
+            { id: 1, branchId: 1, pitchId: 1, source: 1, paymentStatus: 1, balanceAmount: 1, cellStarts: 1, total: 1 }
+        ).lean<Pick<Booking, "id" | "branchId" | "pitchId" | "source" | "paymentStatus" | "balanceAmount" | "cellStarts" | "total">[]>(),
         PaymentModel.find({ status: "SUCCESS", verifiedAt: { $gte: fromIso, $lt: toIso } }).lean<Payment[]>(),
         PaymentModel.find({ status: "PENDING" }).lean<Payment[]>(),
         // pitchId: only in-scope fields are counted below; it also lets the {pitchId, cellStart} index serve this.
@@ -171,7 +171,9 @@ export async function getInsights(
         sport,
         kpis: {
             bookings: inRange.length,
+            totalAmount: inRange.reduce((s, b) => s + b.total, 0),
             collected,
+            advanceAmount: paid.reduce((s, x) => s + (x.p.kind === "ADVANCE" ? x.p.amount : 0), 0),
             pendingAmount: pending.reduce((s, p) => s + p.amount, 0),
             pendingCount: pending.length,
             balanceDue,
@@ -313,15 +315,31 @@ export async function markInquiryHandled(user: ServerUser, id: string) {
 }
 
 /* ---------- audit log (searchable: scans the latest 1,000 matching entries) ---------- */
+export const AUDIT_PAGE_SIZE = 25;
+export const AUDIT_RETENTION_DAYS = 30;
+
+export interface AuditPage {
+    rows: AuditRow[];
+    total: number;
+    page: number;
+    pages: number;
+}
+
 export async function getAuditEntries(
     user: ServerUser,
-    f: { q?: string; action?: string },
-    limit = 100
-): Promise<AuditRow[]> {
+    f: { q?: string; action?: string; page?: number },
+    now: Date = new Date()
+): Promise<AuditPage> {
     assertSuperAdmin(user);
     await connectDb();
     const needle = f.q?.trim().toLowerCase() ?? "";
     const nameOf = new Map(branches.map((b) => [b.id, b.name]));
+
+    // Each entry lives 30 days from the moment it was written, then it is gone.
+    // The TTL index on createdAt deletes in the background; this also sweeps rows
+    // written before createdAt existed. A failure here must never block the page.
+    const cutoffIso = new Date(now.getTime() - AUDIT_RETENTION_DAYS * DAY_MS).toISOString();
+    await AuditLogModel.deleteMany({ at: { $lt: cutoffIso } }).catch(() => { });
 
     const docs = await AuditLogModel.find({
         ...(f.action ? { action: f.action } : {}),
@@ -330,23 +348,27 @@ export async function getAuditEntries(
         .limit(1000)
         .lean<AuditLog[]>();
 
-    return docs
-        .filter((a) => {
-            if (!needle) return true;
-            const hay = [a.action.replace(/_/g, " "), a.actorName, a.entityId, ...Object.values(a.meta ?? {}).map(String)]
-                .join(" ")
-                .toLowerCase();
-            return hay.includes(needle);
-        })
-        .slice(0, limit)
-        .map((a) => ({
-            id: a.id,
-            action: a.action,
-            actorName: a.actorName,
-            at: a.at,
-            entityType: a.entityType,
-            entityId: a.entityId,
-            branchName: a.branchId ? (nameOf.get(a.branchId) ?? "") : "",
-            meta: a.meta ?? {},
-        }));
+    const filtered = docs.filter((a) => {
+        if (!needle) return true;
+        const hay = [a.action.replace(/_/g, " "), a.actorName, a.entityId, ...Object.values(a.meta ?? {}).map(String)]
+            .join(" ")
+            .toLowerCase();
+        return hay.includes(needle);
+    });
+
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / AUDIT_PAGE_SIZE));
+    const page = Math.min(Math.max(1, f.page ?? 1), pages);
+    const rows = filtered.slice((page - 1) * AUDIT_PAGE_SIZE, page * AUDIT_PAGE_SIZE).map((a) => ({
+        id: a.id,
+        action: a.action,
+        actorName: a.actorName,
+        at: a.at,
+        entityType: a.entityType,
+        entityId: a.entityId,
+        branchName: a.branchId ? (nameOf.get(a.branchId) ?? "") : "",
+        meta: a.meta ?? {},
+    }));
+
+    return { rows, total, page, pages };
 }

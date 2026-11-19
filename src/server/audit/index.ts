@@ -32,6 +32,8 @@ export async function logAudit(
                 branchId: entry.branchId ?? null,
                 meta: entry.meta ?? {},
                 at: new Date().toISOString(),
+                // TTL anchor: Mongo removes the entry 30 days after this moment.
+                createdAt: new Date(),
             },
         ],
         { session: opts.session }

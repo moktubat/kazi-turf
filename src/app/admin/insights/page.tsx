@@ -42,6 +42,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
     // Audit search query + action filter (preserved across the AuditPanel form).
     const aq = (one("aq") ?? "").trim().slice(0, 60);
     const aa = (AUDIT_ACTIONS as readonly string[]).includes(one("aa") ?? "") ? one("aa")! : "";
+    // Audit page number (?ap=): which 25-entry page of the audit log is shown.
+    const ap = Math.max(1, Number.parseInt(one("ap") ?? "1", 10) || 1);
 
     // Sport filter — null means "all sports". Pulled from the live venue sports.
     const venueSports = venue.sports;
@@ -52,7 +54,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
         getInsights(user, { from, to, sport: sport || null }),
         getAttention(user),
         listInquiries(user),
-        getAuditEntries(user, { q: aq, action: aa }),
+        getAuditEntries(user, { q: aq, action: aa, page: ap }),
     ]);
 
     return (
@@ -93,7 +95,15 @@ export default async function InsightsPage({ searchParams }: { searchParams: Par
 
             <AttentionPanel groups={attention} role={user.role} />
             <InquiryInbox items={inquiries} />
-            <AuditPanel rows={audit} q={aq} action={aa} keep={{ from, to, sport }} />
+            <AuditPanel
+                rows={audit.rows}
+                q={aq}
+                action={aa}
+                keep={{ from, to, sport }}
+                page={audit.page}
+                pages={audit.pages}
+                total={audit.total}
+            />
         </div>
     );
 }

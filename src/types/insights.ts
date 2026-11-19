@@ -2,7 +2,11 @@ import type { AuditAction, AuditMeta } from "@/types/ops";
 
 export interface InsightsKpis {
     bookings: number;
+    /** Gross booking value in the selected range (before refunds of cancelled ones are excluded). */
+    totalAmount: number;
     collected: number;
+    /** Part of "collected" that was received as an advance payment. */
+    advanceAmount: number;
     pendingAmount: number;
     pendingCount: number;
     balanceDue: number;
@@ -55,9 +59,6 @@ export interface AttentionGroup {
 
 export interface InquiryDto {
     id: string;
-    name: string;
-    contact: string;
-    message: string;
     firstName?: string | null;
     lastName?: string | null;
     email?: string | null;

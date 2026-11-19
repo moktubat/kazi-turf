@@ -17,6 +17,9 @@ import type { Payment } from "@/types/ops";
 import { SlotClaim } from "@/types";
 import { todayDhaka } from "@/lib/time.server";
 
+// Bookings that count as "the day's sales" (cancelled/expired never do).
+const SALES_STATUSES = ["CONFIRMED", "CHECKED_IN", "COMPLETED"] as const;
+
 export async function getBoard(
     user: ServerUser,
     branchId: string,
@@ -48,7 +51,9 @@ export async function getBoard(
 
     const [bookingDocs, dayDocs, cashDocs, openReqs] = await Promise.all([
         BookingModel.find({ id: { $in: bookingIds } }).lean(),
-        BookingModel.find({ branchId: branch.id, date }, { bookingStatus: 1 }).lean<Pick<Booking, "bookingStatus">[]>(),
+        BookingModel.find({ branchId: branch.id, date }, { bookingStatus: 1, total: 1 }).lean<
+            Pick<Booking, "bookingStatus" | "total">[]
+        >(),
         PaymentModel.find({ provider: "CASH", status: "SUCCESS", verifiedAt: { $gte: from, $lt: to } }).lean<Payment[]>(),
         ChangeRequestModel.find({ status: "OPEN" }, { bookingCode: 1 }).lean<{ bookingCode: string }[]>(),
     ]);
@@ -59,9 +64,16 @@ export async function getBoard(
         (await BookingModel.find({ id: { $in: cashIds }, branchId: branch.id }, { id: 1 }).lean<{ id: string }[]>()).map((b) => b.id)
     );
     const cash = cashDocs.filter((p) => mine.has(p.bookingId)).reduce((s, p) => s + p.amount, 0);
+    const advance = cashDocs.filter((p) => p.kind === "ADVANCE" && mine.has(p.bookingId)).reduce((s, p) => s + p.amount, 0);
     const openRequests = openReqs.length
         ? await BookingModel.countDocuments({ bookingCode: { $in: openReqs.map((r) => r.bookingCode) }, branchId: branch.id })
         : 0;
+
+    // The money trio: 100 total sell → 25 advance → 75 still pending.
+    const totalSales = dayDocs
+        .filter((b) => (SALES_STATUSES as readonly string[]).includes(b.bookingStatus))
+        .reduce((s, b) => s + b.total, 0);
+    const pendingCash = Math.max(0, totalSales - cash);
 
     const pitches = await Promise.all(
         list.map(async (p) => {
@@ -102,6 +114,9 @@ export async function getBoard(
             arrivalsPending: dayDocs.filter((b) => b.bookingStatus === "CONFIRMED").length,
             checkedIn: dayDocs.filter((b) => b.bookingStatus === "CHECKED_IN").length,
             cashCollected: cash,
+            totalSales,
+            advanceCollected: advance,
+            pendingCash,
             openRequests,
         },
     };

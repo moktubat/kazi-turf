@@ -21,7 +21,7 @@ const BOARD = {
         id: "p1", name: "Football", sport: "Football", format: "5 vs 5", maxConsecutiveSlots: 3,
         cells: [{ pitchId: "p1", cellStart: "2026-11-18T09:00:00.000Z", start: "15:00", end: "16:30", status: "AVAILABLE", price: 1900, originalPrice: 1900, hasDiscount: false, tier: "Peak" }],
     }],
-    stats: { arrivalsPending: 0, checkedIn: 0, cashCollected: 0, openRequests: 0 },
+    stats: { arrivalsPending: 0, checkedIn: 0, cashCollected: 0, totalSales: 0, advanceCollected: 0, pendingCash: 0, openRequests: 0 },
 };
 
 beforeEach(() => {
