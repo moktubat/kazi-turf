@@ -1,16 +1,18 @@
 # Google Tag Manager and Google Analytics 4 (GA4)
 
-The website loads the venue's **Google Tag Manager container `GTM-M59FHC4F`** on every page.
-GA4 runs as a tag **inside that container**, so it is set up in Tag Manager, not in the code.
+The website loads the venue's **Google Tag Manager container** on every page. Its ID is kept in
+environment variables, not in the repository. GA4 runs as a tag **inside that container**, so it is
+set up in Tag Manager, not in the code.
 
 The IDs are read in exactly one place: `src/lib/analytics.ts`.
 
 | Variable             | Default        | Meaning                                                                 |
 | -------------------- | -------------- | ----------------------------------------------------------------------- |
-| `NEXT_PUBLIC_GTM_ID` | `GTM-M59FHC4F` | GTM container. Set another `GTM-…` to switch, or an empty value to turn GTM off. |
+| `NEXT_PUBLIC_GTM_ID` | (none)         | GTM container ID (`GTM-…`). Unset = GTM off. |
 | `NEXT_PUBLIC_GA_ID`  | (none)         | Direct GA4 tag (`G-…`). Used **only when GTM is off**, so nothing is counted twice. |
 
-`NEXT_PUBLIC_` values are built into the site: after changing one in Vercel (Project → Settings →
+Set `NEXT_PUBLIC_GTM_ID` in `.env.local` for local development **and** in Vercel (Project →
+Settings → Environment Variables, Production + Preview) for the live site. `NEXT_PUBLIC_` values are built into the site: after changing one in Vercel (Project → Settings →
 Environment Variables), **redeploy**. `.env*` files are git-ignored and must never be committed.
 
 ## 1. Get the GA4 Measurement ID
@@ -24,7 +26,7 @@ Environment Variables), **redeploy**. `.env*` files are git-ignored and must nev
 
 ## 2. Add GA4 inside Tag Manager (required — otherwise GA shows "tag not detected")
 
-1. <https://tagmanager.google.com> → container **GTM-M59FHC4F** → **Tags → New**.
+1. <https://tagmanager.google.com> → the venue's container → **Tags → New**.
 2. Tag type **Google tag**. Tag ID: your `G-XXXXXXXXXX`.
 3. Trigger: **Initialization – All Pages**.
 4. Save, then **Submit → Publish**. Until the container is *published*, nothing reaches GA4.
