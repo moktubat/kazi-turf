@@ -59,6 +59,11 @@ export interface AttentionGroup {
 
 export interface InquiryDto {
     id: string;
+    /** Legacy composed fields ("First Last", phone, "[Sport] Subject\n\nBody") — always present. */
+    name: string;
+    contact: string;
+    message: string;
+    /** Structured contact-form fields (newer records; null on legacy rows). */
     firstName?: string | null;
     lastName?: string | null;
     email?: string | null;
