@@ -81,7 +81,7 @@ export function Hero({
                                 onClick={() => { setAutoRotate(false); setSportId(s.id); }}
                                 className={`min-h-11 shrink-0 rounded-xl border px-3 py-1.5 text-xs font-semibold backdrop-blur-sm transition-all md:min-h-12 md:rounded-full md:px-7 md:py-0 md:text-base md:transition-colors ${selected
                                     ? "border-emerald bg-emerald text-evergreen shadow-md ring-2 ring-emerald/40 md:ring-0 md:shadow-none"
-                                    : "border-surface/25 bg-surface/10 text-surface hover:bg-surface/20"
+                                    : "border-surface/25 bg-evergreen text-surface hover:bg-evergreen/20"
                                     }`}
                             >
                                 {s.name}
