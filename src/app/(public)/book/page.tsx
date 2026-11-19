@@ -12,12 +12,13 @@ import { getPitch } from "@/server/availability";
 import { todayDhaka } from "@/lib/time.server";
 import { getPublicVenue, getPublicPolicies } from "@/server/public-data";
 import { connection } from "next/server";
+import { sportAdvance, sportConfigFor, type SportAdvance } from "@/lib/advance";
 
 export const metadata: Metadata = pageMetadata({
     path: "/book",
     title: "Book Indoor Football, Cricket & Badminton",
     description:
-        "See live slot availability at Kazi Sports Arena in Shabgram, Bogura, and book football, cricket nets or badminton. Open 24/7. Pay the advance by bKash.",
+        "See live slot availability at Kazi Sports Arena in Shabgram, Bogura, and book football, cricket nets or badminton. Open 24/7. Pay any advance by bKash.",
 });
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
@@ -110,6 +111,11 @@ async function BookContent({ searchParams }: { searchParams: Params }) {
             ? pitch
             : undefined;
 
+    // Each sport's own advance (Setup → Venue), so the preview matches the server quote.
+    const advanceBySport: Record<string, SportAdvance> = Object.fromEntries(
+        v.sports.map((s) => [s, sportAdvance(sportConfigFor(venue, s), policies)])
+    );
+
     const initial: FlowInitial = {
         sport,
         date,
@@ -126,8 +132,7 @@ async function BookContent({ searchParams }: { searchParams: Params }) {
             maxDate={maxDate}
             user={user ? { name: user.name, phone: user.phone } : null}
             policy={{
-                advancePercent: policies.advancePercent,
-                nightAdvancePercent: policies.nightAdvancePercent ?? 100,
+                advanceBySport,
                 holdMinutes: policies.holdMinutes,
                 slotMinutes: policies.slotMinutes,
             }}

@@ -172,6 +172,7 @@ export function BookingResult({ code }: { code: string }) {
                     <Card className="space-y-4">
                         <Details b={b} when={when} />
                         <dl className="space-y-1.5 rounded-xl bg-mint p-3 text-sm">
+                            {b.discountAmount > 0 && <Line label="Discount" value={`−${formatBDT(b.discountAmount)}`} />}
                             <Line label="Total" value={formatBDT(b.total)} />
                             <Line label="Advance paid" value={formatBDT(b.advancePaid)} />
                             <Line label="Balance due at venue" value={formatBDT(b.balanceDue)} strong />
@@ -194,14 +195,14 @@ export function BookingResult({ code }: { code: string }) {
                         >
                             <CalendarPlus size={18} aria-hidden /> Add to Google Calendar
                         </Button>
-                        {/* Receipt route arrives in Batch 6 */}
-                        <a
+                        {/* A receipt exists only once money was received (not for a no-advance booking). */}
+                        {b.advancePaid > 0 && <a
                             href={`/api/bookings/${encodeURIComponent(b.code)}/receipt`}
                             download
                             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal transition-colors hover:bg-mint"
                         >
                             <Download size={18} aria-hidden /> Download receipt
-                        </a>
+                        </a>}
                         {b.branchMapUrl && (
                             <Button href={b.branchMapUrl} variant="secondary">
                                 <MapPin size={18} aria-hidden /> Directions

@@ -118,3 +118,21 @@ export function applyPriceAdjustment(
         hasAdjustment: final !== price,
     };
 }
+
+/**
+ * VAT on a (pre-VAT) subtotal. Exclusive: VAT is added on top. Inclusive: the price
+ * already contains it, so the total stays the subtotal. No rate: no VAT at all.
+ * Shared by the server quote and the walk-in discount preview, so both always agree.
+ */
+export function vatTotals(
+    subtotal: number,
+    vatRatePercent: number | null | undefined,
+    vatMode: "inclusive" | "exclusive"
+): { vat: number; total: number } {
+    if (!vatRatePercent) return { vat: 0, total: subtotal };
+    if (vatMode === "exclusive") {
+        const vat = Math.round((subtotal * vatRatePercent) / 100);
+        return { vat, total: subtotal + vat };
+    }
+    return { vat: Math.round(subtotal - subtotal / (1 + vatRatePercent / 100)), total: subtotal };
+}

@@ -121,16 +121,26 @@ export function SummaryCard({
                                 )}
                                 <Row label="Total" value={formatBDT(amounts.total)} strong />
                                 </dl>
+                                {/* The advance is set per sport (0–100%). 0% = nothing online. */}
                                 <dl className="my-2 rounded-xl bg-mint p-3">
-                                    <Row
-                                        label={`Advance due now (${advancePercent}%)`}
-                                        value={isPayableAmount(amounts.advance) ? formatBDT(amounts.advance) : "৳—"}
-                                        strong
-                                    />
-                                    <Row
-                                        label="Balance payable at venue"
-                                        value={isPayableAmount(amounts.balance) ? formatBDT(amounts.balance) : "৳—"}
-                                    />
+                                    {amounts.advance === 0 && amounts.total > 0 ? (
+                                        <>
+                                            <Row label="Advance due now" value="No advance" strong />
+                                            <Row label="Payable at venue" value={formatBDT(amounts.balance)} />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Row
+                                                label={`Advance due now (${advancePercent}%)`}
+                                                value={isPayableAmount(amounts.advance) ? formatBDT(amounts.advance) : "৳—"}
+                                                strong
+                                            />
+                                            <Row
+                                                label="Balance payable at venue"
+                                                value={amounts.balance === 0 ? formatBDT(0) : isPayableAmount(amounts.balance) ? formatBDT(amounts.balance) : "৳—"}
+                                            />
+                                        </>
+                                    )}
                                 </dl>
                             </div>
                         )}

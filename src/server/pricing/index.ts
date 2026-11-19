@@ -1,6 +1,9 @@
+import { branches } from "@/data/branches";
+import { pitches } from "@/data/pitches";
 import { priceAdjustments, pricingRules } from "@/data/pricing";
 import { policies } from "@/data/site";
-import { adjustmentCovers, applyDiscount, priceWithTemporary } from "@/lib/pricing";
+import { advanceAmount, advancePercentAt, sportAdvance, sportConfigFor, type SportAdvance } from "@/lib/advance";
+import { adjustmentCovers, applyDiscount, priceWithTemporary, vatTotals } from "@/lib/pricing";
 import { dhakaParts, toMinutes } from "@/lib/time";
 import { AppError } from "@/server/http";
 import type { PriceAdjustment, PricingRule } from "@/types";
@@ -76,10 +79,22 @@ export interface Quote {
     balance: number;
     advancePercent: number;
     vatRatePercent: number | null;
+    vatMode: "inclusive" | "exclusive";
+}
+
+/**
+ * The advance percentages for the sport played on this pitch (Setup → Venue → sport).
+ * A sport saved before sport-wise advances existed uses the venue-wide Policies values.
+ */
+export function advanceForPitch(pitchId: string): SportAdvance {
+    const pitch = pitches.find((p) => p.id === pitchId);
+    const branch = pitch ? branches.find((b) => b.id === pitch.branchId) : undefined;
+    const cfg = pitch ? sportConfigFor(branch, pitch.sport) : undefined;
+    return sportAdvance(cfg, policies);
 }
 
 export function quote(pitchId: string, cellStarts: Date[]): Quote {
-    const { advancePercent, nightAdvancePercent, vatRatePercent, vatMode } = policies;
+    const { advancePercent, vatRatePercent, vatMode } = policies;
     if (typeof advancePercent !== "number" || !Number.isFinite(advancePercent)) {
         throw new AppError("NO_RATE_FOR_SLOT", "Booking is not configured yet. Please contact the venue.", 500);
     }
@@ -101,26 +116,14 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
     const subtotal = lines.reduce((s, l) => s + l.price, 0);
     const originalSubtotal = lines.reduce((s, l) => s + l.originalPrice, 0);
     const adjustmentAmount = subtotal - originalSubtotal;
-    let vat = 0;
-    let total = subtotal;
-    if (vatRatePercent && vatMode === "exclusive") {
-        vat = Math.round((subtotal * vatRatePercent) / 100);
-        total = subtotal + vat;
-    } else if (vatRatePercent) {
-        vat = Math.round(subtotal - subtotal / (1 + vatRatePercent / 100));
-    }
+    const { vat, total } = vatTotals(subtotal, vatRatePercent, vatMode);
 
-    // --- Time-based advance: night slots (00:00–06:00 Dhaka) use nightAdvancePercent ---
-    const firstStart = cellStarts[0];
-    const { minutes: startMinutes } = dhakaParts(firstStart);
-    const NIGHT_START = 0;       // 00:00
-    const NIGHT_END = 6 * 60;    // 06:00
-    const isNight = startMinutes >= NIGHT_START && startMinutes < NIGHT_END;
-    const effectiveAdvancePercent = isNight ? (nightAdvancePercent ?? 100) : advancePercent;
-
-    // Any percentage 1–100 is allowed in Setup; a low one must never round an online
-    // advance down to ৳0 (that would confirm a slot with no payment).
-    const advance = Math.min(total, Math.max(1, Math.round((total * effectiveAdvancePercent) / 100)));
+    // --- Sport-wise, time-based advance: the pitch's sport sets its own day (6 AM–12 AM)
+    // and night (12 AM–6 AM) percentage, any whole 0–100. 0% = no advance (৳0); any other
+    // percentage never rounds down to ৳0 (see advanceAmount).
+    const { minutes: startMinutes } = dhakaParts(cellStarts[0]);
+    const effectiveAdvancePercent = advancePercentAt(advanceForPitch(pitchId), startMinutes);
+    const advance = advanceAmount(total, effectiveAdvancePercent);
     const balance = total - advance;
     if (![subtotal, vat, total, advance, balance].every(Number.isFinite)) {
         throw new AppError("NO_RATE_FOR_SLOT", "We could not price this slot. Pick another time.", 400);
@@ -136,5 +139,6 @@ export function quote(pitchId: string, cellStarts: Date[]): Quote {
         balance,
         advancePercent: effectiveAdvancePercent,
         vatRatePercent: vatRatePercent ?? null,
+        vatMode,
     };
 }

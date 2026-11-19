@@ -5,8 +5,10 @@
 // Every statement below describes how the booking system actually works (holds, advance,
 // verification, cancellation requests, refunds recorded by the venue, what data is stored and
 // for how long). Refund amounts, method and timing come ONLY from the owner's saved policy.
+import { venue } from "@/data/branches";
 import { houseRules } from "@/data/home";
 import { policies, site } from "@/data/site";
+import { sportAdvanceLines } from "@/lib/advance";
 import { shared } from "@/lib/shared";
 
 export type LegalTab = "terms" | "privacy" | "refund";
@@ -60,13 +62,14 @@ export const hasRefundRules = (r: RefundView) =>
 export const REFUND_RULES_PENDING =
     "Our cancellation and refund rules are being finalised. Until they are published here, send a cancellation request from your account and our team will tell you what applies before anything is cancelled or refunded.";
 
+// Advance payment is set per sport (Setup → Venue), so the terms list each sport's live
+// percentage instead of one fixed figure.
 function advanceLines(): string[] {
-    const night = policies.nightAdvancePercent ?? 100;
+    const bySport = sportAdvanceLines(venue, policies);
     return [
-        `You pay a ${policies.advancePercent}% advance online with bKash to confirm a booking. The rest is paid in cash at the arena.`,
-        ...(night !== policies.advancePercent
-            ? [`For slots that start between 12 AM and 6 AM, the advance is ${night}%${night >= 100 ? " (the full price)" : ""}.`]
-            : []),
+        "The advance you pay online with bKash depends on the sport you book and, for some sports, on whether the slot starts between 12 AM and 6 AM. The exact amount is shown before you pay. The rest is paid in cash at the arena.",
+        ...(bySport.length > 0 ? [`Current advance by sport: ${bySport.join("; ")}.`] : []),
+        "Where a sport needs no advance, your booking is confirmed straight away without an online payment, and the full price is paid at the arena.",
     ];
 }
 
@@ -101,13 +104,13 @@ const terms = (): LegalDoc => ({
                 "The price shown when you continue to payment is the price of your booking, even if prices change later.",
                 ...advanceLines(),
                 ...(policies.vatRatePercent ? [`Where VAT applies (${policies.vatRatePercent}%), it is shown as a separate line before you pay.`] : []),
-                "Your booking is confirmed only after we verify your advance with bKash. Reaching a payment success page is not, on its own, confirmation.",
+                "Where an advance is due, your booking is confirmed only after we verify it with bKash. Reaching a payment success page is not, on its own, confirmation.",
             ],
         },
         {
             heading: "Booking at the counter",
             paragraphs: [
-                "Our staff can book a free slot for you at the arena. Counter bookings are paid in cash, and at least the advance is paid when the booking is made.",
+                "Our staff can book a free slot for you at the arena. Counter bookings are paid in cash; anything not paid when the booking is made is paid later at the counter.",
             ],
         },
         {

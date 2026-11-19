@@ -19,6 +19,7 @@ const { SetupView } = await import("@/components/pages/admin/setup/SetupView");
 const data = (tabs: SetupTab[]): SetupData => ({
     tabs, venue: { id: "bogura" } as SetupData["venue"], pitches: [], rates: [], adjustments: [], today: "2026-11-18",
     coverage: {}, staff: [], slotMinutes: 90, policies: {} as SetupData["policies"],
+    defaultAdvance: { advancePercent: 30, nightAdvancePercent: 100 },
 });
 const ALL: SetupTab[] = ["venue", "pitches", "rates", "staff", "policies"];
 

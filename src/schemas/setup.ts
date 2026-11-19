@@ -35,6 +35,14 @@ const imageField = z
         "Use a path like /gallery/pitch-a.jpg or a Cloudinary URL"
     );
 
+// Sport-wise advance: any whole percentage 0–100. 0 = no advance (pay everything at the
+// venue). Optional so older API callers that do not send it keep the sport's current value.
+const advancePercentField = z
+    .number({ error: "Enter a whole number from 0 to 100" })
+    .int("Enter a whole number from 0 to 100")
+    .min(0, "At least 0%")
+    .max(100, "At most 100%");
+
 /* ---------- Branch ---------- */
 const branchBase = z.object({
     name: z.string().trim().min(2, "Enter a name").max(60, "Too long"),
@@ -55,6 +63,8 @@ const branchBase = z.object({
             name: z.string().trim().min(2, "Enter a name").max(30, "Too long"),
             image: imageField,
             active: z.boolean(),
+            advancePercent: advancePercentField.optional(),
+            nightAdvancePercent: advancePercentField.optional(),
         })
     ).max(10, "At most 10 sports"),
 });
@@ -253,8 +263,11 @@ export const policySchema = z.object({
     holdMinutes: z.number().int().min(5, "At least 5 minutes").max(30, "At most 30 minutes"),
     // Any whole percentage the venue wants (e.g. 40, 45, 60, 75). At least 1%, so an
     // online booking always takes some bKash money; 100 = full payment as advance.
-    advancePercent: z.number({ error: "Enter a whole number from 1 to 100" }).int("Enter a whole number from 1 to 100").min(1, "At least 1%").max(100, "At most 100%"),
-    nightAdvancePercent: z.number({ error: "Enter a whole number from 1 to 100" }).int("Enter a whole number from 1 to 100").min(1, "At least 1%").max(100, "At most 100%"),
+    // These are now the venue-wide DEFAULTS: each sport sets its own advance in Setup →
+    // Venue. Optional — the Policies form no longer sends them, and a save without them
+    // keeps the current values (used by sports saved before sport-wise advances existed).
+    advancePercent: z.number({ error: "Enter a whole number from 1 to 100" }).int("Enter a whole number from 1 to 100").min(1, "At least 1%").max(100, "At most 100%").optional(),
+    nightAdvancePercent: z.number({ error: "Enter a whole number from 1 to 100" }).int("Enter a whole number from 1 to 100").min(1, "At least 1%").max(100, "At most 100%").optional(),
     checkInOpensMinutesBefore: z.number().int().min(0, "0 or more").max(120, "At most 120"),
     bookingHorizonDays: z.number().int().min(1, "At least 1 day").max(60, "At most 60 days"),
     vatRatePercent: z.number().min(0.01, "Must be above 0").max(30, "Too high").nullable(),

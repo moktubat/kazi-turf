@@ -1,4 +1,5 @@
 import type { Branch, Pitch, PriceAdjustment } from "@/types";
+import type { SportAdvance } from "@/lib/advance";
 
 export type SetupTab = "venue" | "pitches" | "rates" | "staff" | "policies";
 
@@ -36,6 +37,7 @@ export interface SetupStaff {
 
 export interface PolicyForm {
     holdMinutes: number;
+    /** Venue-wide default advance (sports set their own in Venue). */
     advancePercent: number;
     nightAdvancePercent: number;
     checkInOpensMinutesBefore: number;
@@ -55,6 +57,8 @@ export interface PolicyForm {
 export interface SetupData {
     tabs: SetupTab[];
     venue: Branch | null;
+    /** Advance a newly added sport starts with (the venue-wide default from Policies). */
+    defaultAdvance: SportAdvance;
     pitches: SetupPitch[];
     rates: SetupRate[];
     /** Seasonal (date-range) price adjustments touching this venue's fields. */

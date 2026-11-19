@@ -4,6 +4,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { branches } from "@/data/branches";
 import { policies } from "@/data/site";
+import { applyCounterDiscount, counterDiscountError, type CounterDiscount } from "@/lib/counterDiscount";
 import { formatBDT } from "@/lib/format";
 import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
 import { addDays, dhakaParts, toHHMM } from "@/lib/time";
@@ -86,21 +87,38 @@ export async function findCustomerName(phone: string): Promise<string | null> {
 
 export async function createWalkIn(
     user: ServerUser,
-    input: { pitchId: string; cellStarts: string[]; phone: string; name?: string; cashReceived: number; note?: string },
+    input: {
+        pitchId: string;
+        cellStarts: string[];
+        phone: string;
+        name?: string;
+        cashReceived: number;
+        note?: string;
+        discount?: CounterDiscount;
+    },
     now: Date = new Date()
 ): Promise<AdminBookingDto> {
     const v = await validateWalkIn(user, input.pitchId, input.cellStarts, now);
     const q = quote(input.pitchId, v.starts);
 
+    // Optional counter discount, checked against the real price on the server: it can
+    // take the payable total down to ৳0 but never below.
+    const discountError = counterDiscountError(input.discount, q.subtotal);
+    if (discountError) {
+        throw new AppError("INVALID_DISCOUNT", `Discount: ${discountError}.`, 400, { discount: discountError });
+    }
+    const priced = applyCounterDiscount(q, input.discount);
+    const discount = priced.discountAmount > 0 ? input.discount! : null;
+
     // Counter bookings need no minimum advance: staff may take anything from ৳0
-    // (customer pays everything at the venue) up to the full total. The online
-    // /book flow keeps its required bKash advance — that rule lives in bookings/.
-    if (!Number.isInteger(input.cashReceived) || input.cashReceived < 0 || input.cashReceived > q.total) {
+    // (customer pays everything at the venue) up to the full (discounted) total. The
+    // online /book flow follows the sport's advance — that rule lives in bookings/.
+    if (!Number.isInteger(input.cashReceived) || input.cashReceived < 0 || input.cashReceived > priced.total) {
         throw new AppError(
             "INVALID_AMOUNT",
-            `Cash received must be between ${formatBDT(0)} and ${formatBDT(q.total)}.`,
+            `Cash received must be between ${formatBDT(0)} and ${formatBDT(priced.total)}.`,
             400,
-            { cashReceived: `Between ${formatBDT(0)} and ${formatBDT(q.total)}` }
+            { cashReceived: `Between ${formatBDT(0)} and ${formatBDT(priced.total)}` }
         );
     }
 
@@ -136,13 +154,16 @@ export async function createWalkIn(
         bookingStatus: "CONFIRMED",
         // PARTIALLY_PAID = confirmed with a balance due — also when nothing was taken
         // yet (paid 0), so balance collection, check-in and "Due" all keep working.
-        paymentStatus: paid >= q.total ? "PAID" : "PARTIALLY_PAID",
-        subtotal: q.subtotal,
+        paymentStatus: paid >= priced.total ? "PAID" : "PARTIALLY_PAID",
+        subtotal: q.subtotal, // as priced, before the counter discount
         originalSubtotal: q.originalSubtotal,
-        vatAmount: q.vat,
-        total: q.total,
+        vatAmount: priced.vat,
+        discountAmount: priced.discountAmount,
+        discountType: discount?.type ?? null,
+        discountValue: discount?.value ?? null,
+        total: priced.total,
         advanceAmount: paid, // what was actually received at the counter
-        balanceAmount: q.total - paid,
+        balanceAmount: priced.total - paid,
         advancePercentSnapshot: q.advancePercent,
         vatRatePercentSnapshot: q.vatRatePercent,
         source: "counter",
@@ -180,7 +201,13 @@ export async function createWalkIn(
                 entityType: "BOOKING",
                 entityId: booking.bookingCode,
                 branchId: booking.branchId,
-                meta: { pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: q.total, cash: paid, ...(note ? { note } : {}) },
+                meta: {
+                    pitch: v.pitch.name, date: v.date, slots: booking.slotCount, total: priced.total, cash: paid,
+                    ...(priced.discountAmount > 0
+                        ? { originalTotal: priced.originalTotal, discount: priced.discountAmount, discountType: discount!.type, discountValue: discount!.value }
+                        : {}),
+                    ...(note ? { note } : {}),
+                },
             },
             { session: s }
         );
@@ -207,9 +234,10 @@ export async function createWalkIn(
                 date: v.date,
                 start,
                 end,
-                total: q.total,
+                total: priced.total,
+                discount: priced.discountAmount,
                 advance: paid,
-                balance: q.total - paid,
+                balance: priced.total - paid,
             });
 
             await sendEmail({

@@ -11,6 +11,7 @@ import { MobileActionBar } from "@/components/layout/MobileActionBar";
 import { getSessionUser } from "@/server/auth/session";
 import { connectDb } from "@/server/db/connect";
 import { HideOnRoutes } from "@/components/layout/HideOnRoutes";
+import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { getPublicVenue } from "@/server/public-data";
 import { site } from "@/data/site";
 import { DEFAULT_TITLE, SHARE_IMAGE } from "@/lib/seo";
@@ -119,6 +120,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </HideOnRoutes>
 
                 <MobileActionBar />
+
+                {/* GA4: renders nothing unless NEXT_PUBLIC_GA_ID is set (see lib/analytics). */}
+                <GoogleAnalytics />
             </body>
         </html>
     );

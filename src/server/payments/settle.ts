@@ -1,6 +1,6 @@
 import "server-only";
 import { policies } from "@/data/site";
-import { BookingModel, PaymentModel, UserModel } from "@/models";
+import { BookingModel, PaymentModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import { findBookingById } from "@/server/bookings";
 import { confirmClaims, releaseClaims } from "@/server/claims";
@@ -9,11 +9,7 @@ import { plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import type { Payment } from "@/types/ops";
 import { bkashExecute, bkashQuery, type RemotePayment } from "./bkash";
-import { Booking } from "@/types/booking";
-import { getPitch } from "../availability";
-import { dhakaParts, toHHMM } from "@/lib/time";
-import { bookingConfirmationTemplate } from "../email/templates";
-import { sendEmail } from "../email";
+import { sendBookingConfirmationEmail } from "../email/bookingConfirmation";
 import { runAfterResponse } from "../background";
 
 const SYSTEM = { id: "system", name: "System (bKash)" };
@@ -283,46 +279,4 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
     }
 
     return after(p.id);
-}
-
-async function sendBookingConfirmationEmail(b: Booking): Promise<void> {
-    try {
-        if (!b.customerId || b.customerId.startsWith("walkin:")) return;
-
-        const user = await UserModel.findOne(
-            { id: b.customerId },
-            { name: 1, email: 1 }
-        ).lean<{ name: string; email: string | null }>();
-
-        if (!user?.email) return;
-
-        const pitch = getPitch(b.pitchId);
-        const start = toHHMM(dhakaParts(new Date(b.startAt)).minutes);
-        const end = toHHMM(dhakaParts(new Date(b.endAt)).minutes);
-
-        const tpl = bookingConfirmationTemplate({
-            name: user.name || b.customerName || "Customer",
-            code: b.bookingCode,
-            pitchName: pitch?.name ?? "the venue",
-            sport: pitch?.sport ?? "",
-            date: b.date,
-            start,
-            end,
-            total: b.total,
-            advance: b.advanceAmount,
-            balance: b.balanceAmount,
-        });
-
-        await sendEmail({
-            to: user.email,
-            subject: tpl.subject,
-            html: tpl.html,
-            text: tpl.text,
-        });
-    } catch (e) {
-        console.error(
-            "[email] booking confirmation failed:",
-            e instanceof Error ? e.message : e
-        );
-    }
 }

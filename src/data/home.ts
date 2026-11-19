@@ -1,14 +1,5 @@
 import { policies } from "@/data/site";
 
-/** Night (12 AM–6 AM) advance, worded from the saved percentage — never a fixed claim. */
-function nightAdvanceNote(): string {
-    const night = policies.nightAdvancePercent ?? 100;
-    if (night === policies.advancePercent) return "";
-    return night >= 100
-        ? " Night slots (12 AM–6 AM) require full payment as advance."
-        : ` Night slots (12 AM–6 AM) need a ${night}% advance.`;
-}
-
 export const getHowSteps = () => [
     {
         id: "pick",
@@ -20,7 +11,8 @@ export const getHowSteps = () => [
         id: "pay",
         icon: "wallet",
         title: "Pay the advance",
-        text: `Pay ${policies.advancePercent}% of the total online with bKash to lock your slot.${nightAdvanceNote()} Your slot is held for ${policies.holdMinutes} minutes while you pay.`,
+        // The advance is set per sport (Setup → Venue), so the wording names no fixed percentage.
+        text: `Pay the advance required for your sport online with bKash to lock your slot. The booking page shows the exact amount before you pay. Your slot is held for ${policies.holdMinutes} minutes while you pay.`,
     },
     {
         id: "play",

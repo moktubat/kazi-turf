@@ -176,8 +176,9 @@ export function BookingPanel({
 
             <dl className="space-y-1.5 rounded-xl bg-mint p-3 text-sm">
                 <Line label="Subtotal" value={formatBDT(b.subtotal)} />
+                {b.discountAmount > 0 && <Line label="Counter discount" value={`−${formatBDT(b.discountAmount)}`} />}
                 {b.vatRatePercent && b.vatAmount > 0 && (
-                    <Line label={b.total === b.subtotal ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`} value={formatBDT(b.vatAmount)} />
+                    <Line label={b.total === b.subtotal - b.discountAmount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`} value={formatBDT(b.vatAmount)} />
                 )}
                 <Line label="Total" value={formatBDT(b.total)} strong />
                 <Line label="Paid so far" value={formatBDT(b.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0))} />

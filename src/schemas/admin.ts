@@ -27,6 +27,15 @@ export const walkInSchema = walkInQuoteSchema.extend({
     name: z.string().trim().max(80).optional(),
     // Staff may take no advance at all (0): the whole total is then due at the venue.
     cashReceived: z.number().int().min(0).max(1_000_000),
+    // Optional counter discount: whole taka (FIXED) or whole percent (PERCENT) off the
+    // subtotal. The server re-checks it against the real price (lib/counterDiscount).
+    discount: z
+        .object({
+            type: z.enum(["FIXED", "PERCENT"]),
+            value: z.number({ error: "Enter a whole number" }).int("Enter a whole number").min(0, "0 or more").max(1_000_000),
+        })
+        .refine((d) => d.type !== "PERCENT" || d.value <= 100, { path: ["value"], message: "At most 100%" })
+        .optional(),
     // Staff note, e.g. "Paid" / "Unpaid". Blank is stored as no note.
     note: z.string().trim().max(WALKIN_NOTE_MAX, `Keep the note under ${WALKIN_NOTE_MAX} characters`).optional(),
 });

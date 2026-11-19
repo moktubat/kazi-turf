@@ -121,7 +121,7 @@ describe("WalkInForm: no advance", () => {
     it("the hint offers ৳0 up to the total, with the advance only suggested", async () => {
         renderForm();
         await screen.findByText("Full ৳1,900");
-        expect(screen.getByText(/Any amount from ৳0 \(no advance\) to ৳1,900\. Suggested advance ৳570 \(30%\)\./)).toBeTruthy();
+        expect(screen.getByText(/Any amount from ৳0 \(no advance\) to ৳1,900\. Suggested advance ৳570 \(30% for this sport\)\./)).toBeTruthy();
         expect((screen.getByLabelText("Cash received (৳)") as HTMLInputElement).min).toBe("0");
     });
 

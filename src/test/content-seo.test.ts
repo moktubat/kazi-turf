@@ -110,10 +110,10 @@ describe("SEO metadata", () => {
 describe("FAQ follows the live booking rules", () => {
     const words = (t: string) => t.trim().split(/\s+/).length;
 
-    it("has exactly six questions, each answered in 25–28 words, with valid internal links", () => {
+    it("has exactly seven questions, each answered in 25–28 words, with valid internal links", () => {
         for (const p of [pol(), pol({ advancePercent: 40, nightAdvancePercent: 100, bookingHorizonDays: 7 }), pol({ advancePercent: 25, nightAdvancePercent: 25, bookingHorizonDays: 30 })]) {
             const faq = getFaqItems(p);
-            expect(faq.map((f) => f.id)).toEqual(["open-24-7", "how-book", "advance", "confirmed", "cancel", "location"]);
+            expect(faq.map((f) => f.id)).toEqual(["open-24-7", "how-book", "advance", "confirmed", "payment-failed", "cancel", "location"]);
             for (const f of faq) {
                 const n = words(f.answer);
                 expect(n, `${f.id}: ${n} words`).toBeGreaterThanOrEqual(25);
@@ -124,11 +124,12 @@ describe("FAQ follows the live booking rules", () => {
         for (const f of getFaqItems(pol())) if (f.link) expect(f.link.href, f.id).toMatch(valid);
     });
 
-    it("numbers come from the policy, so admin changes show up", () => {
+    it("numbers come from the policy, so admin changes show up; no fixed advance percentage", () => {
         const text = getFaqItems(pol({ advancePercent: 40, bookingHorizonDays: 21, nightAdvancePercent: 100 })).map((f) => f.answer).join(" ");
-        expect(text).toContain("40% advance");
         expect(text).toContain("21 days ahead");
-        expect(text).toContain("need a 100% advance");
+        // The advance is set per sport: the FAQ explains it without one fixed number.
+        expect(text).toContain("It depends on the sport and start time.");
+        expect(text).not.toMatch(/\d+% advance/);
         expect(text).toContain("+8801354490362");
         expect(text).toContain("kazisportsarena@gmail.com");
     });
@@ -171,11 +172,14 @@ describe("Terms, Privacy and Refund", () => {
         expect(docs.map((d) => d.title)).toEqual(["Terms & Conditions", "Privacy Policy", "Refund Policy"]);
     });
 
-    it("terms state the real advance rules, including night slots, and the live hold time", () => {
+    it("terms state the real sport-wise advance rules, including night slots, and the live hold time", () => {
         const terms = allText([getLegalDocs(NO_RULES)[0]]);
-        expect(terms).toContain(`${livePolicies.advancePercent}% advance`);
+        expect(terms).toContain("depends on the sport you book");
+        expect(terms).toMatch(/12 AM and 6 AM/);
+        expect(terms).toContain("Where a sport needs no advance");
+        // Each active sport's live percentage is listed (here: the venue-wide fallback).
+        expect(terms).toContain(`Football: ${livePolicies.advancePercent}%`);
         expect(terms).toContain(`${livePolicies.holdMinutes} minutes`);
-        if ((livePolicies.nightAdvancePercent ?? 100) !== livePolicies.advancePercent) expect(terms).toMatch(/12 AM and 6 AM/);
         expect(terms).not.toMatch(/peak and off-peak/i); // price tiers are not shown to customers
     });
 

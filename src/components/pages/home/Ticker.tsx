@@ -12,7 +12,7 @@ export function Ticker({
         "Open 24/7",
         ...sports,
         "Live slot availability",
-        `${policies.advancePercent}% bKash advance`,
+        "Advance by bKash",
         "Balance paid at the venue",
         `${policies.holdMinutes}-minute slot hold`,
     ];
