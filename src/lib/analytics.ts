@@ -1,17 +1,14 @@
 // Google Tag Manager / Google Analytics 4: the ONE place the IDs are read.
 // See docs/google-analytics-4.md.
 //
-// - NEXT_PUBLIC_GTM_ID: the Google Tag Manager container. Defaults to the venue's
-//   container (below); set it to another GTM-XXXXXXX to change it, or to an empty value
-//   to turn GTM off. GA4 then runs as a tag inside the container (configured in GTM).
+// - NEXT_PUBLIC_GTM_ID: the Google Tag Manager container (GTM-XXXXXXX). Set it in
+//   .env.local and in the hosting environment (Vercel) — it is not stored in the repo.
+//   Unset = GTM off. GA4 runs as a tag inside the container (configured in GTM).
 // - NEXT_PUBLIC_GA_ID: a GA4 Measurement ID loaded directly with gtag.js. Used ONLY when
 //   no GTM container is set — loading both would count every page view twice.
 //
 // NEXT_PUBLIC_ variables are inlined at build time, so this works in server and client
 // code alike (the root layout and proxy.ts's Content-Security-Policy both use it).
-
-/** Kazi Sports Arena's Google Tag Manager container (supplied by the owner). Public by design. */
-export const DEFAULT_GTM_ID = "GTM-M59FHC4F";
 
 const GA_ID_PATTERN = /^G-[A-Z0-9]{4,20}$/;
 const GTM_ID_PATTERN = /^GTM-[A-Z0-9]{4,12}$/;
@@ -30,8 +27,8 @@ export function parseGtmId(raw: string | undefined | null): string | null {
     return GTM_ID_PATTERN.test(id) ? id : null;
 }
 
-/** Unset = the venue's default container; set (even to "") = exactly that value. */
-export const GTM_CONTAINER_ID: string | null = parseGtmId(process.env.NEXT_PUBLIC_GTM_ID ?? DEFAULT_GTM_ID);
+/** From NEXT_PUBLIC_GTM_ID only; unset or malformed = GTM off. */
+export const GTM_CONTAINER_ID: string | null = parseGtmId(process.env.NEXT_PUBLIC_GTM_ID);
 
 /** Direct gtag.js only when there is no GTM container (GTM loads GA4 itself). */
 export const GA_MEASUREMENT_ID: string | null = GTM_CONTAINER_ID ? null : parseGaId(process.env.NEXT_PUBLIC_GA_ID);

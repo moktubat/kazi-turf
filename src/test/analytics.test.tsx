@@ -1,11 +1,11 @@
-// Google Tag Manager / Google Analytics 4. GTM is on by default with the venue's container
-// (NEXT_PUBLIC_GTM_ID overrides it; an empty value turns it off). A direct GA4 tag
+// Google Tag Manager / Google Analytics 4. GTM loads only from NEXT_PUBLIC_GTM_ID (the ID
+// is configured in the environment, never in the code). A direct GA4 tag
 // (NEXT_PUBLIC_GA_ID) is used only without GTM, so page views are never counted twice. The
 // Content-Security-Policy opens Google's hosts only when one of them is on.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NextRequest } from "next/server";
-import { DEFAULT_GTM_ID, parseGaId, parseGtmId } from "@/lib/analytics";
+import { parseGaId, parseGtmId } from "@/lib/analytics";
 
 afterEach(() => {
     vi.unstubAllEnvs();
@@ -14,8 +14,7 @@ afterEach(() => {
 
 async function load(env: { gtm?: string; ga?: string }) {
     vi.resetModules();
-    if (env.gtm !== undefined) vi.stubEnv("NEXT_PUBLIC_GTM_ID", env.gtm);
-    else delete process.env.NEXT_PUBLIC_GTM_ID;
+    vi.stubEnv("NEXT_PUBLIC_GTM_ID", env.gtm ?? "");
     vi.stubEnv("NEXT_PUBLIC_GA_ID", env.ga ?? "");
     const { proxy } = await import("@/proxy");
     const mod = await import("@/components/analytics/GoogleAnalytics");
@@ -31,8 +30,7 @@ const source = () =>
 describe("IDs", () => {
     it("accepts GA4 and GTM IDs, normalising case and spaces", () => {
         expect(parseGaId("  g-abc123xyz9 ")).toBe("G-ABC123XYZ9");
-        expect(parseGtmId(" gtm-m59fhc4f ")).toBe("GTM-M59FHC4F");
-        expect(DEFAULT_GTM_ID).toBe("GTM-M59FHC4F");
+        expect(parseGtmId(" gtm-test1234 ")).toBe("GTM-TEST1234");
     });
 
     it.each([undefined, null, "", "UA-12345-1", "G-", "G-abc def", "GTM-ABC123", "G-<script>"])("GA4 ignores %j", (raw) => {
@@ -44,12 +42,12 @@ describe("IDs", () => {
     });
 });
 
-describe("default: the venue's GTM container", () => {
+describe("with NEXT_PUBLIC_GTM_ID", () => {
     it("loads GTM, not a second direct GA4 tag, and opens the CSP for it", async () => {
-        const { GTM_CONTAINER_ID, GA_MEASUREMENT_ID, directive, noscript } = await load({ ga: "G-TEST12345" });
-        expect(GTM_CONTAINER_ID).toBe("GTM-M59FHC4F");
+        const { GTM_CONTAINER_ID, GA_MEASUREMENT_ID, directive, noscript } = await load({ gtm: "GTM-TEST1234", ga: "G-TEST12345" });
+        expect(GTM_CONTAINER_ID).toBe("GTM-TEST1234");
         expect(GA_MEASUREMENT_ID).toBeNull(); // GA4 runs inside GTM: never both
-        expect(noscript).toContain("https://www.googletagmanager.com/ns.html?id=GTM-M59FHC4F");
+        expect(noscript).toContain("https://www.googletagmanager.com/ns.html?id=GTM-TEST1234");
         expect(directive("script-src")).toContain("https://*.googletagmanager.com");
         expect(directive("connect-src")).toContain("https://*.google-analytics.com");
         expect(directive("connect-src")).toContain("https://*.analytics.google.com");
@@ -65,13 +63,16 @@ describe("default: the venue's GTM container", () => {
         expect(src).not.toContain("send_page_view");
     });
 
-    it("NEXT_PUBLIC_GTM_ID overrides the container", async () => {
-        const { GTM_CONTAINER_ID } = await load({ gtm: "GTM-ABCD123" });
-        expect(GTM_CONTAINER_ID).toBe("GTM-ABCD123");
+    it("no ID in the code: without the variable, GTM is off", async () => {
+        const { GTM_CONTAINER_ID } = await load({});
+        expect(GTM_CONTAINER_ID).toBeNull();
+        expect(await source()).not.toMatch(/GTM-[A-Z0-9]{4,}/);
+        const lib = await import("node:fs").then((fs) => fs.readFileSync(new URL("../lib/analytics.ts", import.meta.url), "utf8"));
+        expect(lib).not.toMatch(/"GTM-[A-Z0-9]{4,}"/);
     });
 });
 
-describe("GTM switched off", () => {
+describe("GTM not configured", () => {
     it("with no GA4 ID either: nothing loads and the CSP stays closed", async () => {
         const { GTM_CONTAINER_ID, GA_MEASUREMENT_ID, directive, noscript } = await load({ gtm: "" });
         expect(GTM_CONTAINER_ID).toBeNull();
