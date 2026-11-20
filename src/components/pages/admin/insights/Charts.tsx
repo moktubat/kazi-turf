@@ -32,13 +32,27 @@ export function KpiCards({ k }: { k: InsightsData["kpis"] }) {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <Kpi icon={CalendarCheck} label="Bookings" value={String(k.bookings)} sub="Confirmed, checked in or completed" />
             <Kpi icon={Receipt} label="Total sales" value={formatBDT(k.totalAmount)} sub="Gross booking value in range" />
-            <Kpi icon={Banknote} label="Collected" value={formatBDT(k.collected)} sub="Cash and bKash actually received" />
-            <Kpi icon={HandCoins} label="Advance collected" value={formatBDT(k.advanceAmount)} sub="Part of collected received as advance" />
+            <Kpi
+                icon={Banknote}
+                label="Collected"
+                value={formatBDT(k.collected)}
+                sub="Cash and bKash received on these dates (by payment date)"
+            />
+            <Kpi
+                icon={HandCoins}
+                label="Advance collected"
+                value={formatBDT(k.advanceOnBookings)}
+                sub={`${formatBDT(k.advanceAmount)} arrived on these dates — the rest was paid earlier`}
+            />
             <Kpi
                 icon={Hourglass}
-                label="Pending"
-                value={formatBDT(k.pendingAmount)}
-                sub={`${k.pendingCount} processing · ${formatBDT(k.balanceDue)} balance due at venue`}
+                label="Pending cash"
+                value={formatBDT(k.balanceDue)}
+                sub={
+                    k.pendingCount
+                        ? `${k.pendingCount} online payment${k.pendingCount === 1 ? "" : "s"} still processing (${formatBDT(k.pendingAmount)})`
+                        : "No online payments stuck in processing"
+                }
             />
             <Kpi
                 icon={Gauge}

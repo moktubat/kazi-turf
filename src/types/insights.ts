@@ -2,11 +2,13 @@ import type { AuditAction, AuditMeta } from "@/types/ops";
 
 export interface InsightsKpis {
     bookings: number;
-    /** Gross booking value in the selected range (before refunds of cancelled ones are excluded). */
+    /** Gross booking value in the selected range. */
     totalAmount: number;
     collected: number;
-    /** Part of "collected" that was received as an advance payment. */
+    /** Part of "collected" that was received as an advance payment (by payment date). */
     advanceAmount: number;
+    /** Advances (paid on any day) on the bookings whose play date is in the range — same basis as the Staff Desk. */
+    advanceOnBookings: number;
     pendingAmount: number;
     pendingCount: number;
     balanceDue: number;

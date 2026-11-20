@@ -49,11 +49,19 @@ export async function getBoard(
     const claimBy = new Map(claims.map((c) => [`${c.pitchId}|${c.cellStart}`, c]));
     const bookingIds = [...new Set(claims.map((c) => c.bookingId).filter(Boolean))];
 
-    const [bookingDocs, dayDocs, cashDocs, openReqs] = await Promise.all([
+    // All bookings of the day (any status) — their ids drive the payment sums below.
+    const dayDocs = await BookingModel.find(
+        { branchId: branch.id, date },
+        { id: 1, bookingStatus: 1, total: 1 }
+    ).lean<Pick<Booking, "id" | "bookingStatus" | "total">[]>();
+    const dayIds = dayDocs.map((b) => b.id);
+
+    const [bookingDocs, dayPayments, cashDocs, openReqs] = await Promise.all([
         BookingModel.find({ id: { $in: bookingIds } }).lean(),
-        BookingModel.find({ branchId: branch.id, date }, { bookingStatus: 1, total: 1 }).lean<
-            Pick<Booking, "bookingStatus" | "total">[]
-        >(),
+        // Every successful payment on the day's bookings, whenever it was paid and by
+        // whichever channel (cash at the counter, or bKash online days earlier).
+        PaymentModel.find({ bookingId: { $in: dayIds }, status: "SUCCESS" }).lean<Payment[]>(),
+        // Kept for the API's cashCollected: cash actually received today.
         PaymentModel.find({ provider: "CASH", status: "SUCCESS", verifiedAt: { $gte: from, $lt: to } }).lean<Payment[]>(),
         ChangeRequestModel.find({ status: "OPEN" }, { bookingCode: 1 }).lean<{ bookingCode: string }[]>(),
     ]);
@@ -64,16 +72,28 @@ export async function getBoard(
         (await BookingModel.find({ id: { $in: cashIds }, branchId: branch.id }, { id: 1 }).lean<{ id: string }[]>()).map((b) => b.id)
     );
     const cash = cashDocs.filter((p) => mine.has(p.bookingId)).reduce((s, p) => s + p.amount, 0);
-    const advance = cashDocs.filter((p) => p.kind === "ADVANCE" && mine.has(p.bookingId)).reduce((s, p) => s + p.amount, 0);
     const openRequests = openReqs.length
         ? await BookingModel.countDocuments({ bookingCode: { $in: openReqs.map((r) => r.bookingCode) }, branchId: branch.id })
         : 0;
 
-    // The money trio: 100 total sell → 25 advance → 75 still pending.
-    const totalSales = dayDocs
-        .filter((b) => (SALES_STATUSES as readonly string[]).includes(b.bookingStatus))
-        .reduce((s, b) => s + b.total, 0);
-    const pendingCash = Math.max(0, totalSales - cash);
+    // The money trio, per booking of the day:
+    //   totalSales      = sum of totals of the day's active bookings
+    //   advanceCollected = every advance payment on those bookings, whenever/wherever paid
+    //   pendingCash     = per active booking: total − everything paid so far on it
+    const isSale = (status: string) => (SALES_STATUSES as readonly string[]).includes(status);
+    const salesIds = new Set(dayDocs.filter((b) => isSale(b.bookingStatus)).map((b) => b.id));
+    const paidById = new Map<string, number>();
+    for (const p of dayPayments) {
+        paidById.set(p.bookingId, (paidById.get(p.bookingId) ?? 0) + p.amount);
+    }
+
+    const totalSales = dayDocs.filter((b) => salesIds.has(b.id)).reduce((s, b) => s + b.total, 0);
+    const advanceCollected = dayPayments
+        .filter((p) => p.kind === "ADVANCE" && salesIds.has(p.bookingId))
+        .reduce((s, p) => s + p.amount, 0);
+    const pendingCash = dayDocs
+        .filter((b) => salesIds.has(b.id))
+        .reduce((s, b) => s + Math.max(0, b.total - (paidById.get(b.id) ?? 0)), 0);
 
     const pitches = await Promise.all(
         list.map(async (p) => {
@@ -115,7 +135,7 @@ export async function getBoard(
             checkedIn: dayDocs.filter((b) => b.bookingStatus === "CHECKED_IN").length,
             cashCollected: cash,
             totalSales,
-            advanceCollected: advance,
+            advanceCollected,
             pendingCash,
             openRequests,
         },

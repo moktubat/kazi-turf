@@ -270,10 +270,12 @@ export function WalkInForm({
             )}
 
             {/* Additional charge (optional): reason on the left, taka amount on the right.
-                Both are optional — anything typed without an amount adds nothing. */}
-            <div className="grid grid-cols-[1fr_auto] items-start gap-2">
+                Both are optional — anything typed without an amount adds nothing.
+                The amount box is wrapped in a fixed-width div so the grid's auto column
+                stays narrow on mobile (same proportions as the Discount + Type row). */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                 <Input
-                    label="Additional charge reason (optional)"
+                    label="Additional charge (optional)"
                     autoComplete="off"
                     maxLength={120}
                     placeholder="e.g. Drinks, damaged net"
@@ -281,19 +283,20 @@ export function WalkInForm({
                     onChange={(e) => setChargeReason(e.target.value)}
                     hint="Shown on the receipt when an amount is entered."
                 />
-                <Input
-                    label="Amount (৳)"
-                    aria-label="Additional charge amount"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    placeholder="0"
-                    className="w-24 sm:w-28"
-                    value={chargeInput}
-                    onChange={(e) => setChargeInput(e.target.value)}
-                    error={chargeInput.trim() !== "" ? chargeError ?? undefined : undefined}
-                    hint="Added to the total."
-                />
+                <div className="w-28">
+                    <Input
+                        label="Amount (৳)"
+                        aria-label="Additional charge amount"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        placeholder="0"
+                        value={chargeInput}
+                        onChange={(e) => setChargeInput(e.target.value)}
+                        error={chargeInput.trim() !== "" ? chargeError ?? undefined : undefined}
+                        hint="Added to the total."
+                    />
+                </div>
             </div>
 
             <div className="grid grid-cols-[1fr_auto] items-start gap-2">

@@ -83,6 +83,17 @@ export async function getInsights(
     ).lean<Pick<Booking, "id" | "branchId" | "paymentStatus" | "source">[]>();
     const bkById = new Map(bks.map((b) => [b.id, b]));
 
+    // Advances (paid on any day) on the bookings whose PLAY date is inside the
+    // range — the Staff Desk's "Advance collected", generalised over the range.
+    const inRangeIds = inRange.map((b) => b.id);
+    const refundedIds = new Set(inRange.filter((b) => b.paymentStatus === "REFUNDED").map((b) => b.id));
+    const advanceDocs = inRangeIds.length
+        ? await PaymentModel.find({ bookingId: { $in: inRangeIds }, status: "SUCCESS", kind: "ADVANCE" }).lean<Payment[]>()
+        : [];
+    const advanceOnBookings = advanceDocs
+        .filter((p) => !refundedIds.has(p.bookingId))
+        .reduce((s, p) => s + p.amount, 0);
+
     // Collected = money actually received, by payment date. Fully refunded bookings are excluded.
     const paid = payDocs.flatMap((p) => {
         const b = bkById.get(p.bookingId);
@@ -174,6 +185,7 @@ export async function getInsights(
             totalAmount: inRange.reduce((s, b) => s + b.total, 0),
             collected,
             advanceAmount: paid.reduce((s, x) => s + (x.p.kind === "ADVANCE" ? x.p.amount : 0), 0),
+            advanceOnBookings,
             pendingAmount: pending.reduce((s, p) => s + p.amount, 0),
             pendingCount: pending.length,
             balanceDue,

@@ -92,9 +92,9 @@ export interface BoardResponse {
         cashCollected: number;
         /** Gross total of the day's active bookings (confirmed + checked in + completed). */
         totalSales: number;
-        /** CASH payments of kind ADVANCE verified today. */
+        /** Every ADVANCE payment (cash or bKash) on the day's active bookings, whenever it was paid. */
         advanceCollected: number;
-        /** What is still to be collected today: totalSales minus cash collected today. */
+        /** Sum over the day's active bookings of (total − everything paid so far on that booking). */
         pendingCash: number;
         openRequests: number;
     };
