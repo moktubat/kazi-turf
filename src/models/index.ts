@@ -70,9 +70,10 @@ const booking = new Schema(
         discountAmount: { type: Number, default: 0 },
         discountType: { type: String, enum: ["FIXED", "PERCENT", null], default: null },
         discountValue: { type: Number, default: null },
-        // Walk-in additional charge (taka ADDED to the subtotal before VAT, e.g. drinks
-        // or damage). Absent on older bookings, which read as no charge; total is
-        // always the net payable amount.
+        // Additional charge (taka ADDED to the subtotal before VAT, e.g. drinks or
+        // damage) — added by staff on a walk-in or later from the booking panel.
+        // Absent on older bookings, which read as no charge; total is always the net
+        // payable amount.
         additionalChargeAmount: { type: Number, default: 0 },
         additionalChargeReason: { type: String, default: null },
         total: Number,

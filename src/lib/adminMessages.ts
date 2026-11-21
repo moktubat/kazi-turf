@@ -14,6 +14,7 @@ export type BookingAction =
     | "refund"
     | "request"
     | "discount"
+    | "charge"
     | "note"
     | "undo-check-in";
 
@@ -32,6 +33,8 @@ export function actionSuccessMessage(action: BookingAction): string {
             return "Request marked as handled.";
         case "discount":
             return "Discount updated.";
+        case "charge":
+            return "Charge updated.";
         case "note":
             return "Note saved.";
         case "undo-check-in":

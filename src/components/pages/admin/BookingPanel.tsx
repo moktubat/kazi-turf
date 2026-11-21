@@ -1,7 +1,7 @@
 // Shared booking drawer content: used by the Staff Desk and /admin/bookings.
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, BadgePercent, Banknote, Check, CheckCircle2, History, LogIn, Phone, Printer, RotateCcw, StickyNote, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, BadgePercent, Banknote, Check, CheckCircle2, HandCoins, History, LogIn, Phone, Printer, RotateCcw, StickyNote, Undo2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
@@ -12,9 +12,9 @@ import { formatDateTime } from "@/lib/formatAdmin";
 import { hasVerifiedPayment, printReceipt } from "@/lib/printReceipt";
 import type { Role } from "@/types";
 import type { AdminBookingDto, AuditEntryDto } from "@/types/admin";
-import { CancelForm, CheckInForm, CollectForm, DiscountForm, NoteForm, RefundForm, UndoCheckInForm } from "./ActionForms";
+import { CancelForm, ChargeForm, CheckInForm, CollectForm, DiscountForm, NoteForm, RefundForm, UndoCheckInForm } from "./ActionForms";
 
-type Mode = null | "checkin" | "collect" | "cancel" | "refund" | "discount" | "note" | "undo";
+type Mode = null | "checkin" | "collect" | "cancel" | "refund" | "discount" | "charge" | "note" | "undo";
 type State =
     | { kind: "loading" }
     | { kind: "error"; message: string }
@@ -266,6 +266,11 @@ export function BookingPanel({
                             <BadgePercent size={18} aria-hidden /> {b.discountAmount > 0 ? "Edit discount" : "Add discount"}
                         </Button>
                     )}
+                    {b.can.editCharge && (
+                        <Button variant="secondary" onClick={() => open("charge")}>
+                            <HandCoins size={18} aria-hidden /> {b.additionalChargeAmount > 0 ? "Edit charge" : "Add charge"}
+                        </Button>
+                    )}
                     {b.can.editNote && (
                         <Button variant="outline" onClick={() => open("note")}>
                             <StickyNote size={18} aria-hidden /> {b.note ? "Edit note" : "Add note"}
@@ -296,6 +301,7 @@ export function BookingPanel({
             {mode === "checkin" && <CheckInForm {...formProps} onSubmit={(body) => run("check-in", body)} />}
             {mode === "collect" && <CollectForm {...formProps} onSubmit={() => run("collect-balance")} />}
             {mode === "discount" && <DiscountForm {...formProps} onSubmit={(body) => run("discount", body)} />}
+            {mode === "charge" && <ChargeForm {...formProps} onSubmit={(body) => run("charge", body)} />}
             {mode === "note" && <NoteForm {...formProps} onSubmit={(body) => run("note", body)} />}
             {mode === "cancel" && <CancelForm {...formProps} onSubmit={(body) => run("cancel", body)} />}
             {mode === "refund" && <RefundForm {...formProps} onSubmit={(body) => run("refund", body)} />}

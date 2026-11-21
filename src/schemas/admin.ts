@@ -90,6 +90,32 @@ export const discountUpdateSchema = z.object({
 });
 export type DiscountUpdateInput = z.infer<typeof discountUpdateSchema>;
 
+// Add or change (or remove, with additionalCharge: null) the additional charge AFTER
+// the booking was created — same rules as at the counter (lib/extraCharge). The amount
+// must be a whole taka of at least ৳1; a reason is optional and shown on the receipt.
+export const chargeUpdateSchema = z.object({
+    additionalCharge: z
+        .preprocess(
+            // A charge without a positive amount means "no charge": clear it (null),
+            // exactly like the walk-in form dropping an amountless charge.
+            (v) => (v && typeof v === "object" && Number((v as { amount?: unknown }).amount) > 0 ? v : null),
+            z.object({
+                reason: z
+                    .string()
+                    .trim()
+                    .max(EXTRA_CHARGE_REASON_MAX, `Keep the reason under ${EXTRA_CHARGE_REASON_MAX} characters`)
+                    .optional(),
+                amount: z
+                    .number({ error: "Enter a whole number" })
+                    .int("Enter a whole number")
+                    .min(1, "At least ৳1")
+                    .max(EXTRA_CHARGE_MAX),
+            }).nullable()
+        )
+        .optional(),
+});
+export type ChargeUpdateInput = z.infer<typeof chargeUpdateSchema>;
+
 // Undo a check-in: the booking goes back to Booked. The reason is optional and
 // only feeds the audit trail.
 export const undoCheckInSchema = z.object({

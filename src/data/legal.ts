@@ -277,7 +277,7 @@ function refundDoc(r: RefundView): LegalDoc {
                 heading: "How refunds are paid",
                 paragraphs: [
                     [r.method, r.timing].filter((x) => x && x.trim()).join(" ") ||
-                        "When a refund is approved, our team tells you how and when it will be paid.",
+                    "When a refund is approved, our team tells you how and when it will be paid.",
                     "You can follow the status in the Refunds tab of your account: it shows \"Refund pending\" until the refund is paid, then \"Refunded\".",
                 ],
             },

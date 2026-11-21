@@ -36,6 +36,8 @@ export interface AdminBookingDto extends BookingDto {
         handleRequest: boolean;
         /** Staff may add or change the counter discount (Booked or Checked in, no payment in flight). */
         editDiscount: boolean;
+        /** Staff may add or change the additional charge (Booked or Checked in, no payment in flight). */
+        editCharge: boolean;
         /** Staff may add or change the staff note (Booked or Checked in). */
         editNote: boolean;
         /** Staff may undo a check-in: the booking goes back to Booked. */

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Field";
 import { CHECKIN_OUTSIDE_PROMPT, CHECKIN_REASON_MAX, CHECKIN_REASON_PICKS, checkInReasonError } from "@/lib/checkInReason";
 import { counterDiscountAmount, counterDiscountError, type CounterDiscount, type CounterDiscountType } from "@/lib/counterDiscount";
+import { extraChargeAmount, extraChargeError, EXTRA_CHARGE_REASON_MAX, type ExtraCharge } from "@/lib/extraCharge";
 import { formatBDT, formatDiscount } from "@/lib/format";
 import { vatTotals } from "@/lib/pricing";
 import { WALKIN_NOTE_MAX, WALKIN_NOTE_PICKS, hasNotePick, toggleNotePick } from "@/lib/walkInNote";
@@ -330,6 +331,115 @@ export function DiscountForm({ b, busy, onSubmit, onBack }: FormProps) {
 
             {err && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{err}</p>}
             <Actions busy={busy} label="Save discount" onBack={onBack} />
+        </form>
+    );
+}
+
+/**
+ * Add or change the additional charge after the booking was created (or clear it with an
+ * empty amount box) — the same charge the walk-in form can add at the counter, for one
+ * forgotten there or an extra service the customer takes once the slot is already
+ * booked. The preview re-derives the totals client-side with the very same helpers the
+ * server re-checks with (lib/extraCharge + lib/pricing), so what staff confirm is
+ * exactly what gets saved.
+ */
+export function ChargeForm({ b, busy, onSubmit, onBack }: FormProps) {
+    // Prefill with the booking's current charge, so "edit" starts where it is.
+    const [reason, setReason] = useState(b.additionalChargeReason ?? "");
+    const [value, setValue] = useState(b.additionalChargeAmount > 0 ? String(b.additionalChargeAmount) : "");
+    const [err, setErr] = useState<string | null>(null);
+
+    // An empty amount box removes the charge; a reason without an amount adds nothing.
+    const charge: ExtraCharge | null = value.trim() === "" ? null : { reason: reason.trim() || undefined, amount: Number(value) };
+    const chargeError = charge ? extraChargeError(charge) : null;
+    const amount = charge && !chargeError ? extraChargeAmount(charge) : 0;
+    // The counter discount already on the booking stays: the charge is added after it.
+    const discount = b.discountAmount > 0 ? b.discountAmount : 0;
+    const { vat, total } = vatTotals(b.subtotal - discount + amount, b.vatRatePercent, b.vatMode);
+    // The same "paid so far" sum the panel shows.
+    const paid = b.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0);
+    const balance = Math.max(0, total - paid);
+
+    function submit(e: React.FormEvent) {
+        e.preventDefault();
+        if (charge && chargeError) return setErr(chargeError);
+        setErr(null);
+        onSubmit({ additionalCharge: amount > 0 ? { reason: reason.trim() || undefined, amount } : null });
+    }
+
+    return (
+        <form onSubmit={submit} noValidate className="space-y-4" aria-label="Add or edit additional charge">
+            <p className="rounded-xl bg-mint p-3 text-sm">
+                Add an extra amount to this booking for {b.customerName} — drinks, damage, an extra service. Leave the
+                amount box empty to remove the charge. Total, balance and payment status are recalculated from what has
+                already been paid.
+            </p>
+
+            {/* Same two fields as the walk-in form: the reason on the left, the taka amount
+                on the right. Both are optional — anything typed without an amount adds
+                nothing. The fixed-width wrapper keeps the grid column narrow on mobile. */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                <Input
+                    label="Additional charge (optional)"
+                    autoComplete="off"
+                    maxLength={EXTRA_CHARGE_REASON_MAX}
+                    placeholder="e.g. Drinks, damaged net"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    hint="Shown on the receipt when an amount is entered."
+                />
+                <div className="w-28">
+                    <Input
+                        label="Amount (৳)"
+                        aria-label="Additional charge amount"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        placeholder="0"
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        // Live check while typing (the same rule submit uses), so it never goes stale.
+                        error={value.trim() !== "" ? chargeError ?? undefined : undefined}
+                        hint="Added to the total."
+                    />
+                </div>
+            </div>
+
+            <div className="rounded-xl bg-mint p-3 text-sm" aria-live="polite">
+                <dl className="space-y-1.5">
+                    <div className="flex justify-between gap-4"><dt>Subtotal</dt><dd className="font-semibold">{formatBDT(b.subtotal)}</dd></div>
+                    <div className={`flex justify-between gap-4 ${discount > 0 ? "text-teal" : ""}`}>
+                        <dt>Discount</dt>
+                        <dd className="font-semibold">{formatDiscount(discount)}</dd>
+                    </div>
+                    {amount > 0 && (
+                        <div className="flex justify-between gap-4 text-held">
+                            <dt className="min-w-0 break-words text-right">Additional charge{reason.trim() ? ` · ${reason.trim()}` : ""}</dt>
+                            <dd className="shrink-0 font-semibold">+{formatBDT(amount)}</dd>
+                        </div>
+                    )}
+                    {b.vatRatePercent && vat > 0 && (
+                        <div className="flex justify-between gap-4">
+                            <dt>{total === b.subtotal - discount + amount ? `Includes VAT (${b.vatRatePercent}%)` : `VAT (${b.vatRatePercent}%)`}</dt>
+                            <dd className="font-semibold">{formatBDT(vat)}</dd>
+                        </div>
+                    )}
+                    <div className="flex justify-between gap-4 font-bold"><dt>Total</dt><dd>{formatBDT(total)}</dd></div>
+                    <div className="flex justify-between gap-4"><dt>Paid so far</dt><dd className="font-semibold">{formatBDT(paid)}</dd></div>
+                    <div className="flex justify-between gap-4 font-bold"><dt>Balance after</dt><dd>{formatBDT(balance)}</dd></div>
+                </dl>
+            </div>
+
+            {paid > 0 && total < paid && (
+                <p className="rounded-xl bg-held-soft p-3 text-sm font-medium text-held">
+                    The new total is {formatBDT(paid - total)} less than what the customer already paid ({formatBDT(paid)}).
+                    The booking counts as fully paid — settle the extra {formatBDT(paid - total)} with the customer at the
+                    desk.
+                </p>
+            )}
+
+            {err && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{err}</p>}
+            <Actions busy={busy} label="Save charge" onBack={onBack} />
         </form>
     );
 }

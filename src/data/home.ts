@@ -23,12 +23,12 @@ export const getHowSteps = () => [
 ] as const;
 
 export const houseRules = [
-    "Wear turf-safe footwear. Metal studs are not allowed on the indoor courts.",
-    "Respect staff, other players, and the facility at all times.",
+    "Wear turf-safe footwear and socks. Outside shoes and metal studs are not allowed on the courts",
+    "Respect staff, other players, and the facility. No fighting or abusive language.",
     "Keep the arena clean. Use the bins provided for trash and bottles.",
-    "Follow staff instructions — they're there to keep everyone safe.",
+    "Follow staff instructions, and remove watches, chains and rings before you play.",
     "Arrive on time. Late arrivals shorten your playing time, not your slot end.",
-    "No food or drinks on the courts. Use the designated areas.",
+    "No food on the courts. Water is fine, bottles go in designated areas. No smoking.",
 ];
 
 export const tickerItems = [

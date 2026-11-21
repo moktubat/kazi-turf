@@ -321,7 +321,7 @@ export function toDto(b: Booking, now: Date = new Date()): BookingDto {
         vatRatePercent: b.vatRatePercentSnapshot,
         // Counter discount given by staff (walk-ins). Older bookings have none.
         discountAmount: typeof b.discountAmount === "number" && b.discountAmount > 0 ? b.discountAmount : 0,
-        // Additional charge added by staff on a walk-in (0 when none).
+        // Additional charge added by staff on a walk-in or later from the booking panel (0 when none).
         additionalChargeAmount:
             typeof b.additionalChargeAmount === "number" && b.additionalChargeAmount > 0 ? b.additionalChargeAmount : 0,
         additionalChargeReason:

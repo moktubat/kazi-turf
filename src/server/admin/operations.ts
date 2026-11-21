@@ -6,6 +6,7 @@ import type { ClientSession } from "mongoose";
 import { policies } from "@/data/site";
 import { dhakaParts } from "@/lib/time";
 import { counterDiscountAmount, counterDiscountError, type CounterDiscount } from "@/lib/counterDiscount";
+import { extraChargeAmount, extraChargeError, EXTRA_CHARGE_REASON_MAX, type ExtraCharge } from "@/lib/extraCharge";
 import { vatTotals } from "@/lib/pricing";
 import { WALKIN_NOTE_MAX } from "@/lib/walkInNote";
 import { BookingModel, ChangeRequestModel, CheckInModel, PaymentModel, SlotClaimModel } from "@/models";
@@ -259,6 +260,106 @@ export async function updateDiscount(user: ServerUser, code: string, discount: C
                     discountType: applied?.type ?? "NONE",
                     discountValue: applied?.value ?? 0,
                     discount: discountAmount,
+                    oldTotal: b.total,
+                    newTotal: total,
+                    oldBalance: b.balanceAmount,
+                    newBalance: balance,
+                    paidAtTheTime: paid,
+                },
+            },
+            { session: s }
+        );
+    });
+
+    return toAdminDto(await fresh(b), user, now);
+}
+
+/**
+ * Add or change (or clear, with a null charge) the additional charge after the booking
+ * was created — the same charge staff could previously only add in the walk-in form.
+ * Use it when the charge was forgotten at the counter or the customer takes an extra
+ * service once the slot is already booked. The charge is ADDED after the counter
+ * discount (subtotal − discount + charge), VAT is worked out again on the result, and
+ * the total, balance and payment status are recalculated from what the customer has
+ * actually paid so far. The payable total can only go up (or back down when a charge
+ * is cleared).
+ */
+export async function updateAdditionalCharge(
+    user: ServerUser,
+    code: string,
+    charge: ExtraCharge | null,
+    now: Date = new Date()
+): Promise<AdminBookingDto> {
+    const b = await findBookingForStaff(user, code);
+    if (b.bookingStatus !== "CONFIRMED" && b.bookingStatus !== "CHECKED_IN") {
+        throw new AppError("NOT_EDITABLE", "The additional charge can only be changed while the booking is Booked or Checked in.", 409);
+    }
+    if (b.paymentStatus === "PENDING") {
+        throw new AppError("PAYMENT_IN_PROGRESS", "A payment is being processed. Try again shortly.", 409);
+    }
+    if (b.paymentStatus !== "PARTIALLY_PAID" && b.paymentStatus !== "PAID") {
+        throw new AppError("NOT_EDITABLE", "The additional charge can only be changed on a booked or checked-in booking.", 409);
+    }
+
+    // Same rules as the walk-in form: whole taka, at least ৳1 when present, at most the cap.
+    const chargeError = extraChargeError(charge);
+    if (chargeError) {
+        throw new AppError("INVALID_CHARGE", `Additional charge: ${chargeError}.`, 400, { additionalCharge: chargeError });
+    }
+    const chargeAmount = extraChargeAmount(charge);
+    const reason = chargeAmount > 0 ? charge?.reason?.trim().slice(0, EXTRA_CHARGE_REASON_MAX) || null : null;
+    const previousAmount =
+        typeof b.additionalChargeAmount === "number" && b.additionalChargeAmount > 0 ? b.additionalChargeAmount : 0;
+
+    // The counter discount stays on the booking: the charge is ADDED after the discount,
+    // so the recomputed total keeps both. VAT follows the venue's snapshot rate and mode.
+    const discountAmount = typeof b.discountAmount === "number" && b.discountAmount > 0 ? b.discountAmount : 0;
+    const { vat, total } = vatTotals(
+        b.subtotal - discountAmount + chargeAmount,
+        b.vatRatePercentSnapshot ?? null,
+        policies.vatMode
+    );
+
+    // What the customer has actually paid (successful payments only — the same sum the
+    // panel shows). The new balance is the charged total minus that; a charge on a fully
+    // paid booking puts it back to PARTIALLY_PAID so the balance can be collected.
+    const paid = (await PaymentModel.find({ bookingId: b.id, status: "SUCCESS" }, { amount: 1 }).lean<{ amount: number }[]>()).reduce(
+        (sum, p) => sum + p.amount,
+        0
+    );
+    const balance = Math.max(0, total - paid);
+    const paymentStatus = paid > 0 && total <= paid ? "PAID" : "PARTIALLY_PAID";
+
+    await tx(async (s) => {
+        // Must still be in exactly the state we read, or someone changed it first.
+        const r = await BookingModel.updateOne(
+            { id: b.id, bookingStatus: b.bookingStatus, paymentStatus: b.paymentStatus },
+            {
+                $set: {
+                    additionalChargeAmount: chargeAmount,
+                    additionalChargeReason: reason,
+                    vatAmount: vat,
+                    total,
+                    balanceAmount: balance,
+                    paymentStatus,
+                },
+            },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) {
+            throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+        }
+        await logAudit(
+            user,
+            {
+                action: "CHARGE_UPDATED",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: {
+                    amount: chargeAmount,
+                    reason: reason ?? "",
+                    previousAmount,
                     oldTotal: b.total,
                     newTotal: total,
                     oldBalance: b.balanceAmount,

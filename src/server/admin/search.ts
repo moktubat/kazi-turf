@@ -112,12 +112,14 @@ export async function bookingsCsv(user: ServerUser, f: BookingFilters, now: Date
     const header = [
         "Code", "Booking status", "Payment status", "Source", "Pitch", "Date", "Start", "End",
         "Customer", "Phone", "Total", "Advance paid", "Balance due", "Cancel reason", "Discount",
+        "Additional charge", "Charge reason",
     ];
     const rows = (await filterBookings(user, f, now, 5000)).map((b) => {
         const d = toDto(b, now);
         return [
             d.code, d.bookingStatus, d.paymentStatus, b.source, d.pitchName, d.date, d.start, d.end,
             b.customerName, b.phone, d.total, d.advancePaid, d.balanceDue, b.cancelReason ?? "", d.discountAmount,
+            d.additionalChargeAmount, d.additionalChargeReason ?? "",
         ];
     });
     return [header, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");

@@ -204,10 +204,15 @@ export async function toAdminDto(
 
             handleRequest: !!openReq,
 
-            // The counter discount and the staff note can be added or changed while the
-            // booking is live. A bKash payment in flight (PENDING) locks both; finished
-            // bookings (cancelled / expired / completed) are out of reach.
+            // The counter discount, the additional charge and the staff note can be added
+            // or changed while the booking is live. A bKash payment in flight (PENDING)
+            // locks all three; finished bookings (cancelled / expired / completed) are out
+            // of reach.
             editDiscount:
+                (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN") &&
+                (b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID"),
+
+            editCharge:
                 (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN") &&
                 (b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID"),
 

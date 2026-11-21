@@ -27,9 +27,9 @@ export interface Booking {
     discountAmount?: number;
     discountType?: "FIXED" | "PERCENT" | null;
     discountValue?: number | null;
-    // Additional charge staff added on a walk-in (taka, ADDED to the subtotal before
-    // VAT, e.g. drinks or damage). total is already net of it. Optional: older
-    // bookings have none (= 0).
+    // Additional charge staff added on a walk-in or later from the booking panel (taka,
+    // ADDED to the subtotal before VAT, e.g. drinks or damage). total is already net of
+    // it. Optional: older bookings have none (= 0).
     additionalChargeAmount?: number;
     additionalChargeReason?: string | null;
     total: number;
