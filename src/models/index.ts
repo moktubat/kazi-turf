@@ -86,6 +86,9 @@ const booking = new Schema(
         createdAt: String,
         createdFromIp: { type: String, default: null }, // for IP-based abuse caps
         checkedInAt: String,
+        // Set when a check-in is undone. Checking such a booking in again is a re-check-in:
+        // Super Admin only, with a reason (the same rule as checking in twice).
+        checkInUndoneAt: { type: String, default: null },
         cancelledAt: String,
         cancelReason: String,
         note: { type: String, default: null }, // staff note from the walk-in form
@@ -306,6 +309,21 @@ export const PitchModel = reg(
         opts
     )
 );
+
+// Shared (cross-instance) rate-limit counters for the auth endpoints: one document per key
+// per fixed window. TTL removes a window's counter once the window is over.
+const rateLimit = new Schema(
+    {
+        _id: { type: String, required: true }, // `${key}|${windowStart}`
+        key: { type: String, required: true },
+        count: { type: Number, default: 0 },
+        expiresAt: { type: Date, required: true },
+    },
+    { versionKey: false }
+);
+rateLimit.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+rateLimit.index({ key: 1 });
+export const RateLimitModel = reg("RateLimit", rateLimit);
 
 export const allModels = () => Object.values(mongoose.models);
 export const EmailOtpModel = reg("EmailOtp", emailOtp);

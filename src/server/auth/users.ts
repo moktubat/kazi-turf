@@ -8,7 +8,7 @@ import { dupField, isDup, plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
 import type { SessionUser } from "@/types";
 import type { User } from "@/types/user";
-import { DUMMY_HASH, assertPasswordPolicy, hashPassword, verifyPassword } from "./password";
+import { DUMMY_HASH, assertPasswordPolicy, checkPassword, hashPassword, verifyPassword } from "./password";
 import { checkEmailOtp, consumeEmailOtp, issueEmailOtp, normalizeEmail } from "./emailOtp";
 
 export function toSessionUser(u: User): SessionUser {
@@ -29,8 +29,12 @@ export async function authenticate(identifier: string, password: string): Promis
     const doc = await UserModel.findOne(id.kind === "email" ? { email: id.value } : { phone: id.value }).lean();
     const user = doc ? plain<User>(doc) : null;
     // Always verify something, so response time does not reveal whether the account exists.
-    const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
+    const { ok, upgraded } = await checkPassword(password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !ok || user.status !== "ACTIVE") return null;
+    // Older hash, right password: store it again with the current (stronger) parameters.
+    if (upgraded) {
+        await UserModel.updateOne({ id: user.id, passwordHash: user.passwordHash }, { $set: { passwordHash: upgraded } });
+    }
     return user;
 }
 
@@ -53,22 +57,30 @@ export function mapDup(e: unknown): never {
 }
 
 /**
- * Sign-up step 1: check the details (incl. duplicate phone/email) and email a 6-digit code.
- * Nothing is stored about the account yet: the password is only hashed in step 2.
+ * Sign-up step 1: email a 6-digit code. Nothing is stored about the account yet: the
+ * password is only hashed in step 2.
+ *
+ * The answer is the same whether or not the phone or email is already registered, so the
+ * form cannot be used to find out who has an account (staff included):
+ *  - email already registered: the owner gets a "you already have an account" email
+ *    instead of a code (same limits, cooldown and response);
+ *  - phone already registered: only reported in step 2, after the email code proved the
+ *    person controls a real inbox, and every such check uses up one of the code's tries.
  */
 export async function startRegistration(
     input: { name: string; phone: string; email: string },
     opts: { ip?: string; now?: Date; resend?: boolean } = {}
 ) {
     await connectDb();
-    const phone = normalizePhone(input.phone);
     const email = normalizeEmail(input.email);
-    await assertUnique(phone, email);
+    // Not awaited here: the lookup runs in parallel with issueEmailOtp's own checks.
+    const accountExists = UserModel.exists({ email }).then((r) => !!r);
+    accountExists.catch(() => {}); // if issueEmailOtp throws before awaiting it, no unhandled rejection
     // Same email again (e.g. after "Change details"): the code already sent still works.
-    return issueEmailOtp({ email, purpose: "REGISTER", ip: opts.ip, now: opts.now, reuseLive: !opts.resend });
+    return issueEmailOtp({ email, purpose: "REGISTER", ip: opts.ip, now: opts.now, reuseLive: !opts.resend, accountExists });
 }
 
-/** Sign-up step 2: duplicates are checked BEFORE the code is used, then code + account commit together. */
+/** Sign-up step 2: the code is checked first, then duplicates, then code + account commit together. */
 export async function registerCustomer(
     input: { name: string; phone: string; email: string; password: string; otpCode: string },
     opts: { now?: Date } = {}
@@ -78,8 +90,11 @@ export async function registerCustomer(
     const phone = normalizePhone(input.phone);
     const email = normalizeEmail(input.email);
 
-    await assertUnique(phone, email); // a taken phone/email never burns the code
+    // Code first: "phone already registered" is only ever told to someone who proved they
+    // own the inbox, and each check costs one of the code's tries (checkEmailOtp counts it).
+    // A taken phone still doesn't consume the code, so the customer can fix it and retry.
     const otpId = await checkEmailOtp({ email, purpose: "REGISTER", code: input.otpCode, now });
+    await assertUnique(phone, email);
     const passwordHash = await hashPassword(input.password);
 
     const user: User = {
@@ -120,7 +135,7 @@ export interface ProfileResult {
 
 export async function updateProfile(
     userId: string,
-    input: { name: string; phone: string; email: string },
+    input: { name: string; phone: string; email: string; currentPassword?: string },
     opts: { ip?: string; now?: Date } = {}
 ): Promise<ProfileResult> {
     await connectDb();
@@ -129,10 +144,21 @@ export async function updateProfile(
 
     const phone = normalizePhone(input.phone);
     const email = input.email.trim() ? normalizeEmail(input.email) : null;
-    await assertUnique(phone, email, userId);
-
     const name = input.name.trim();
     const emailChanged = (user.email ?? null) !== email;
+
+    // Staff and Super Admins change their email/phone directly (no code), so the change must
+    // be re-authorised with the current password. Otherwise a stolen staff session could point
+    // the account at an attacker's email and take it over through "Forgot password".
+    if (user.role !== "CUSTOMER" && (emailChanged || user.phone !== phone)) {
+        const ok = !!input.currentPassword && (await verifyPassword(input.currentPassword, user.passwordHash));
+        if (!ok) {
+            const message = input.currentPassword ? "Your current password is incorrect." : "Enter your current password to change your phone or email.";
+            throw new AppError("REAUTH_REQUIRED", message, 400, { currentPassword: input.currentPassword ? "Incorrect password" : "Required to change phone or email" });
+        }
+    }
+
+    await assertUnique(phone, email, userId);
     // Customers: a NEW email only replaces the current one after its code is confirmed
     // (confirmEmailChange). Staff and Super Admins keep the direct update they had before.
     const verifyNewEmail = user.role === "CUSTOMER" && emailChanged && email !== null;

@@ -6,6 +6,7 @@ import { clearLoginFailures, isLocked, recordLoginFailure } from "@/server/auth/
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
 import { clearRateLimit, rateLimitAsync } from "@/server/security/rateLimit";
+import { clearSharedRateLimit, sharedRateLimit } from "@/server/security/sharedRateLimit";
 
 export async function POST(req: NextRequest) {
     try {
@@ -18,7 +19,10 @@ export async function POST(req: NextRequest) {
 
         if (
             !(await rateLimitAsync(`login-ip:${clientIp(req)}`, 60, window)) ||
-            !(await rateLimitAsync(`login-id:${key}`, 10, window))
+            !(await rateLimitAsync(`login-id:${key}`, 10, window)) ||
+            // Same limits across every server instance (the in-memory ones are per instance).
+            !(await sharedRateLimit(`login-ip:${clientIp(req)}`, 60, window)) ||
+            !(await sharedRateLimit(`login-id:${key}`, 10, window))
         ) {
             throw new AppError("RATE_LIMITED", "Too many attempts. Please wait a few minutes.", 429);
         }
@@ -43,8 +47,10 @@ export async function POST(req: NextRequest) {
         // Successful login — clear the failure counter.
         await clearLoginFailures(key);
 
+        // Only the per-account bucket. Clearing the per-IP one let an attacker with any valid
+        // account reset their own IP limit between password-guessing rounds on other accounts.
         await clearRateLimit(`login-id:${key}`);
-        await clearRateLimit(`login-ip:${clientIp(req)}`);
+        await clearSharedRateLimit(`login-id:${key}`);
 
 
         const { token, expires } = await createSession(user.id);

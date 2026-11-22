@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
             // dev: allow local fallback (handled inside uploadImage)
         }
 
+        // Refuse oversized bodies before formData() buffers them all in memory.
+        const declared = Number(req.headers.get("content-length") ?? 0);
+        if (declared > MAX_BYTES + 64 * 1024) {
+            throw new AppError("VALIDATION", `Image must be under ${MAX_BYTES / 1024 / 1024} MB.`, 400, { file: "File too large" });
+        }
+
         const form = await req.formData();
         const file = form.get("file");
         const folderRaw = (form.get("folder") as string | null) || "kaziturf/pitches";

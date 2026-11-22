@@ -59,16 +59,32 @@ export function handleError(e: unknown) {
 }
 
 
+/**
+ * The visitor's IP, for rate limits and abuse caps.
+ *
+ * On Vercel (VERCEL=1 is set by the platform) the edge overwrites x-vercel-forwarded-for and
+ * x-forwarded-for with the real client address, so the first entry can be trusted.
+ * Anywhere else the LEFTMOST X-Forwarded-For entry is whatever the client sent (Next.js only
+ * fills the header in when it is missing), so trusting it let anyone dodge every per-IP limit
+ * by sending a fake header. There the RIGHTMOST entry is used: the address recorded by the
+ * reverse proxy closest to the app. Self-hosting must therefore sit behind one proxy that
+ * appends to X-Forwarded-For (nginx, Caddy, a load balancer).
+ */
 export function clientIp(req: NextRequest): string {
     const headers = req.headers;
+    const onVercel = process.env.VERCEL === "1";
 
-    // Vercel sets this to the real visitor IP.
-    const vercel = headers.get("x-vercel-forwarded-for");
-    if (vercel) return vercel.split(",")[0].trim();
+    if (onVercel) {
+        const vercel = headers.get("x-vercel-forwarded-for");
+        if (vercel) return vercel.split(",")[0].trim();
+    }
 
-    // Standard proxy header. First entry is the original client.
     const xff = headers.get("x-forwarded-for");
-    if (xff) return xff.split(",")[0].trim();
+    if (xff) {
+        const hops = xff.split(",").map((s) => s.trim()).filter(Boolean);
+        const ip = onVercel ? hops[0] : hops[hops.length - 1];
+        if (ip) return ip;
+    }
 
     // Some proxies set this.
     const real = headers.get("x-real-ip");

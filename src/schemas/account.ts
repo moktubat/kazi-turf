@@ -13,6 +13,9 @@ export const profileSchema = z.object({
     name: z.string().trim().min(2, "Enter your name").max(80, "Name is too long"),
     phone: phoneInput,
     email: optionalEmail,
+    // Staff / Super Admin only: required by the server when they change their phone or email
+    // (both are login identifiers, and the email receives password-reset links).
+    currentPassword: z.string().max(200).optional(),
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 

@@ -4,6 +4,7 @@ import { getBookingForUser, releaseHold } from "@/server/bookings";
 import { AppError, clientIp, handleError, ok } from "@/server/http";
 import { reconcileBooking } from "@/server/payments/reconcile";
 import { rateLimitAsync } from "@/server/security/rateLimit";
+import { assertSameOrigin } from "@/server/security/origin";
 
 type Ctx = { params: Promise<{ code: string }> };
 
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 // Leave the payment step before paying: release the hold.
 export async function DELETE(req: NextRequest, { params }: Ctx) {
     try {
+        assertSameOrigin(req);
         const user = await guard(req);
         const { code } = await params;
         await releaseHold(code, user);

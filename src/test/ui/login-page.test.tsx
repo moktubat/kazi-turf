@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
-// /login page (2026-11-17): ?reset=… reaches LoginCard as resetToken; ?mode and ?next still work;
-// a signed-in user is redirected.
+// /login page: the reset token arrives in an httpOnly cookie set by /api/auth/reset-link
+// (2026-11-22, so it never sits in the page URL that analytics records); a legacy ?reset=…
+// is bounced through that route; ?mode and ?next still work; a signed-in user is redirected
+// unless they are completing a reset.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 
@@ -11,6 +13,11 @@ const redirect = vi.fn((to: string) => {
 vi.mock("@/server/auth/session", () => ({ getSessionUser: () => getSessionUser() }));
 vi.mock("next/server", () => ({ connection: async () => undefined }));
 vi.mock("next/navigation", () => ({ redirect: (to: string) => redirect(to), useRouter: () => ({}) }));
+let jar: Record<string, string> = {};
+vi.mock("next/headers", () => ({
+    cookies: async () => ({ get: (name: string) => (name in jar ? { name, value: jar[name] } : undefined) }),
+}));
+const TOKEN = "A".repeat(43);
 
 const { default: LoginPage } = await import("@/app/(auth)/login/page");
 const { LoginCard } = await import("@/components/auth/LoginCard");
@@ -43,22 +50,41 @@ beforeEach(() => {
     getSessionUser.mockReset();
     getSessionUser.mockResolvedValue(null);
     redirect.mockClear();
+    jar = {};
 });
 afterEach(() => vi.clearAllMocks());
 
 describe("/login", () => {
-    it("passes ?reset= to LoginCard as resetToken", async () => {
-        expect((await cardProps({ reset: "tok-abc" })).resetToken).toBe("tok-abc");
+    it("bounces a legacy ?reset= link through /api/auth/reset-link (token leaves the URL)", async () => {
+        await expect(cardProps({ reset: "tok-abc" })).rejects.toThrow("REDIRECT:/api/auth/reset-link?reset=tok-abc");
     });
 
-    it("resetToken is null without ?reset=", async () => {
+    it("?mode=reset takes the token from the reset cookie", async () => {
+        jar = { kt_reset: TOKEN };
+        expect((await cardProps({ mode: "reset" })).resetToken).toBe(TOKEN);
+    });
+
+    it("ignores the cookie without ?mode=reset, and a malformed cookie", async () => {
+        jar = { kt_reset: TOKEN };
+        expect((await cardProps({})).resetToken).toBeNull();
+        jar = { kt_reset: "<script>" };
+        expect((await cardProps({ mode: "reset" })).resetToken).toBeNull();
+    });
+
+    it("resetToken is null without a reset", async () => {
         expect((await cardProps({})).resetToken).toBeNull();
     });
 
     it("takes the first value when a param repeats", async () => {
-        const p = await cardProps({ reset: ["first", "second"], mode: ["signup", "signin"] });
-        expect(p.resetToken).toBe("first");
+        const p = await cardProps({ mode: ["signup", "signin"] });
         expect(p.initialMode).toBe("signup");
+        await expect(cardProps({ reset: ["first", "second"] })).rejects.toThrow("REDIRECT:/api/auth/reset-link?reset=first");
+    });
+
+    it("a signed-in user can still complete a reset", async () => {
+        getSessionUser.mockResolvedValue({ id: "u1" });
+        jar = { kt_reset: TOKEN };
+        expect((await cardProps({ mode: "reset" })).resetToken).toBe(TOKEN);
     });
 
     it("?mode=signup opens Register; anything else opens Login", async () => {

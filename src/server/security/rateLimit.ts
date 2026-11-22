@@ -13,7 +13,11 @@
 
 type Hit = { at: number };
 
-const buckets = new Map<string, Hit[]>();
+// Each bucket remembers its own window: the GC sweep must not evict a 15-minute bucket
+// just because the call that triggered the sweep uses a 60-second window.
+type Bucket = { hits: Hit[]; windowMs: number };
+
+const buckets = new Map<string, Bucket>();
 
 // Drop buckets that haven't been touched in this long.
 const GC_INTERVAL_MS = 5 * 60 * 1000;
@@ -32,25 +36,25 @@ export async function rateLimitAsync(
 
     // Cheap GC — don't let the map grow forever.
     if (now - lastGc > GC_INTERVAL_MS) {
-        for (const [k, hits] of buckets) {
-            if (hits.length === 0 || now - hits[hits.length - 1].at > windowMs) {
+        for (const [k, b] of buckets) {
+            if (b.hits.length === 0 || now - b.hits[b.hits.length - 1].at > b.windowMs) {
                 buckets.delete(k);
             }
         }
         lastGc = now;
     }
 
-    const hits = buckets.get(key) ?? [];
+    const hits = buckets.get(key)?.hits ?? [];
     // Keep only hits inside the sliding window.
     const fresh = hits.filter((h) => now - h.at < windowMs);
 
     if (fresh.length >= limit) {
-        buckets.set(key, fresh);
+        buckets.set(key, { hits: fresh, windowMs });
         return false;
     }
 
     fresh.push({ at: now });
-    buckets.set(key, fresh);
+    buckets.set(key, { hits: fresh, windowMs });
     return true;
 }
 

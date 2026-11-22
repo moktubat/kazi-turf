@@ -26,6 +26,32 @@ import { canCollectBalance, checkInState, toAdminDto } from "./dto";
 
 const fresh = async (b: Booking) => (await findBookingById(b.id)) ?? b;
 
+/**
+ * Lowering what a customer owes after money changed hands is a Super Admin decision.
+ * Staff may still give a counter discount on a part-paid booking and may always RAISE the
+ * total, but they may not lower the total of a fully paid booking, nor lower it so that
+ * nothing is left to pay (balance ৳0, or less than was already paid). Otherwise a balance
+ * paid in cash could be "discounted away" and the cash kept, or an overpayment created
+ * with no refund flag. `field` is the form field the error is shown on.
+ */
+function assertStaffMayLowerTotal(
+    user: ServerUser,
+    b: Booking,
+    newTotal: number,
+    paid: number,
+    what: "discount" | "additional charge",
+    field: string
+) {
+    if (user.role === "SUPER_ADMIN" || newTotal >= b.total) return;
+    const message =
+        b.paymentStatus === "PAID"
+            ? `This booking is fully paid. Only a Super Admin can change the ${what} so the total goes down.`
+            : `Staff can't change the ${what} so that nothing is left to pay. Ask a Super Admin.`;
+    if (b.paymentStatus === "PAID" || newTotal - paid <= 0) {
+        throw new AppError("SUPER_ADMIN_REQUIRED", message, 403, { [field]: message });
+    }
+}
+
 /** Marks the balance paid and records the cash, inside the caller's transaction. */
 async function cashIn(b: Booking, user: ServerUser, now: Date, s: ClientSession): Promise<number> {
     const r = await BookingModel.updateOne(
@@ -70,13 +96,20 @@ export async function collectBalance(user: ServerUser, code: string, now: Date =
 
 export async function checkIn(user: ServerUser, code: string, input: CheckInInput, now: Date = new Date()): Promise<AdminBookingDto> {
     const b = await settle(await findBookingForStaff(user, code), now);
-    const state = checkInState(b, now);
+    // A booking whose check-in was undone counts as already checked in once: checking it in
+    // again is a re-check-in, so "undo + check in" cannot get around the Super Admin rule.
+    // The CheckIn history also covers bookings undone before checkInUndoneAt existed.
+    const wasUndone =
+        b.bookingStatus === "CONFIRMED" &&
+        (!!b.checkInUndoneAt || !!(await CheckInModel.exists({ bookingId: b.id, undoneAt: { $ne: null } })));
+    const state = checkInState(wasUndone && !b.checkInUndoneAt ? { ...b, checkInUndoneAt: now.toISOString() } : b, now);
     let result: "OK" | "OVERRIDE" = "OK";
     let overrideReason: string | undefined;
 
     if (state.state === "BLOCKED") {
         // Only a Super Admin may re-check-in a booking, and only with a reason (logged).
-        const allowed = b.bookingStatus === "CHECKED_IN" && user.role === "SUPER_ADMIN" && !!input.overrideReason;
+        const reCheckIn = b.bookingStatus === "CHECKED_IN" || wasUndone;
+        const allowed = reCheckIn && user.role === "SUPER_ADMIN" && !!input.overrideReason;
         if (!allowed) {
             await logAudit(user, {
                 action: "CHECKIN_BLOCKED",
@@ -159,7 +192,7 @@ export async function undoCheckIn(user: ServerUser, code: string, reason: string
         // Conditional: if someone just changed the booking (re-check-in, cancel…), nothing moves.
         const r = await BookingModel.updateOne(
             { id: b.id, bookingStatus: "CHECKED_IN" },
-            { $set: { bookingStatus: "CONFIRMED" }, $unset: { checkedInAt: "" } },
+            { $set: { bookingStatus: "CONFIRMED", checkInUndoneAt: now.toISOString() }, $unset: { checkedInAt: "" } },
             { session: s }
         );
         if (r.modifiedCount === 0) {
@@ -225,6 +258,7 @@ export async function updateDiscount(user: ServerUser, code: string, discount: C
         (sum, p) => sum + p.amount,
         0
     );
+    assertStaffMayLowerTotal(user, b, total, paid, "discount", "discount");
     const balance = Math.max(0, total - paid);
     const paymentStatus = paid > 0 && total <= paid ? "PAID" : "PARTIALLY_PAID";
     const applied = discountAmount > 0 ? discount! : null;
@@ -327,6 +361,8 @@ export async function updateAdditionalCharge(
         (sum, p) => sum + p.amount,
         0
     );
+    // Clearing or lowering a charge lowers the total: the same rule as a discount.
+    assertStaffMayLowerTotal(user, b, total, paid, "additional charge", "additionalCharge");
     const balance = Math.max(0, total - paid);
     const paymentStatus = paid > 0 && total <= paid ? "PAID" : "PARTIALLY_PAID";
 

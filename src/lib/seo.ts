@@ -73,3 +73,12 @@ export function businessJsonLd(venue: { name?: string; mapUrl?: string; sports?:
         paymentAccepted: "bKash, Cash",
     };
 }
+
+/**
+ * JSON for an inline <script type="application/ld+json">. Every "<" becomes the JSON escape
+ * \u003c, so stored text (venue name, map URL, sports) can never close the tag. The source
+ * needs a double backslash: "\u003c" in a JS string literal is just "<" again (a no-op).
+ */
+export function jsonLdHtml(data: unknown): string {
+    return JSON.stringify(data).replace(/</g, "\\u003c");
+}

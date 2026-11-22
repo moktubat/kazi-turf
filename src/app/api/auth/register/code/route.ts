@@ -5,12 +5,16 @@ import { startRegistration } from "@/server/auth/users";
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
 import { rateLimitAsync } from "@/server/security/rateLimit";
+import { sharedRateLimit } from "@/server/security/sharedRateLimit";
 
 export async function POST(req: NextRequest) {
     try {
         assertSameOrigin(req);
         // Cheap first line per instance; the real per-email and per-IP limits are in MongoDB.
-        if (!(await rateLimitAsync(`reg-code:${clientIp(req)}`, 10, 10 * 60_000))) {
+        if (
+            !(await rateLimitAsync(`reg-code:${clientIp(req)}`, 10, 10 * 60_000)) ||
+            !(await sharedRateLimit(`reg-code:${clientIp(req)}`, 10, 10 * 60_000))
+        ) {
             throw new AppError("RATE_LIMITED", "Too many requests. Please wait a few minutes.", 429);
         }
         const body = await readJson(req);

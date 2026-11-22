@@ -1,14 +1,22 @@
 import "server-only";
 import { randomUUID } from "crypto";
+import { policies } from "@/data/site";
 import { BookingModel, PaymentModel, SlotClaimModel } from "@/models";
 import type { ServerUser } from "@/server/auth/session";
 import { findOwned, settle } from "@/server/bookings";
+import { restoreHoldExpiry } from "@/server/claims";
 import { tx } from "@/server/db/connect";
 import { AppError } from "@/server/http";
 import type { Payment } from "@/types/ops";
 import { bkashConfigured, bkashCreate } from "./bkash";
 
 const PAYABLE = ["NOT_STARTED", "FAILED", "CANCELLED"];
+
+/**
+ * How long the claims stay held once checkout starts: settle.ts abandons a payment after
+ * holdMinutes + 2 min; the extra 5 min lets the reconcile job verify it before the cells free up.
+ */
+const PAYMENT_WINDOW_MS = (policies.holdMinutes + 2 + 5) * 60_000;
 
 export async function startBkashPayment(
     user: ServerUser,
@@ -87,6 +95,19 @@ export async function startBkashPayment(
             { session: s }
         );
         if (r.modifiedCount === 0) return false;
+        // Keep the cells claimed while the customer is on the bKash page. Without this the
+        // HELD claims lapse at the original hold time, another customer can take the slot,
+        // and the first customer is charged for a slot they no longer have. Only the claims
+        // are extended (not the booking's holdExpiresAt), so a failed or abandoned payment
+        // still expires the booking and frees the cells as before.
+        const c = await SlotClaimModel.updateMany(
+            { bookingId: b.id, state: "HELD", expiresAt: { $gt: now.toISOString() } },
+            { $max: { expiresAt: new Date(now.getTime() + PAYMENT_WINDOW_MS).toISOString() } },
+            { session: s }
+        );
+        if (c.matchedCount !== b.cellStarts.length) {
+            throw new AppError("SLOT_UNAVAILABLE", "That slot is no longer held. Pick again.", 409);
+        }
         await PaymentModel.create([payment], { session: s });
         return true;
     });
@@ -104,10 +125,13 @@ export async function startBkashPayment(
         await PaymentModel.updateOne({ id: payment.id }, { $set: { providerPaymentId: r.paymentId } });
         return { redirectUrl: r.redirectUrl };
     } catch (e) {
-        await PaymentModel.updateOne(
+        const failed = await PaymentModel.updateOne(
             { id: payment.id, status: "PENDING" },
             { $set: { status: "FAILED", failureReason: "CREATE_FAILED" } }
         );
+        // bKash never opened: undo the claim extension. Done while the booking is still
+        // PENDING (before it is restored below), so no new checkout can interleave.
+        if (failed.modifiedCount > 0) await restoreHoldExpiry(b.id, b.holdExpiresAt);
         await BookingModel.updateOne(
             { id: b.id, paymentStatus: "PENDING" },
             { $set: { paymentStatus: b.paymentStatus } }

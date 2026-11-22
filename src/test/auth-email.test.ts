@@ -180,22 +180,57 @@ describe("resend and send limits", () => {
     });
 });
 
-describe("duplicates are checked before a code is sent or used", () => {
-    it("taken phone or email: no code is emailed", async () => {
-        await seedUser({ phone: "01711112222" });
-        await expect(startRegistration(details(), { now: T0 })).rejects.toMatchObject({ code: "PHONE_TAKEN" });
+// 2026-11-22: step 1 answers the same for new and registered phones/emails (no account
+// enumeration). A registered email gets an "account exists" notice instead of a code; a
+// registered phone is only reported in step 2, after the email code was proven.
+describe("duplicates are not revealed before the email is proven", () => {
+    it("registered email: same response as a new one, but the email holds no code", async () => {
         await seedUser({ phone: "01700000001", email: "rahim@example.com" });
-        await expect(startRegistration(details({ phone: "01711113333" }), { now: T0 })).rejects.toMatchObject({ code: "EMAIL_TAKEN" });
-        expect(outbox).toHaveLength(0);
+        const r = await startRegistration(details({ phone: "01711113333" }), { now: T0 });
+        expect(r).toEqual({ sentTo: maskEmail("rahim@example.com"), expiresInMinutes: 10, resendInSeconds: 60 });
+        expect(outbox).toHaveLength(1);
+        expect(outbox[0].subject).toBe("You already have a Kazi Sports Arena account");
+        expect(outbox[0].text).not.toMatch(/d{6}/);
+        expect(outbox[0].text).toContain("http://localhost:3000/login");
+        // Step 2 cannot tell either: any code is simply wrong, never "email taken".
+        await expect(registerCustomer({ ...details({ phone: "01711113333" }), otpCode: "123456" }, { now: at(5) })).rejects.toMatchObject({ code: "OTP_WRONG" });
     });
 
-    it("an account registered with the same phone between the steps doesn't burn the code", async () => {
+    it("registered email: resend cooldown and limits behave exactly like a new email", async () => {
+        await seedUser({ phone: "01700000001", email: "rahim@example.com" });
+        await startRegistration(details({ phone: "01711113333" }), { now: T0 });
+        await expect(startRegistration(details({ phone: "01711113333" }), { now: at(10), resend: true })).rejects.toMatchObject({ code: "OTP_COOLDOWN" });
+    });
+
+    it("registered phone: step 1 sends a real code; step 2 reports it only with a correct code", async () => {
+        await seedUser({ phone: "01711112222" });
+        const r = await startRegistration(details(), { now: T0 });
+        expect(r.sentTo).toBe(maskEmail("rahim@example.com"));
+        const code = lastCode();
+        await expect(registerCustomer({ ...details(), otpCode: wrong(code) }, { now: at(5) })).rejects.toMatchObject({ code: "OTP_WRONG" });
+        await expect(registerCustomer({ ...details(), otpCode: code }, { now: at(6) })).rejects.toMatchObject({ code: "PHONE_TAKEN" });
+    });
+
+    it("a taken phone in step 2 does not use up the code, but each check costs one try", async () => {
         await startRegistration(details(), { now: T0 });
         const code = lastCode();
         await seedUser({ phone: "01711112222" });
         await expect(registerCustomer({ ...details(), otpCode: code }, { now: at(5) })).rejects.toMatchObject({ code: "PHONE_TAKEN" });
         const rec = await EmailOtpModel.findOne({}).lean<{ consumedAt: Date | null; attempts: number }>();
-        expect(rec).toMatchObject({ consumedAt: null, attempts: 0 });
+        expect(rec).toMatchObject({ consumedAt: null, attempts: 1 });
+        // The customer fixes the phone and the same code still works.
+        const user = await registerCustomer({ ...details({ phone: "01711119999" }), otpCode: code }, { now: at(10) });
+        expect(user.phone).toBe("01711119999");
+    });
+
+    it("probing phones with one code stops after the code's 5 tries", async () => {
+        await startRegistration(details(), { now: T0 });
+        const code = lastCode();
+        for (let i = 0; i < 5; i++) await seedUser({ phone: `0171111000${i}`, id: `p${i}`, email: null });
+        for (let i = 0; i < 5; i++) {
+            await expect(registerCustomer({ ...details({ phone: `0171111000${i}` }), otpCode: code }, { now: at(5 + i) })).rejects.toMatchObject({ code: "PHONE_TAKEN" });
+        }
+        await expect(registerCustomer({ ...details({ phone: "01711117777" }), otpCode: code }, { now: at(20) })).rejects.toMatchObject({ code: "OTP_LOCKED" });
     });
 
     it("if the database's unique index catches a race, the transaction rolls back and the code survives", async () => {
@@ -285,9 +320,15 @@ describe("email change in My account (customers)", () => {
 });
 
 describe("Staff and Super Admin are unaffected", () => {
-    it("staff profile email changes stay direct (no code), and the email-code endpoints refuse staff", async () => {
+    it("staff profile email changes stay direct (no code) but need the current password; the email-code endpoints refuse staff", async () => {
         const s = await seedUser({ role: "STAFF", email: "staff@example.com", branchIds: ["bogura"] });
-        const r = await updateProfile(s.id, { name: "Staff", phone: s.phone, email: "staff2@example.com" }, { now: T0 });
+        // 2026-11-22: a stolen staff session must not be able to re-point the account's email.
+        await expect(updateProfile(s.id, { name: "Staff", phone: s.phone, email: "staff2@example.com" }, { now: T0 })).rejects.toMatchObject({ code: "REAUTH_REQUIRED", fields: { currentPassword: expect.any(String) } });
+        await expect(updateProfile(s.id, { name: "Staff", phone: s.phone, email: "staff2@example.com", currentPassword: "wrong-password" }, { now: T0 })).rejects.toMatchObject({ code: "REAUTH_REQUIRED" });
+        await expect(updateProfile(s.id, { name: "Staff", phone: "01799991111", email: "staff@example.com" }, { now: T0 })).rejects.toMatchObject({ code: "REAUTH_REQUIRED" });
+        // A name-only change needs no password.
+        await updateProfile(s.id, { name: "Staff Renamed", phone: s.phone, email: "staff@example.com" }, { now: T0 });
+        const r = await updateProfile(s.id, { name: "Staff", phone: s.phone, email: "staff2@example.com", currentPassword: "old-password-1" }, { now: T0 });
         expect(r).toMatchObject({ email: "staff2@example.com", emailVerified: false });
         expect(r.emailPending).toBeUndefined();
         expect(outbox).toHaveLength(0);

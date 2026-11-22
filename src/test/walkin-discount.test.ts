@@ -146,7 +146,8 @@ describe("walk-in booking with a discount", () => {
         expect(receiptHtml(b)).toContain("Discount");
         expect(receiptHtml(b)).toContain("-৳250");
         const csv = await bookingsCsv(admin, {});
-        expect(csv.split("\r\n")[0]).toMatch(/,"Discount"$/);
+        // "Additional charge" / "Charge reason" were appended after Discount (commit 1b122a8).
+        expect(csv.split("\r\n")[0]).toMatch(/,"Discount","Additional charge","Charge reason"$/);
         expect(csv).toContain(`"${b.code}"`);
         const mail = bookingConfirmationTemplate({
             name: "Karim", code: b.code, pitchName: "Pitch B", sport: "Football", date: b.date, start: b.start, end: b.end,

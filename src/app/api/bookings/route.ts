@@ -4,12 +4,14 @@ import { getSessionUser } from "@/server/auth/session";
 import { createBooking } from "@/server/bookings";
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { rateLimitAsync } from "@/server/security/rateLimit";
+import { assertSameOrigin } from "@/server/security/origin";
 import { connectDb } from "@/server/db/connect";
 import { BookingModel } from "@/models";
 
 // Creates the slot hold and the pending booking.
 export async function POST(req: NextRequest) {
     try {
+        assertSameOrigin(req);
         const user = await getSessionUser();
         if (!user) throw new AppError("UNAUTHENTICATED", "Sign in to continue.", 401);
         if (user.role === "STAFF") {

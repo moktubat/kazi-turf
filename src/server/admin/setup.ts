@@ -23,7 +23,7 @@ import { assertPitchEditor, assertSetupAccess } from "@/server/auth/permissions"
 import { endOtherSessions, type ServerUser } from "@/server/auth/session";
 import { assertUnique, mapDup } from "@/server/auth/users";
 import { settleExpired } from "@/server/bookings/expire";
-import { deleteImage, publicIdFromImage } from "@/server/cloudinary";
+import { deleteImage, publicIdFromImage, type ImageFolder } from "@/server/cloudinary";
 import { ensureConfig, persistConfig, withConfigRetry } from "@/server/config";
 import { connectDb } from "@/server/db/connect";
 import { AppError } from "@/server/http";
@@ -157,16 +157,28 @@ export async function updateBranch(user: ServerUser, input: BranchUpdateInput) {
         }
         for (const [key, oldImg] of oldImages) {
             const newImg = newImageById.get(key) ?? null;
-            if (oldImg && oldImg !== newImg) {
-                const oldPublicId = publicIdFromImage(oldImg, "kaziturf/sports");
-                if (oldPublicId) await deleteImage(oldPublicId);
-            }
+            if (oldImg && oldImg !== newImg) await deleteImageIfUnused(oldImg, "kaziturf/sports");
         }
 
         if (Object.keys(changes).length > 0) {
             await logAudit(user, { action: "BRANCH_CHANGED", entityType: "BRANCH", entityId: b.id, branchId: b.id, meta: changes });
         }
     });
+}
+
+/**
+ * Deletes a Cloudinary image only when nothing in the current config still shows it.
+ * Any field editor can type any Cloudinary URL into a field, so without this check pointing
+ * your own field at another field's (or another branch's, or a sport's) photo and then
+ * changing it would destroy that other photo. Call it AFTER the config change is applied.
+ */
+async function deleteImageIfUnused(url: string | null | undefined, folder: ImageFolder) {
+    const publicId = url ? publicIdFromImage(url, folder) : null;
+    if (!publicId) return;
+    const stillUsed =
+        pitches.some((x) => !!x.image && publicIdFromImage(x.image, "kaziturf/pitches") === publicId) ||
+        branches.some((b) => (b.sportConfigs ?? []).some((c) => !!c.image && publicIdFromImage(c.image, "kaziturf/sports") === publicId));
+    if (!stillUsed) await deleteImage(publicId);
 }
 
 /* ---------- pitches ---------- */
@@ -292,10 +304,7 @@ export async function updatePitch(user: ServerUser, input: PitchUpdateInput, now
         invalidateAvailability(p.id);
 
         // [CLOUDINARY] If the image URL changed, delete the old Cloudinary asset.
-        if (oldImage && oldImage !== next.image) {
-            const oldPublicId = publicIdFromImage(oldImage, "kaziturf/pitches");
-            if (oldPublicId) await deleteImage(oldPublicId);
-        }
+        if (oldImage && oldImage !== next.image) await deleteImageIfUnused(oldImage, "kaziturf/pitches");
 
         if (Object.keys(changes).length > 0) {
             await logAudit(user, {
@@ -350,9 +359,7 @@ export async function deletePitch(user: ServerUser, id: string, now: Date = new 
     invalidateAvailability(id);
 
     // Best-effort Cloudinary cleanup.
-    if (cloudinaryPublicId) {
-        await deleteImage(cloudinaryPublicId);
-    }
+    if (cloudinaryPublicId) await deleteImageIfUnused(p.image, "kaziturf/pitches");
 
     await logAudit(user, {
         action: "PITCH_CHANGED",
@@ -412,10 +419,14 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
 
     // 2. Capture Cloudinary public_ids for every pitch image BEFORE we splice.
     const pitchImagePublicIds: string[] = [];
+    const pitchImages: string[] = [];
     for (const p of doomedPitches) {
         if (p.image) {
             const pid = publicIdFromImage(p.image, "kaziturf/pitches");
-            if (pid) pitchImagePublicIds.push(pid);
+            if (pid) {
+                pitchImagePublicIds.push(pid);
+                pitchImages.push(p.image);
+            }
         }
     }
 
@@ -453,12 +464,8 @@ export async function deleteSport(user: ServerUser, sportId: string, now: Date =
     revalidatePath("/admin/setup", "page");
 
     // 7. Best-effort Cloudinary cleanup — pitch images + sport hero background.
-    for (const pid of pitchImagePublicIds) {
-        await deleteImage(pid);
-    }
-    if (sportImagePublicId) {
-        await deleteImage(sportImagePublicId);
-    }
+    for (const img of pitchImages) await deleteImageIfUnused(img, "kaziturf/pitches");
+    if (sportImagePublicId) await deleteImageIfUnused(sportConfig.image, "kaziturf/sports");
 
     await logAudit(user, {
         action: "BRANCH_CHANGED",

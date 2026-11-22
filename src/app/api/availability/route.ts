@@ -51,7 +51,8 @@ export async function GET(req: NextRequest) {
             sport: pitch.sport,
             format: pitch.format,
             maxConsecutiveSlots: pitch.maxConsecutiveSlots,
-            cells,
+            // Staff holds look like ordinary bookings to the public (the flag is admin-only).
+            cells: cells.map(({ staffHold, ...c }) => (staffHold ? { ...c, status: "BOOKED" as const } : c)),
         }));
 
         const hasOpen = pitches.some((p) => p.cells.some((c) => c.status === "AVAILABLE"));

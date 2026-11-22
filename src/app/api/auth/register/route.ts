@@ -5,11 +5,15 @@ import { registerCustomer, toSessionUser } from "@/server/auth/users";
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
 import { rateLimitAsync } from "@/server/security/rateLimit";
+import { sharedRateLimit } from "@/server/security/sharedRateLimit";
 
 export async function POST(req: NextRequest) {
     try {
         assertSameOrigin(req);
-        if (!(await rateLimitAsync(`register:${clientIp(req)}`, 20, 60 * 60_000))) {
+        if (
+            !(await rateLimitAsync(`register:${clientIp(req)}`, 20, 60 * 60_000)) ||
+            !(await sharedRateLimit(`register:${clientIp(req)}`, 20, 60 * 60_000))
+        ) {
             throw new AppError("RATE_LIMITED", "Too many sign-ups from this connection. Try again later.", 429);
         }
 

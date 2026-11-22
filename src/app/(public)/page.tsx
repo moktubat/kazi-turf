@@ -17,7 +17,7 @@ import { getBranchPitches } from "@/server/availability";
 
 import type { Branch, Policies, Pitch } from "@/types";
 import { site } from "@/data/site";
-import { businessJsonLd, pageMetadata } from "@/lib/seo";
+import { businessJsonLd, jsonLdHtml, pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({ path: "/", description: site.seoDescription });
 
@@ -26,7 +26,7 @@ function JsonLd({ data }: { data: unknown }) {
     return (
         <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\u003c") }}
+            dangerouslySetInnerHTML={{ __html: jsonLdHtml(data) }}
         />
     );
 }

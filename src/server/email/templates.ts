@@ -132,6 +132,21 @@ export function verificationCodeTemplate(input: {
   return { subject, html: shell(subject, body), text };
 }
 
+/**
+ * Sent instead of a sign-up code when the email already has an account, so the sign-up form
+ * answers the same way for new and existing emails (no account enumeration). No code inside.
+ */
+export function accountExistsTemplate(input: { signInUrl: string }): { subject: string; html: string; text: string } {
+  const subject = "You already have a Kazi Sports Arena account";
+  const body = `
+        <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;">You already have an account</h2>
+        <p style="margin:0 0 16px;font-size:14px;">Someone tried to create a new Kazi Sports Arena account with this email, but an account using it already exists, so no new account was made.</p>
+        <p style="margin:0 0 20px;font-size:14px;"><a href="${escapeHtml(input.signInUrl)}" style="color:#0b6e4f;font-weight:700;">Sign in</a>, or use "Forgot password?" on the sign-in page if you can't remember your password.</p>
+        <p style="margin:0;font-size:13px;color:#6b7280;">If this wasn't you, you can safely ignore this email. Your account has not changed.</p>`;
+  const text = `You already have a Kazi Sports Arena account.\n\nSomeone tried to create a new account with this email, but one already exists, so no new account was made.\nSign in: ${input.signInUrl}\nForgot your password? Use "Forgot password?" on the sign-in page.\n\nIf this wasn't you, ignore this email. Your account has not changed.`;
+  return { subject, html: shell(subject, body), text };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

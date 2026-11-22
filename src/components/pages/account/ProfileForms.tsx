@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, KeyRound, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -72,18 +72,26 @@ function ProfileForm({ profile }: { profile: ProfileView }) {
         register,
         handleSubmit,
         setError,
+        resetField,
+        control,
         formState: { errors, isSubmitting },
     } = useForm<ProfileInput>({
         resolver: zodResolver(profileSchema),
-        defaultValues: { name: profile.name, phone: profile.phone, email: profile.email },
+        defaultValues: { name: profile.name, phone: profile.phone, email: profile.email, currentPassword: "" },
     });
+    // Staff / Super Admin (no email codes): changing the phone or email needs the current password.
+    const [phoneNow = "", emailNow = ""] = useWatch({ control, name: ["phone", "email"] });
+    const contactChanged = phoneNow.trim() !== profile.phone || emailNow.trim() !== profile.email;
+    const needsPassword = !profile.verifyEmail && contactChanged;
 
     const emailHint = !profile.verifyEmail || !profile.email ? undefined : profile.emailVerified ? "Verified" : "Not verified yet";
 
     async function onSubmit(v: ProfileInput) {
         setMsg(null);
         try {
-            const r = await api<{ profile: { emailPending?: Pending } }>("/api/account/profile", { method: "PATCH", body: JSON.stringify(v) });
+            const body = needsPassword ? v : { name: v.name, phone: v.phone, email: v.email };
+            const r = await api<{ profile: { emailPending?: Pending } }>("/api/account/profile", { method: "PATCH", body: JSON.stringify(body) });
+            resetField("currentPassword");
             if (r.profile.emailPending) {
                 setPending(r.profile.emailPending);
                 setMsg({
@@ -114,6 +122,16 @@ function ProfileForm({ profile }: { profile: ProfileView }) {
                 <Input label="Name" autoComplete="name" error={errors.name?.message} {...register("name")} />
                 <Input label="Phone" type="tel" inputMode="tel" autoComplete="tel" error={errors.phone?.message} {...register("phone")} />
                 <Input label="Email (optional)" type="email" autoComplete="email" hint={emailHint} error={errors.email?.message} {...register("email")} />
+                {needsPassword && (
+                    <Input
+                        label="Current password"
+                        type="password"
+                        autoComplete="current-password"
+                        hint="Needed to change your phone or email."
+                        error={errors.currentPassword?.message}
+                        {...register("currentPassword")}
+                    />
+                )}
                 {profile.verifyEmail && profile.email && !profile.emailVerified && !pending && (
                     <Button
                         type="button"

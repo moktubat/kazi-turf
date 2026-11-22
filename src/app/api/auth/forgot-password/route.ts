@@ -4,6 +4,7 @@ import { requestPasswordReset } from "@/server/auth/resetToken";
 import { AppError, handleError, ok, readJson } from "@/server/http";
 import { assertSameOrigin } from "@/server/security/origin";
 import { rateLimitAsync } from "@/server/security/rateLimit";
+import { sharedRateLimit } from "@/server/security/sharedRateLimit";
 import { clientIp } from "@/server/http";
 
 const schema = z.object({ identifier: z.string().trim().min(3).max(120) });
@@ -11,7 +12,10 @@ const schema = z.object({ identifier: z.string().trim().min(3).max(120) });
 export async function POST(req: NextRequest) {
     try {
         assertSameOrigin(req);
-        if (!(await rateLimitAsync(`forgot:${clientIp(req)}`, 5, 15 * 60_000))) {
+        if (
+            !(await rateLimitAsync(`forgot:${clientIp(req)}`, 5, 15 * 60_000)) ||
+            !(await sharedRateLimit(`forgot:${clientIp(req)}`, 5, 15 * 60_000))
+        ) {
             // Same shape, wording and no-store header as every other rate-limited route.
             throw new AppError("RATE_LIMITED", "Too many requests. Please wait a few minutes.", 429);
         }

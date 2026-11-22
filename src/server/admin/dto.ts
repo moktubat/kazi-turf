@@ -60,6 +60,14 @@ export function checkInState(
             break;
     }
 
+    if (b.bookingStatus === "CONFIRMED" && b.checkInUndoneAt) {
+        return {
+            opensAt,
+            state: "BLOCKED",
+            message: "This booking was checked in before and the check-in was undone. Only a Super Admin can check it in again.",
+        };
+    }
+
     if (now < opens) {
         return {
             opensAt,
@@ -189,7 +197,7 @@ export async function toAdminDto(
 
             overrideCheckIn:
                 viewer.role === "SUPER_ADMIN" &&
-                b.bookingStatus === "CHECKED_IN",
+                (b.bookingStatus === "CHECKED_IN" || (b.bookingStatus === "CONFIRMED" && !!b.checkInUndoneAt)),
 
             collectBalance: canCollectBalance(b),
 

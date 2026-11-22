@@ -258,12 +258,10 @@ export async function createWalkIn(
                 balance: priced.total - paid,
             });
 
-            await sendEmail({
-                to: customer.email,
-                subject: tpl.subject,
-                html: tpl.html,
-                text: tpl.text,
-            });
+            await sendEmail(
+                { to: customer.email, subject: tpl.subject, html: tpl.html, text: tpl.text },
+                { flow: "walkin_confirmation", idempotencyKey: `booking-confirmed-${booking.id}` }
+            );
         });
     }
 

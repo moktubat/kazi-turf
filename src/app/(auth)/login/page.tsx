@@ -8,6 +8,8 @@ import { CalendarCheck, Check, Goal, Sparkles } from "lucide-react";
 import { LoginCard } from "@/components/auth/LoginCard";
 import { safeNext } from "@/lib/safeNext";
 import { getSessionUser } from "@/server/auth/session";
+import { cookies } from "next/headers";
+import { RESET_COOKIE, RESET_TOKEN_PATTERN } from "@/server/auth/resetToken";
 
 export const metadata: Metadata = {
     title: "Sign in",
@@ -104,8 +106,17 @@ async function LoginContent({ searchParams }: { searchParams: Params }) {
     const one = (k: string) => (Array.isArray(sp[k]) ? sp[k][0] : (sp[k] as string | undefined));
     const next = safeNext(one("next"));
 
+    // Older emails linked to /login?reset=…. Bounce through the reset-link route before this
+    // page (and its analytics) renders, so the token leaves the URL.
+    const legacy = one("reset");
+    if (legacy) redirect(`/api/auth/reset-link?reset=${encodeURIComponent(legacy)}`);
+
+    const fromCookie = one("mode") === "reset" ? (await cookies()).get(RESET_COOKIE)?.value : undefined;
+    const resetToken = fromCookie && RESET_TOKEN_PATTERN.test(fromCookie) ? fromCookie : null;
+
+    // A reset link must work even for someone who is already signed in.
     const user = await getSessionUser();
-    if (user) {
+    if (user && !resetToken) {
         redirect(next ?? "/account");
     }
 
@@ -114,7 +125,7 @@ async function LoginContent({ searchParams }: { searchParams: Params }) {
             <LoginCard
                 next={next}
                 initialMode={one("mode") === "signup" ? "signup" : "signin"}
-                resetToken={one("reset") ?? null}
+                resetToken={resetToken}
             />
         </LoginShell>
     );

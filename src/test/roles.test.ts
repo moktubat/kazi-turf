@@ -142,7 +142,8 @@ describe("Staff Desk writes (any Staff of the venue)", () => {
 describe("Own account (every role)", () => {
     it("profile and password updates work for Staff and Admin", async () => {
         for (const [i, u] of [desk, editor, admin].entries()) {
-            const res = await updateProfile(u.id, { name: `${u.id} renamed`, phone: `0175555000${i}`, email: "" });
+            // Changing the phone (a login identifier) needs the current password for staff roles.
+            const res = await updateProfile(u.id, { name: `${u.id} renamed`, phone: `0175555000${i}`, email: "", currentPassword: "Old-Pass#12345" });
             expect(res.name).toBe(`${u.id} renamed`);
             await changePassword(u.id, "Old-Pass#12345", "New-Pass#12345!");
         }

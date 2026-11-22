@@ -36,12 +36,11 @@ export async function sendBookingConfirmationEmail(b: Booking): Promise<void> {
             balance: b.balanceAmount,
         });
 
-        await sendEmail({
-            to: user.email,
-            subject: tpl.subject,
-            html: tpl.html,
-            text: tpl.text,
-        });
+        // One confirmation per booking, even if two code paths confirm it.
+        await sendEmail(
+            { to: user.email, subject: tpl.subject, html: tpl.html, text: tpl.text },
+            { flow: "booking_confirmation", idempotencyKey: `booking-confirmed-${b.id}` }
+        );
     } catch (e) {
         console.error(
             "[email] booking confirmation failed:",

@@ -57,6 +57,26 @@ export async function releaseClaims(bookingIds: string | string[], session?: Cli
 }
 
 /**
+ * A bKash attempt ended without payment (failed, cancelled, abandoned, could not start,
+ * unverifiable): give back the extra time startBkashPayment added to the booking's HELD
+ * claims, so the slot frees up at the booking's own hold expiry again.
+ * Only ever SHORTENS: claims already at or before holdExpiresAt (incl. already-expired
+ * ones), BOOKED claims, and released (deleted) claims are left exactly as they are.
+ * Call it while the booking is still PENDING (inside the transaction that moves it off
+ * PENDING), so a new checkout cannot start and extend the claims in between.
+ */
+export async function restoreHoldExpiry(bookingId: string, holdExpiresAt: string | null | undefined, session?: ClientSession) {
+    if (!holdExpiresAt) return 0;
+    const r = await SlotClaimModel.updateMany(
+        { bookingId, state: "HELD", expiresAt: { $gt: holdExpiresAt } },
+        { $set: { expiresAt: holdExpiresAt } },
+        { session }
+    );
+    if (r.modifiedCount > 0) invalidateAvailability(); // pitch unknown here; the cache is small
+    return r.modifiedCount;
+}
+
+/**
  * Confirm (after a verified advance): HELD -> BOOKED, clear expiresAt.
  * Cells that are still ours are kept even if the hold timer ran out. Cells that were released
  * are re-claimed if free. If another booking now owns any of them, throws SLOT_UNAVAILABLE.

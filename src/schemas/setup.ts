@@ -30,7 +30,7 @@ const imageField = z
     .refine(
         (v) =>
             v === "" ||
-            /^\/[\w\-./]+$/.test(v) || // local path under /public
+            (/^\/(?!\/)[\w\-./]+$/.test(v) && !v.includes("..")) || // local path under /public (not //host)
             /^https:\/\/res\.cloudinary\.com\/[\w.-]+\/image\/upload\/[\w./-]+$/.test(v), // Cloudinary URL
         "Use a path like /gallery/pitch-a.jpg or a Cloudinary URL"
     );

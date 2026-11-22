@@ -30,6 +30,7 @@ const LockoutModel: Model<LockoutDoc> =
 const MAX_FAILURES = 5;
 const BASE_LOCK_MS = 5 * 60_000; // 5 minutes
 const MAX_LOCK_MS = 60 * 60_000; // 1 hour cap
+const FAILURE_WINDOW_MS = 15 * 60_000; // a failure older than this no longer counts
 
 export async function recordLoginFailure(
     identifier: string
@@ -37,6 +38,14 @@ export async function recordLoginFailure(
     await connectDb();
     const key = identifier.toLowerCase();
     const now = new Date();
+
+    // Failures only count while they keep coming. Without this decay the counter never went
+    // down, so after ~9 failures ANY single wrong attempt (one per hour is enough) re-locked the
+    // account for an hour, letting anyone who knows a phone/email keep it locked indefinitely.
+    await LockoutModel.updateOne(
+        { identifier: key, lastFailedAt: { $lt: new Date(now.getTime() - FAILURE_WINDOW_MS) } },
+        { $set: { failures: 0 } }
+    );
 
     // Atomic increment of the failure counter.
     const r = await LockoutModel.findOneAndUpdate(

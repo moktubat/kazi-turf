@@ -30,11 +30,31 @@ function apply(res: NextResponse) {
 export function proxy(req: NextRequest) {
     if (req.nextUrl.pathname.startsWith("/api/")) return apply(NextResponse.next());
 
+    // Password-reset emails sent before 2026-11-22 link to /login?reset=<token>. Bounce them
+    // through the reset-link route as a real HTTP redirect, before any HTML (and analytics,
+    // which would record the URL) reaches the browser.
+    const legacyReset = req.nextUrl.pathname === "/login" ? req.nextUrl.searchParams.get("reset") : null;
+    if (legacyReset) {
+        // The proxy runtime needs an absolute Location. Build it from the address the browser
+        // used (Host header), not req.url, which can be the server's listen address (see redirectTo()).
+        const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+        const proto = req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
+        const target = new URL(`/api/auth/reset-link?reset=${encodeURIComponent(legacyReset)}`, host ? `${proto}://${host}` : req.url);
+        const res = NextResponse.redirect(target, 307);
+        res.headers.set("Cache-Control", "no-store");
+        return apply(res);
+    }
+
     const csp = [
         "default-src 'self'",
         // Next.js injects inline bootstrap scripts without a nonce attribute,
         // so 'unsafe-inline' is required in production. 'unsafe-eval' only in dev.
         `script-src 'self' 'unsafe-inline'${PROD ? "" : " 'unsafe-eval'"}${ga(GA_CSP.script)}`,
+        // 'unsafe-inline' above has to stay: a nonce CSP needs every page dynamically rendered
+        // and Next.js documents it as incompatible with Partial Prerendering (cacheComponents),
+        // which this app is built on. What CAN be closed is inline event-handler ATTRIBUTES
+        // (onerror=, onclick=…), the usual HTML-injection payload; React never renders them.
+        "script-src-attr 'none'",
         `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com${ga(GA_CSP.style)}`,
         `img-src 'self' data: blob: https://res.cloudinary.com${ga(GA_CSP.img)}`,
         "font-src 'self' https://fonts.gstatic.com",

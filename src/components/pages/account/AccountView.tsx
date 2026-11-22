@@ -136,7 +136,8 @@ export function AccountView({
                                         tabIndex={active ? 0 : -1}
                                         onClick={() => setTab(item.id)}
                                         onKeyDown={(e) => onTabKey(e, i)}
-                                        className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold transition-colors sm:text-sm md:justify-start md:gap-2.5 md:px-4 md:text-sm ${active
+                                        // Phones: icon above the label so "Upcoming" / "Refund Policy" fit a quarter-width tab.
+                                        className={`flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-xs font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:px-2 sm:py-0 sm:text-sm md:justify-start md:gap-2.5 md:px-4 md:text-sm ${active
                                             ? "bg-teal text-white shadow-sm"
                                             : "bg-mint text-evergreen hover:bg-emerald/40"
                                             }`}

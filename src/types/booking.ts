@@ -47,6 +47,8 @@ export interface Booking {
 
     // Check-in and cancellation information
     checkedInAt?: string | null;
+    /** A check-in was undone; checking in again needs a Super Admin and a reason. */
+    checkInUndoneAt?: string | null;
     cancelledAt?: string | null;
     cancelReason?: string | null;
 

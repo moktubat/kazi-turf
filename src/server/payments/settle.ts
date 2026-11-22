@@ -3,7 +3,7 @@ import { policies } from "@/data/site";
 import { BookingModel, PaymentModel } from "@/models";
 import { logAudit } from "@/server/audit";
 import { findBookingById } from "@/server/bookings";
-import { confirmClaims, releaseClaims } from "@/server/claims";
+import { confirmClaims, releaseClaims, restoreHoldExpiry } from "@/server/claims";
 import { connectDb, tx } from "@/server/db/connect";
 import { plain } from "@/server/db/util";
 import { AppError } from "@/server/http";
@@ -94,6 +94,12 @@ async function doSettle(id: string, hint: Hint, now: Date): Promise<SettleResult
     }
 
     const fresh = await getPayment(id);
+    if (fresh && fresh.status === "FAILED" && remote.state === "COMPLETED") {
+        // Another instance marked it failed (cancel callback / abandon) while bKash captured the
+        // money. Never drop that silently: flag it so staff refund or reconcile it by hand.
+        await flagCapturedAfterFailure(fresh, remote);
+        return resultFor(fresh);
+    }
     if (!fresh || fresh.status !== "PENDING") return fresh ? resultFor(fresh) : "NOT_FOUND";
 
     switch (remote.state) {
@@ -107,6 +113,30 @@ async function doSettle(id: string, hint: Hint, now: Date): Promise<SettleResult
         default:
             return "PENDING"; // unknown: stays visible as "stuck" in Insights after 10 minutes
     }
+}
+
+async function flagCapturedAfterFailure(p: Payment, r: RemotePayment) {
+    const b = await findBookingById(p.bookingId);
+    const note = `bKash reports this payment as COMPLETED${r.trxId ? ` (trx ${r.trxId})` : ""} after it was marked failed. Refund the customer or confirm the booking by hand.`;
+    await tx(async (s) => {
+        const u = await PaymentModel.updateOne(
+            { id: p.id, status: "FAILED", anomaly: { $in: [null, ""] } },
+            { $set: { anomaly: note } },
+            { session: s }
+        );
+        if (u.modifiedCount === 0) return; // already flagged
+        await logAudit(
+            SYSTEM,
+            {
+                action: "PAYMENT_ANOMALY",
+                entityType: "BOOKING",
+                entityId: b?.bookingCode ?? p.bookingId,
+                branchId: b?.branchId ?? null,
+                meta: { problem: "captured after marked failed", amount: p.amount },
+            },
+            { session: s }
+        );
+    });
 }
 
 function mismatch(p: Payment, r: RemotePayment): string | null {
@@ -131,6 +161,9 @@ async function applyFailed(
             { session: s }
         );
         if (r.modifiedCount === 0) return; // someone else settled it first
+        // No payment: the slot goes back to the booking's own hold expiry (before the booking
+        // leaves PENDING, in the same transaction, so a new checkout can't interleave).
+        await restoreHoldExpiry(p.bookingId, b?.holdExpiresAt, s);
         await BookingModel.updateOne(
             { id: p.bookingId, paymentStatus: "PENDING" },
             { $set: { paymentStatus: reason === "CANCELLED" ? "CANCELLED" : "FAILED" } },
@@ -165,6 +198,7 @@ async function applyCompleted(p: Payment, r: RemotePayment, now: Date): Promise<
                 { session: s }
             );
             if (u.modifiedCount === 0) return;
+            if (b) await restoreHoldExpiry(b.id, b.holdExpiresAt, s); // not a confirmed payment: same as a failure
             if (b) await BookingModel.updateOne({ id: b.id, paymentStatus: "PENDING" }, { $set: { paymentStatus: "FAILED" } }, { session: s });
             await logAudit(
                 SYSTEM,

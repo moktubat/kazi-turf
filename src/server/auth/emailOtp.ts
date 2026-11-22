@@ -17,7 +17,7 @@ import type { ClientSession } from "mongoose";
 import { EmailOtpModel } from "@/models";
 import { connectDb } from "@/server/db/connect";
 import { sendEmail } from "@/server/email";
-import { verificationCodeTemplate } from "@/server/email/templates";
+import { accountExistsTemplate, verificationCodeTemplate } from "@/server/email/templates";
 import { AppError } from "@/server/http";
 
 export type OtpPurpose = "REGISTER" | "EMAIL_CHANGE";
@@ -75,34 +75,19 @@ export async function issueEmailOtp(input: {
     /** Re-submitting the same email (profile re-save, "Change details" at sign-up) reuses a
      *  still-usable code instead of sending another; only an explicit "Resend code" sends anew. */
     reuseLive?: boolean;
+    /** Sign-up with an email that already has an account: everything (limits, cooldown, the
+     *  stored record, the response) is identical, but the email says "you already have an
+     *  account" instead of carrying the code, so the code can never be used. May be a pending
+     *  lookup: it then runs in parallel with the checks below. */
+    accountExists?: boolean | Promise<boolean>;
 }): Promise<CodeSent> {
+    const t0 = performance.now();
     await connectDb();
     const now = input.now ?? new Date();
     const email = normalizeEmail(input.email);
     const ipH = ipHash(input.ip);
-
-    if (input.reuseLive) {
-        const live = await EmailOtpModel.findOne(
-            {
-                email,
-                purpose: input.purpose,
-                ...(input.purpose === "EMAIL_CHANGE" ? { userId: input.userId ?? "__none__" } : {}),
-                consumedAt: null,
-                supersededAt: null,
-                expiresAt: { $gt: now },
-                attempts: { $lt: MAX_ATTEMPTS },
-            },
-            { createdAt: 1, expiresAt: 1 },
-            { sort: { createdAt: -1 } }
-        ).lean<{ createdAt: Date; expiresAt: Date } | null>();
-        if (live) {
-            return {
-                sentTo: maskEmail(email),
-                expiresInMinutes: Math.max(1, Math.ceil((new Date(live.expiresAt).getTime() - now.getTime()) / 60_000)),
-                resendInSeconds: Math.max(0, Math.ceil((new Date(live.createdAt).getTime() + RESEND_COOLDOWN_MS - now.getTime()) / 1000)),
-            };
-        }
-    }
+    const flow = input.purpose === "REGISTER" ? "register_code" : "email_change_code";
+    const scope = { email, purpose: input.purpose, ...(input.purpose === "EMAIL_CHANGE" ? { userId: input.userId ?? "__none__" } : {}) };
 
     if (PROD && !process.env.EMAIL_FROM) {
         // Without our verified domain Resend falls back to its sandbox sender, which only
@@ -111,28 +96,46 @@ export async function issueEmailOtp(input: {
         throw new AppError("VERIFICATION_UNAVAILABLE", "Email verification isn't available right now. Please contact the venue.", 503);
     }
 
-    if (ipH) {
-        const recent = await EmailOtpModel.countDocuments({ ipHash: ipH, createdAt: { $gte: new Date(now.getTime() - IP_WINDOW_MS) } });
-        if (recent >= MAX_PER_IP) {
-            throw new AppError("RATE_LIMITED", "Too many codes requested from this connection. Please wait a few minutes.", 429);
-        }
-    }
+    // Every read the decision needs, in ONE round of parallel queries (they used to run one
+    // after another, which added a database round trip each before the email went out).
+    const [live, recentFromIp, last, lastHour, accountExists] = await Promise.all([
+        input.reuseLive
+            ? EmailOtpModel.findOne(
+                { ...scope, consumedAt: null, supersededAt: null, expiresAt: { $gt: now }, attempts: { $lt: MAX_ATTEMPTS } },
+                { createdAt: 1, expiresAt: 1 },
+                { sort: { createdAt: -1 } }
+            ).lean<{ createdAt: Date; expiresAt: Date } | null>()
+            : null,
+        ipH ? EmailOtpModel.countDocuments({ ipHash: ipH, createdAt: { $gte: new Date(now.getTime() - IP_WINDOW_MS) } }) : 0,
+        EmailOtpModel.findOne({ email, purpose: input.purpose }, { createdAt: 1 }, { sort: { createdAt: -1 } }).lean<{ createdAt: Date } | null>(),
+        EmailOtpModel.countDocuments({ email, createdAt: { $gte: new Date(now.getTime() - 60 * 60_000) } }),
+        Promise.resolve(input.accountExists ?? false),
+    ]);
 
-    const last = await EmailOtpModel.findOne({ email, purpose: input.purpose }, { createdAt: 1 }, { sort: { createdAt: -1 } })
-        .lean<{ createdAt: Date } | null>();
-    if (last) {
-        const wait = Math.ceil((RESEND_COOLDOWN_MS - (now.getTime() - new Date(last.createdAt).getTime())) / 1000);
-        if (wait > 0) {
-            throw new AppError("OTP_COOLDOWN", `Please wait ${wait} seconds before asking for a new code.`, 429);
-        }
+    const reuse = (rec: { createdAt: Date; expiresAt: Date }): CodeSent => ({
+        sentTo: maskEmail(email),
+        expiresInMinutes: Math.max(1, Math.ceil((new Date(rec.expiresAt).getTime() - now.getTime()) / 60_000)),
+        resendInSeconds: Math.max(0, Math.ceil((new Date(rec.createdAt).getTime() + RESEND_COOLDOWN_MS - now.getTime()) / 1000)),
+    });
+    if (live) return reuse(live);
+
+    if (recentFromIp >= MAX_PER_IP) {
+        throw new AppError("RATE_LIMITED", "Too many codes requested from this connection. Please wait a few minutes.", 429);
     }
-    const lastHour = await EmailOtpModel.countDocuments({ email, createdAt: { $gte: new Date(now.getTime() - 60 * 60_000) } });
+    const cooldown = (sinceMs: number) => {
+        const wait = Math.ceil((RESEND_COOLDOWN_MS - sinceMs) / 1000);
+        return new AppError("OTP_COOLDOWN", `Please wait ${wait} seconds before asking for a new code.`, 429);
+    };
+    if (last && now.getTime() - new Date(last.createdAt).getTime() < RESEND_COOLDOWN_MS) {
+        throw cooldown(now.getTime() - new Date(last.createdAt).getTime());
+    }
     if (lastHour >= MAX_PER_EMAIL_HOUR) {
         throw new AppError("RATE_LIMITED", "Too many codes were sent to this email. Please try again in an hour.", 429);
     }
 
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
     const id = randomUUID();
+    const expiresAt = new Date(now.getTime() + CODE_TTL_MS);
 
     await EmailOtpModel.create({
         id,
@@ -141,7 +144,7 @@ export async function issueEmailOtp(input: {
         userId: input.userId ?? null,
         codeHash: codeHash(id, code),
         attempts: 0,
-        expiresAt: new Date(now.getTime() + CODE_TTL_MS),
+        expiresAt,
         consumedAt: null,
         supersededAt: null,
         ipHash: ipH,
@@ -149,9 +152,29 @@ export async function issueEmailOtp(input: {
         purgeAt: new Date(now.getTime() + KEEP_MS),
     });
 
+    // Two requests at the same moment (double tap, two tabs) both passed the cooldown check
+    // above. Only the EARLIEST record sends; a later twin withdraws itself, so the person
+    // gets one email with one code instead of two competing codes.
+    const earlier = { $or: [{ createdAt: { $lt: now } }, { createdAt: now, id: { $lt: id } }] };
+    const twin = await EmailOtpModel.findOne(
+        { ...scope, id: { $ne: id }, consumedAt: null, supersededAt: null, createdAt: { $gt: new Date(now.getTime() - RESEND_COOLDOWN_MS), $lte: now }, ...earlier },
+        { createdAt: 1, expiresAt: 1 }
+    ).lean<{ createdAt: Date; expiresAt: Date } | null>();
+    if (twin) {
+        await EmailOtpModel.deleteOne({ id });
+        if (input.reuseLive) return reuse(twin);
+        throw cooldown(now.getTime() - new Date(twin.createdAt).getTime());
+    }
+
     const minutes = CODE_TTL_MS / 60_000;
-    const tpl = verificationCodeTemplate({ code, purpose: input.purpose, minutes });
-    const result = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+    const tpl = accountExists
+        ? accountExistsTemplate({ signInUrl: `${process.env.AUTH_URL?.replace(/\/+$/, "") ?? ""}/login` })
+        : verificationCodeTemplate({ code, purpose: input.purpose, minutes });
+    const appMs = Math.round(performance.now() - t0);
+    // Awaited on purpose: the screen only says "code sent" once Resend has accepted it, and
+    // nothing is left running after the response (safe on serverless).
+    const result = await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text }, { flow, idempotencyKey: `otp-${id}` });
+    console.info(JSON.stringify({ at: new Date().toISOString(), evt: "otp.issued", flow, appMs, totalMs: Math.round(performance.now() - t0), accepted: !!result.id, attempts: result.attempts ?? 0 }));
 
     // Codes are never written to logs, so an unsent code (no RESEND_API_KEY, Resend error) is a failure everywhere.
     if (result.error || result.skipped) {
@@ -161,9 +184,10 @@ export async function issueEmailOtp(input: {
             email: "We couldn't send a code to this address",
         });
     }
-    // Delivered: only the newest code works from now on (a failed send left older codes alone).
+    // Delivered: this code replaces every OLDER one. Newer codes are left alone, so a slow
+    // send finishing late can never cancel a code that was issued after it.
     await EmailOtpModel.updateMany(
-        { email, purpose: input.purpose, id: { $ne: id }, consumedAt: null, supersededAt: null },
+        { email, purpose: input.purpose, id: { $ne: id }, consumedAt: null, supersededAt: null, ...earlier },
         { $set: { supersededAt: now } }
     );
 

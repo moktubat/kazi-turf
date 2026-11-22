@@ -6,6 +6,7 @@ import { connectDb } from "@/server/db/connect";
 import { AppError, clientIp, handleError, ok, readJson } from "@/server/http";
 import { rateLimitAsync } from "@/server/security/rateLimit";
 import { sendEmail } from "@/server/email";
+import { runAfterResponse } from "@/server/background";
 import { inquiryEmailTemplate } from "@/server/email/templates";
 import { site } from "@/data/site";
 import { assertSameOrigin } from "@/server/security/origin";
@@ -55,7 +56,8 @@ export async function POST(req: NextRequest) {
             expiresAt: new Date(now.getTime() + EXPIRES_MS),
         });
 
-        // Email the venue owner (non-blocking — failure doesn't break the API response).
+        // Email the venue owner after the response (Next's after(): the platform waits for it,
+        // unlike a bare un-awaited promise, which a serverless function may drop when it exits).
         const adminEmail = process.env.ADMIN_EMAIL ?? site.email;
         if (adminEmail) {
             const tpl = inquiryEmailTemplate({
@@ -67,13 +69,12 @@ export async function POST(req: NextRequest) {
                 subject: input.subject,
                 message: input.message,
             });
-            void sendEmail({
-                to: adminEmail,
-                subject: tpl.subject,
-                html: tpl.html,
-                text: tpl.text,
-                replyTo: input.email,
-            });
+            runAfterResponse("inquiry email", () =>
+                sendEmail(
+                    { to: adminEmail, subject: tpl.subject, html: tpl.html, text: tpl.text, replyTo: input.email },
+                    { flow: "inquiry" }
+                )
+            );
         }
 
         return ok({ received: true }, 201);

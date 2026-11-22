@@ -86,7 +86,8 @@ export function Header({ user }: { user: SessionUser | null }) {
                         <>
                             <Link href="/account" className={barLink}>
                                 <UserRound size={18} aria-hidden />
-                                <span className="hidden sm:inline">Profile</span>
+                                {/* Icon-only on phones: keep the name for screen readers (sr-only, not hidden). */}
+                                <span className="sr-only sm:not-sr-only sm:inline">Profile</span>
                             </Link>
                             <form action="/api/auth/signout" method="post" className="hidden sm:block">
                                 <button type="submit" className={barLink}>
