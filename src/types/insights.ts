@@ -4,7 +4,10 @@ export interface InsightsKpis {
     bookings: number;
     /** Gross booking value in the selected range. */
     totalAmount: number;
+    /** Money received ON these dates (by payment date) — includes advances for bookings on later dates. */
     collected: number;
+    /** NEW: money received (any day) on the bookings whose PLAY date is inside the range. Same basis as Total sales. */
+    collectedOnBookings: number;
     /** Part of "collected" that was received as an advance payment (by payment date). */
     advanceAmount: number;
     /** Advances (paid on any day) on the bookings whose play date is in the range — same basis as the Staff Desk. */

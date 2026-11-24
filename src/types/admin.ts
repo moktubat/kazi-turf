@@ -31,6 +31,10 @@ export interface AdminBookingDto extends BookingDto {
         checkIn: boolean;
         overrideCheckIn: boolean;
         collectBalance: boolean;
+        /** Staff checked out the booking: payment complete, the day is closed. (CONFIRMED or CHECKED_IN → COMPLETED.) */
+        checkOut: boolean;
+        /** Undo a check-out: the booking goes back to Checked in (or Booked, if it was never checked in). */
+        undoCheckOut: boolean;
         cancel: boolean;
         refund: boolean;
         handleRequest: boolean;
@@ -90,10 +94,14 @@ export interface BoardResponse {
     stats: {
         arrivalsPending: number;
         checkedIn: number;
-        /** Kept for the API; the desk now shows the sales/advance/pending trio below. */
+        /** NEW: bookings of the day that are checked out (payment complete, closed). */
+        checkedOut: number;
+        /** Kept for the API; the desk now shows the collected/sales/advance/pending quartet below. */
         cashCollected: number;
-        /** Gross total of the day's active bookings (confirmed + checked in + completed). */
+        /** Gross total of the day's active bookings (confirmed + checked in + checked out). */
         totalSales: number;
+        /** NEW: money actually received on the day's active bookings (advance + balances, cash and bKash). */
+        collected: number;
         /** Every ADVANCE payment (cash or bKash) on the day's active bookings, whenever it was paid. */
         advanceCollected: number;
         /** Sum over the day's active bookings of (total − everything paid so far on that booking). */

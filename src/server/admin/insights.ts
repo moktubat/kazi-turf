@@ -83,15 +83,19 @@ export async function getInsights(
     ).lean<Pick<Booking, "id" | "branchId" | "paymentStatus" | "source">[]>();
     const bkById = new Map(bks.map((b) => [b.id, b]));
 
-    // Advances (paid on any day) on the bookings whose PLAY date is inside the
-    // range — the Staff Desk's "Advance collected", generalised over the range.
+    // Payments (all kinds, paid on ANY day) on the bookings whose PLAY date is inside the
+    // range — the same basis as Total sales and the Staff Desk. The "Collected" KPI above
+    // is a different basis: every rupee received on those dates, including advances for
+    // bookings on later dates.
     const inRangeIds = inRange.map((b) => b.id);
     const refundedIds = new Set(inRange.filter((b) => b.paymentStatus === "REFUNDED").map((b) => b.id));
-    const advanceDocs = inRangeIds.length
-        ? await PaymentModel.find({ bookingId: { $in: inRangeIds }, status: "SUCCESS", kind: "ADVANCE" }).lean<Payment[]>()
+    const onBookingsDocs = inRangeIds.length
+        ? await PaymentModel.find({ bookingId: { $in: inRangeIds }, status: "SUCCESS" }).lean<Payment[]>()
         : [];
-    const advanceOnBookings = advanceDocs
-        .filter((p) => !refundedIds.has(p.bookingId))
+    const liveOnBookingsDocs = onBookingsDocs.filter((p) => !refundedIds.has(p.bookingId));
+    const collectedOnBookings = liveOnBookingsDocs.reduce((s, p) => s + p.amount, 0);
+    const advanceOnBookings = liveOnBookingsDocs
+        .filter((p) => p.kind === "ADVANCE")
         .reduce((s, p) => s + p.amount, 0);
 
     // Collected = money actually received, by payment date. Fully refunded bookings are excluded.
@@ -184,6 +188,7 @@ export async function getInsights(
             bookings: inRange.length,
             totalAmount: inRange.reduce((s, b) => s + b.total, 0),
             collected,
+            collectedOnBookings,
             advanceAmount: paid.reduce((s, x) => s + (x.p.kind === "ADVANCE" ? x.p.amount : 0), 0),
             advanceOnBookings,
             pendingAmount: pending.reduce((s, p) => s + p.amount, 0),

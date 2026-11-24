@@ -1,5 +1,5 @@
 // Server-rendered, no chart library. Every bar and cell also shows its number as text.
-import { Banknote, CalendarCheck, Gauge, HandCoins, Hourglass, Receipt } from "lucide-react";
+import { Banknote, CalendarCheck, Gauge, HandCoins, Hourglass, Receipt, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import type { InsightsData } from "@/types/insights";
@@ -30,13 +30,19 @@ export function Kpi({
 export function KpiCards({ k }: { k: InsightsData["kpis"] }) {
     return (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <Kpi icon={CalendarCheck} label="Bookings" value={String(k.bookings)} sub="Confirmed, checked in or completed" />
+            <Kpi icon={CalendarCheck} label="Bookings" value={String(k.bookings)} sub="Confirmed, checked in or checked out" />
             <Kpi icon={Receipt} label="Total sales" value={formatBDT(k.totalAmount)} sub="Gross booking value in range" />
             <Kpi
+                icon={Wallet}
+                label="Collected for these bookings"
+                value={formatBDT(k.collectedOnBookings)}
+                sub="Money received (any day) on bookings played in this range — same basis as Total sales"
+            />
+            <Kpi
                 icon={Banknote}
-                label="Collected"
+                label="Received on these dates"
                 value={formatBDT(k.collected)}
-                sub="Cash and bKash received on these dates (by payment date)"
+                sub="All cash and bKash received on these dates (by payment date) — includes advances for bookings on later dates"
             />
             <Kpi
                 icon={HandCoins}
@@ -70,12 +76,12 @@ export function RevenueChart({ data }: { data: InsightsData["revenue"] }) {
     return (
         <Card className="space-y-4">
             <div>
-                <h2 className="text-lg font-bold">Collected revenue by {data.bucket}</h2>
+                <h2 className="text-lg font-bold">Received by {data.bucket}</h2>
                 <p className="text-xs text-evergreen/70">By the date the payment was received. Not counting fully refunded bookings.</p>
             </div>
 
             {data.total === 0 ? (
-                <p className="text-sm text-evergreen/70">No collected payments in this range.</p>
+                <p className="text-sm text-evergreen/70">No received payments in this range.</p>
             ) : (
                 <ol className="space-y-1.5">
                     {data.rows.map((r) => {
@@ -113,7 +119,7 @@ export function SourceSplit({ data }: { data: InsightsData["source"] }) {
         <Card className="space-y-4">
             <div>
                 <h2 className="text-lg font-bold">Online vs counter</h2>
-                <p className="text-xs text-evergreen/70">Bookings in range and money collected.</p>
+                <p className="text-xs text-evergreen/70">Bookings in range and money received on these dates.</p>
             </div>
             <ul className="space-y-3">
                 {rows.map((r) => (

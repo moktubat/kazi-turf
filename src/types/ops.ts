@@ -5,6 +5,8 @@ export const AUDIT_ACTIONS = [
     "SLOT_UNBLOCKED",
     "BALANCE_COLLECTED",
     "CHECKED_IN",
+    "CHECKED_OUT", // NEW: staff closed the booking after the game (payment complete)
+    "CHECKOUT_UNDONE", // NEW: a check-out was undone (booking went back to Checked in)
     "CHECKIN_OVERRIDE",
     "CHECKIN_BLOCKED",
     "CHECKIN_UNDONE",

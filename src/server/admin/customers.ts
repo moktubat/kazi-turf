@@ -23,8 +23,6 @@ const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
 type UserDoc = { id: string; name: string; phone: string; email?: string | null; emailVerified?: boolean; status?: "ACTIVE" | "DISABLED"; createdAt: string };
 
-/** Paging cursor for customers: "<createdAt>|<id>" of the last row (newest registrations first). */
-export const customerCursor = (u: { createdAt: string; id: string }) => `${u.createdAt}|${u.id}`;
 /** Paging cursor for a customer's bookings: "<startAt>|<bookingCode>" (newest first). */
 export const historyCursor = (b: { startAt: string; bookingCode: string }) => `${b.startAt}|${b.bookingCode}`;
 
@@ -79,33 +77,42 @@ const toRow = (u: UserDoc, stats: CustomerStats): CustomerRow => ({
     stats,
 });
 
+/** The Mongo query behind the customer list: role scope + search. The booking-status /
+ *  date filters need an async distinct(), so the caller adds them after awaiting it. */
+function customerQuery(f: CustomerFilters): Record<string, unknown> {
+    const q: Record<string, unknown> = { role: "CUSTOMER" };
+    const raw = f.q?.trim() ?? "";
+    if (raw) {
+        const digits = /^[\d\s+-]+$/.test(raw) ? raw.replace(/\D/g, "").replace(/^88/, "") : "";
+        q.$and = [
+            {
+                $or: [
+                    { name: { $regex: esc(raw), $options: "i" } },
+                    { email: { $regex: esc(raw.toLowerCase()) } },
+                    ...(digits.length >= 3 ? [{ phone: { $regex: esc(digits) } }] : []),
+                ],
+            },
+        ];
+    }
+    return q;
+}
+
 /**
- * One page of registered customers, newest registrations first. Search by name, phone or email;
- * filter to customers with a booking in a status and/or dated within a range.
+ * One page of registered customers (25 per page), newest registrations first, with
+ * numbered pagination: the total match count and the last page. Search by name, phone
+ * or email; filter to customers with a booking in a status and/or dated within a range.
  */
 export async function listCustomers(
     user: ServerUser,
     f: CustomerFilters,
     limit = CUSTOMER_PAGE
-): Promise<{ customers: CustomerRow[]; next: string | null }> {
+): Promise<{ customers: CustomerRow[]; total: number; page: number; pages: number }> {
     assertSuperAdmin(user);
     await connectDb();
 
-    const q: Record<string, unknown> = { role: "CUSTOMER" };
-    const and: Record<string, unknown>[] = [];
+    const q = customerQuery(f);
 
-    const raw = f.q?.trim() ?? "";
-    if (raw) {
-        const digits = /^[\d\s+-]+$/.test(raw) ? raw.replace(/\D/g, "").replace(/^88/, "") : "";
-        and.push({
-            $or: [
-                { name: { $regex: esc(raw), $options: "i" } },
-                { email: { $regex: esc(raw.toLowerCase()) } },
-                ...(digits.length >= 3 ? [{ phone: { $regex: esc(digits) } }] : []),
-            ],
-        });
-    }
-
+    // Customers who have at least one matching booking.
     if (f.bookingStatus || f.from || f.to) {
         const bq: Record<string, unknown> = {};
         if (f.bookingStatus) bq.bookingStatus = f.bookingStatus;
@@ -113,21 +120,22 @@ export async function listCustomers(
         q.id = { $in: await BookingModel.distinct("customerId", bq) };
     }
 
-    if (f.before) {
-        const [createdAt, id] = f.before.split("|");
-        and.push({ $or: [{ createdAt: { $lt: createdAt } }, { createdAt, id: { $lt: id } }] });
-    }
-    if (and.length) q.$and = and;
+    const total = await UserModel.countDocuments(q);
+    const pages = Math.max(1, Math.ceil(total / limit));
+    // A ?page= beyond the last page shows the last real page.
+    const page = Math.min(Math.max(f.page ?? 1, 1), pages);
 
     const docs = await UserModel.find(q, { id: 1, name: 1, phone: 1, email: 1, emailVerified: 1, status: 1, createdAt: 1 })
         .sort({ createdAt: -1, id: -1 })
-        .limit(limit + 1)
+        .skip((page - 1) * limit)
+        .limit(limit)
         .lean<UserDoc[]>();
-    const page = docs.slice(0, limit);
-    const stats = await statsFor(page.map((u) => u.id));
+    const stats = await statsFor(docs.map((u) => u.id));
     return {
-        customers: page.map((u) => toRow(u, stats.get(u.id)!)),
-        next: docs.length > limit ? customerCursor(page[page.length - 1]) : null,
+        customers: docs.map((u) => toRow(u, stats.get(u.id)!)),
+        total,
+        page,
+        pages,
     };
 }
 

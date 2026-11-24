@@ -136,6 +136,86 @@ export function CollectForm({ b, busy, onSubmit, onBack }: FormProps) {
     );
 }
 
+export function CheckOutForm({ b, busy, onSubmit, onBack }: FormProps) {
+    const due = b.balanceDue;
+    return (
+        <form
+            onSubmit={(e) => {
+                e.preventDefault();
+                onSubmit({});
+            }}
+            className="space-y-4"
+            aria-label="Check out"
+        >
+            {due > 0 ? (
+                <p className="rounded-xl bg-mint p-3 text-sm">
+                    Checking <strong>{b.customerName}</strong> out collects the remaining <strong>{formatBDT(due)}</strong> in
+                    cash at the same time. Have you received it? The booking then closes as <strong>Checked out — payment
+                        complete</strong>.
+                </p>
+            ) : (
+                <p className="rounded-xl bg-mint p-3 text-sm">
+                    Checking <strong>{b.customerName}</strong> out closes the booking as <strong>Checked out — payment
+                        complete</strong>. Nothing more is due.
+                </p>
+            )}
+            <p className="text-xs text-evergreen/70">
+                The booking keeps its slots on the board. If you tap it by mistake, &apos;Undo check-out&apos; puts it back to Checked in.
+            </p>
+            <Actions busy={busy} label={due > 0 ? `Collect ${formatBDT(due)} and check out` : "Check out"} onBack={onBack} />
+        </form>
+    );
+}
+
+/** Quick reasons for the audit trail when undoing a check-out. */
+const UNDO_CHECKOUT_PICKS = ["Checked out by mistake", "Customer came back to pay or play", "Fixing the payment"] as const;
+
+export function UndoCheckOutForm({ busy, onSubmit, onBack }: FormProps) {
+    const [reason, setReason] = useState("");
+    return (
+        <form
+            onSubmit={(e) => {
+                e.preventDefault();
+                onSubmit({ reason: reason.trim() || undefined });
+            }}
+            noValidate
+            className="space-y-4"
+            aria-label="Undo check-out"
+        >
+            <p className="rounded-xl bg-mint p-3 text-sm">
+                This opens the booking again — it goes back to <strong>Checked in</strong> (or <strong>Booked</strong>, if it
+                was never checked in). Money already collected stays collected, and the booking can be checked out again
+                afterwards.
+            </p>
+            <Textarea
+                label="Reason (optional)"
+                rows={2}
+                maxLength={CHECKIN_REASON_MAX}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                hint="For the audit trail. Pick one below or type your own."
+            />
+            <div role="group" aria-label="Quick pick reason" className="flex flex-wrap gap-2">
+                {UNDO_CHECKOUT_PICKS.map((pick) => {
+                    const on = reason.trim() === pick;
+                    return (
+                        <button
+                            key={pick}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => setReason(on ? "" : pick)}
+                            className={`min-h-11 whitespace-nowrap rounded-full border-2 px-4 font-heading text-sm font-semibold transition-colors ${on ? "border-teal bg-teal text-white" : "border-evergreen/15 bg-surface hover:border-teal"}`}
+                        >
+                            {pick}
+                        </button>
+                    );
+                })}
+            </div>
+            <Actions busy={busy} label="Undo check-out" onBack={onBack} />
+        </form>
+    );
+}
+
 export function CancelForm({ b, busy, onSubmit, onBack }: FormProps) {
     const [reason, setReason] = useState("");
     const [err, setErr] = useState<string | null>(null);
@@ -339,8 +419,8 @@ export function DiscountForm({ b, busy, onSubmit, onBack }: FormProps) {
  * Add or change the additional charge after the booking was created (or clear it with an
  * empty amount box) — the same charge the walk-in form can add at the counter, for one
  * forgotten there or an extra service the customer takes once the slot is already
- * booked. The preview re-derives the totals client-side with the very same helpers the
- * server re-checks with (lib/extraCharge + lib/pricing), so what staff confirm is
+ * booked. The preview re-derives the totals client-side with the very same helpers
+ * the server re-checks with (lib/extraCharge + lib/pricing), so what staff confirm is
  * exactly what gets saved.
  */
 export function ChargeForm({ b, busy, onSubmit, onBack }: FormProps) {

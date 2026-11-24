@@ -3,7 +3,7 @@ import type { BookingStatus, PaymentStatus } from "@/types";
 /** Booking and money totals for one customer. Amounts are taka. */
 export interface CustomerStats {
     bookings: number;
-    confirmed: number; // confirmed, checked in or completed
+    confirmed: number; // confirmed, checked in or completed (checked out)
     pending: number; // awaiting payment
     cancelled: number;
     expired: number;
@@ -59,5 +59,6 @@ export interface CustomerFilters {
     bookingStatus?: BookingStatus; // customers with at least one booking in this status
     from?: string; // ...dated on or after (YYYY-MM-DD)
     to?: string; // ...dated on or before
-    before?: string; // paging cursor
+    /** Page number for the customer list (1-based). The list is 25 per page. */
+    page?: number;
 }

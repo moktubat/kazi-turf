@@ -1,7 +1,7 @@
 // Shared booking drawer content: used by the Staff Desk and /admin/bookings.
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, BadgePercent, Banknote, Check, CheckCircle2, HandCoins, History, LogIn, Phone, Printer, RotateCcw, StickyNote, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, BadgePercent, Banknote, Check, CheckCircle2, HandCoins, History, LogIn, LogOut, Phone, Printer, RotateCcw, StickyNote, Undo2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
@@ -12,9 +12,9 @@ import { formatDateTime } from "@/lib/formatAdmin";
 import { hasVerifiedPayment, printReceipt } from "@/lib/printReceipt";
 import type { Role } from "@/types";
 import type { AdminBookingDto, AuditEntryDto } from "@/types/admin";
-import { CancelForm, ChargeForm, CheckInForm, CollectForm, DiscountForm, NoteForm, RefundForm, UndoCheckInForm } from "./ActionForms";
+import { CancelForm, CheckOutForm, ChargeForm, CheckInForm, CollectForm, DiscountForm, NoteForm, RefundForm, UndoCheckInForm, UndoCheckOutForm } from "./ActionForms";
 
-type Mode = null | "checkin" | "collect" | "cancel" | "refund" | "discount" | "charge" | "note" | "undo";
+type Mode = null | "checkin" | "checkout" | "undocheckout" | "collect" | "cancel" | "refund" | "discount" | "charge" | "note" | "undo";
 type State =
     | { kind: "loading" }
     | { kind: "error"; message: string }
@@ -143,9 +143,11 @@ export function BookingPanel({
                 </div>
             </div>
 
-            <p className={`flex items-start gap-2 rounded-xl p-3 text-sm font-semibold ${c.cls}`}>
-                <c.Icon size={18} aria-hidden className="mt-0.5 shrink-0" /> {b.checkIn.message}
-            </p>
+            {b.bookingStatus !== "COMPLETED" && (
+                <p className={`flex items-start gap-2 rounded-xl p-3 text-sm font-semibold ${c.cls}`}>
+                    <c.Icon size={18} aria-hidden className="mt-0.5 shrink-0" /> {b.checkIn.message}
+                </p>
+            )}
 
             {b.changeRequest && (
                 <div className="space-y-2 rounded-xl bg-held-soft p-3 text-sm text-held">
@@ -256,6 +258,11 @@ export function BookingPanel({
                             <LogIn size={18} aria-hidden /> {b.can.overrideCheckIn ? "Override check-in" : "Check in"}
                         </Button>
                     )}
+                    {b.can.checkOut && (
+                        <Button size="lg" onClick={() => open("checkout")}>
+                            <LogOut size={18} aria-hidden /> Check out{b.balanceDue > 0 ? ` (collect ${formatBDT(b.balanceDue)})` : " — payment complete"}
+                        </Button>
+                    )}
                     {b.can.collectBalance && (
                         <Button size="lg" variant="secondary" onClick={() => open("collect")}>
                             <Banknote size={18} aria-hidden /> Collect balance (cash {formatBDT(b.balanceDue)})
@@ -291,6 +298,11 @@ export function BookingPanel({
                             <Undo2 size={18} aria-hidden /> Undo check-in (back to Booked)
                         </Button>
                     )}
+                    {b.can.undoCheckOut && (
+                        <Button variant="outline" onClick={() => open("undocheckout")}>
+                            <Undo2 size={18} aria-hidden /> Undo check-out (back to Checked in)
+                        </Button>
+                    )}
                     {b.can.cancel && (
                         <Button variant="ghost" className="text-booked" onClick={() => open("cancel")}>
                             <XCircle size={18} aria-hidden /> Cancel booking
@@ -299,6 +311,8 @@ export function BookingPanel({
                 </div>
             )}
             {mode === "checkin" && <CheckInForm {...formProps} onSubmit={(body) => run("check-in", body)} />}
+            {mode === "checkout" && <CheckOutForm {...formProps} onSubmit={() => run("check-out")} />}
+            {mode === "undocheckout" && <UndoCheckOutForm {...formProps} onSubmit={(body) => run("undo-check-out", body)} />}
             {mode === "collect" && <CollectForm {...formProps} onSubmit={() => run("collect-balance")} />}
             {mode === "discount" && <DiscountForm {...formProps} onSubmit={(body) => run("discount", body)} />}
             {mode === "charge" && <ChargeForm {...formProps} onSubmit={(body) => run("charge", body)} />}

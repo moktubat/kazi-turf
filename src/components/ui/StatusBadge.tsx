@@ -1,7 +1,7 @@
 // Status = color + icon + text. Booking badges are pills; payment badges are
 // square-cornered with a border so the two never look alike.
 import {
-    CheckCircle2, Clock, XCircle, LogIn, Flag, Ban, Wallet, BadgeCheck,
+    CheckCircle2, Clock, XCircle, LogIn, LogOut, Flag, Ban, Wallet, BadgeCheck,
     AlertTriangle, RotateCcw, CircleDashed,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -11,7 +11,8 @@ const bookingMap: Record<BookingStatus, { label: string; icon: React.ElementType
     PENDING_PAYMENT: { label: "Awaiting payment", icon: Clock, cls: "bg-held-soft text-held" },
     CONFIRMED: { label: "Confirmed", icon: CheckCircle2, cls: "bg-emerald/25 text-evergreen" },
     CHECKED_IN: { label: "Checked in", icon: LogIn, cls: "bg-teal text-white" },
-    COMPLETED: { label: "Completed", icon: Flag, cls: "bg-mint text-teal" },
+    // COMPLETED = checked out at the desk: the game is over and the money is settled.
+    COMPLETED: { label: "Checked out", icon: LogOut, cls: "bg-mint text-teal" },
     CANCELLED: { label: "Cancelled", icon: Ban, cls: "bg-booked-soft text-booked" },
     EXPIRED: { label: "Expired", icon: XCircle, cls: "bg-maint-soft text-maint" },
 };

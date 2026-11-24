@@ -53,7 +53,7 @@ export function checkInState(
             return {
                 opensAt,
                 state: "BLOCKED",
-                message: "This booking is already completed.",
+                message: "This booking is checked out (closed).",
             };
 
         default:
@@ -91,12 +91,27 @@ export function checkInState(
     };
 }
 
+/**
+ * A balance can be collected at the counter while the booking is Booked or Checked in —
+ * and also AFTER check-out, so a past booking (previous dates included) whose balance was
+ * never taken can still be settled. Requires money actually remaining: PARTIALLY_PAID with
+ * a positive balance.
+ */
 export function canCollectBalance(b: Booking): boolean {
     return (
         (b.bookingStatus === "CONFIRMED" ||
-            b.bookingStatus === "CHECKED_IN") &&
+            b.bookingStatus === "CHECKED_IN" ||
+            b.bookingStatus === "COMPLETED") &&
         b.paymentStatus === "PARTIALLY_PAID" &&
         b.balanceAmount > 0
+    );
+}
+
+/** The booking is closed for good once checked out: payment complete. */
+export function canCheckOut(b: Booking): boolean {
+    return (
+        (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN") &&
+        (b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID")
     );
 }
 
@@ -201,6 +216,10 @@ export async function toAdminDto(
 
             collectBalance: canCollectBalance(b),
 
+            checkOut: canCheckOut(b),
+
+            undoCheckOut: b.bookingStatus === "COMPLETED",
+
             cancel:
                 (b.bookingStatus === "CONFIRMED" ||
                     b.bookingStatus === "PENDING_PAYMENT") &&
@@ -214,8 +233,7 @@ export async function toAdminDto(
 
             // The counter discount, the additional charge and the staff note can be added
             // or changed while the booking is live. A bKash payment in flight (PENDING)
-            // locks all three; finished bookings (cancelled / expired / completed) are out
-            // of reach.
+            // locks all three; finished bookings (cancelled / expired) are out of reach.
             editDiscount:
                 (b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN") &&
                 (b.paymentStatus === "PARTIALLY_PAID" || b.paymentStatus === "PAID"),

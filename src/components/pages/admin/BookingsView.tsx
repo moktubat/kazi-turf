@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -19,7 +19,7 @@ const BOOKING = [
     ["PENDING_PAYMENT", "Awaiting payment"],
     ["CONFIRMED", "Confirmed"],
     ["CHECKED_IN", "Checked in"],
-    ["COMPLETED", "Completed"],
+    ["COMPLETED", "Checked out"],
     ["CANCELLED", "Cancelled"],
     ["EXPIRED", "Expired"],
 ] as const;
@@ -37,7 +37,7 @@ const PAYMENT = [
     ["REFUNDED", "Refunded"],
 ] as const;
 
-type Page = { bookings: AdminBookingDto[]; next: string | null };
+type Page = { bookings: AdminBookingDto[]; total: number; page: number; pages: number };
 
 export function BookingsView({
     role,
@@ -57,6 +57,8 @@ export function BookingsView({
     const [source, setSource] = useState("");
     const [q, setQ] = useState("");
     const [requestOnly, setRequestOnly] = useState(initial.requestOnly);
+    // Numbered pagination: 25 bookings per page, Previous / Next move between pages.
+    const [page, setPage] = useState(1);
 
     // `initial` is recomputed from the URL on every navigation, but the filter
     // state above only reads it on the first mount, so arriving through another
@@ -76,13 +78,14 @@ export function BookingsView({
         setSource("");
         setQ("");
         setRequestOnly(initial.requestOnly);
+        setPage(1);
     }
 
     const [rows, setRows] = useState<AdminBookingDto[] | null>(null);
-    const [next, setNext] = useState<string | null>(null);
+    const [total, setTotal] = useState(0);
+    const [pages, setPages] = useState(1);
     const [loadedKey, setLoadedKey] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [moreBusy, setMoreBusy] = useState(false);
     const [openCode, setOpenCode] = useState<string | null>(null);
     const [reload, setReload] = useState(0);
 
@@ -95,8 +98,16 @@ export function BookingsView({
         if (source) p.set("source", source);
         if (q.trim().length >= 3) p.set("q", q.trim());
         if (requestOnly) p.set("request", "open");
+        p.set("page", String(page));
         return p.toString();
-    }, [from, to, bookingStatus, paymentStatus, source, q, requestOnly]);
+    }, [from, to, bookingStatus, paymentStatus, source, q, requestOnly, page]);
+
+    // The CSV export gets every booking, so it never carries a page number.
+    const exportParams = useMemo(() => {
+        const p = new URLSearchParams(params);
+        p.delete("page");
+        return p.toString();
+    }, [params]);
 
     // Loading = the list on screen is not for the current filters yet (first load, a filter
     // change or a refresh after an action). Derived, so the effect never sets state synchronously.
@@ -109,7 +120,8 @@ export function BookingsView({
             try {
                 const r = await api<Page>(`/api/admin/bookings?${params}`, { signal: ctrl.signal });
                 setRows(r.bookings);
-                setNext(r.next);
+                setTotal(r.total);
+                setPages(r.pages);
                 setError(null);
             } catch (e) {
                 if (isAbort(e)) return;
@@ -123,19 +135,8 @@ export function BookingsView({
         };
     }, [params, key]);
 
-    async function loadMore() {
-        if (!next) return;
-        setMoreBusy(true);
-        try {
-            const r = await api<Page>(`/api/admin/bookings?${params}&${new URLSearchParams({ before: next })}`);
-            setRows((cur) => [...(cur ?? []), ...r.bookings]);
-            setNext(r.next);
-            setError(null);
-        } catch (e) {
-            setError(e instanceof ApiError ? e.message : "Could not load more bookings.");
-        } finally {
-            setMoreBusy(false);
-        }
+    function goToPage(p: number) {
+        setPage(Math.min(Math.max(1, p), pages || 1));
     }
 
     function clear() {
@@ -146,6 +147,7 @@ export function BookingsView({
         setSource("");
         setQ("");
         setRequestOnly(defaults.requestOnly);
+        setPage(1);
     }
 
     const sourceBadge = (s: AdminBookingDto["source"]) => (
@@ -161,7 +163,10 @@ export function BookingsView({
                             key={v || "all"}
                             type="button"
                             aria-pressed={bookingStatus === v}
-                            onClick={() => setBookingStatus(v)}
+                            onClick={() => {
+                                setBookingStatus(v);
+                                setPage(1);
+                            }}
                             className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors ${bookingStatus === v
                                 ? "border-teal bg-mint text-teal"
                                 : "border-evergreen/15 text-evergreen/80 hover:border-teal"
@@ -172,31 +177,31 @@ export function BookingsView({
                     ))}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <Input label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-                    <Input label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-                    <Select label="Source" value={source} onChange={(e) => setSource(e.target.value)}>
+                    <Input label="From" type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
+                    <Input label="To" type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
+                    <Select label="Source" value={source} onChange={(e) => { setSource(e.target.value); setPage(1); }}>
                         <option value="">Online and counter</option>
                         <option value="online">Online</option>
                         <option value="counter">Counter</option>
                     </Select>
-                    <Select label="Payment status" value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+                    <Select label="Payment status" value={paymentStatus} onChange={(e) => { setPaymentStatus(e.target.value); setPage(1); }}>
                         <option value="">All</option>
                         {PAYMENT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </Select>
                     <div className="sm:col-span-2">
-                        <Input label="Search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Code, phone or name" hint="Type at least 3 characters." />
+                        <Input label="Search" type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Code, phone or name" hint="Type at least 3 characters." />
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
-                        <input type="checkbox" className="size-5 accent-teal" checked={requestOnly} onChange={(e) => setRequestOnly(e.target.checked)} />
+                        <input type="checkbox" className="size-5 accent-teal" checked={requestOnly} onChange={(e) => { setRequestOnly(e.target.checked); setPage(1); }} />
                         Only bookings with an open customer request
                     </label>
                     <div className="flex flex-wrap gap-2">
                         <Button variant="ghost" onClick={clear}>Clear filters</Button>
                         {role === "SUPER_ADMIN" && (
                             <a
-                                href={`/api/admin/bookings/export?${params}`}
+                                href={`/api/admin/bookings/export?${exportParams}`}
                                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 border-teal px-4 font-heading text-sm font-semibold text-teal hover:bg-mint"
                             >
                                 <Download size={18} aria-hidden /> Export CSV
@@ -207,7 +212,7 @@ export function BookingsView({
             </Card>
 
             <p className="text-sm text-evergreen/80" aria-live="polite">
-                {loading ? "Loading…" : rows ? countLabel(rows.length, !!next) : ""}
+                {loading ? "Loading…" : rows ? countLabel(rows.length, total, page, pages) : ""}
             </p>
 
             {error && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{error}</p>}
@@ -299,12 +304,19 @@ export function BookingsView({
                         ))}
                     </ul>
 
-                    {next && (
-                        <div className="flex justify-center">
-                            <Button variant="outline" onClick={loadMore} disabled={moreBusy || loading}>
-                                {moreBusy ? "Loading…" : "Load more bookings"}
+                    {/* Pagination: 25 per page, Previous / Next with the page counter. */}
+                    {pages > 1 && (
+                        <nav className="flex items-center justify-center gap-2" aria-label="Bookings pages">
+                            <Button variant="outline" onClick={() => goToPage(page - 1)} disabled={page <= 1 || loading} aria-label="Previous page">
+                                <ChevronLeft size={18} aria-hidden /> Previous
                             </Button>
-                        </div>
+                            <span className="min-w-28 text-center text-sm font-semibold">
+                                Page {page} of {pages}
+                            </span>
+                            <Button variant="outline" onClick={() => goToPage(page + 1)} disabled={page >= pages || loading} aria-label="Next page">
+                                Next <ChevronRight size={18} aria-hidden />
+                            </Button>
+                        </nav>
                     )}
                 </>
             )}

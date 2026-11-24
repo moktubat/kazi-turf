@@ -14,8 +14,9 @@ type Params = Promise<Record<string, string | string[] | undefined>>;
 async function CustomersContent({ searchParams }: { searchParams: Params }) {
     const user = await requireAdminPage("/admin/customers");
     const filters = customerFiltersFromQuery(await searchParams);
-    const { customers, next } = await listCustomers(user, filters);
-    return <CustomerList customers={customers} filters={filters} next={next} />;
+    // Numbered pagination: 25 customers per page (?page=2), with the total and last page.
+    const { customers, total, page, pages } = await listCustomers(user, filters);
+    return <CustomerList customers={customers} filters={filters} total={total} page={page} pages={pages} />;
 }
 
 export default function CustomersPage({ searchParams }: { searchParams: Params }) {

@@ -76,10 +76,11 @@ export async function getBoard(
         ? await BookingModel.countDocuments({ bookingCode: { $in: openReqs.map((r) => r.bookingCode) }, branchId: branch.id })
         : 0;
 
-    // The money trio, per booking of the day:
-    //   totalSales      = sum of totals of the day's active bookings
+    // The money quartet, per booking of the day:
+    //   totalSales       = sum of totals of the day's active bookings
+    //   collected        = everything actually received on those bookings (advance + balances)
     //   advanceCollected = every advance payment on those bookings, whenever/wherever paid
-    //   pendingCash     = per active booking: total − everything paid so far on it
+    //   pendingCash      = per active booking: total − everything paid so far on it
     const isSale = (status: string) => (SALES_STATUSES as readonly string[]).includes(status);
     const salesIds = new Set(dayDocs.filter((b) => isSale(b.bookingStatus)).map((b) => b.id));
     const paidById = new Map<string, number>();
@@ -88,6 +89,9 @@ export async function getBoard(
     }
 
     const totalSales = dayDocs.filter((b) => salesIds.has(b.id)).reduce((s, b) => s + b.total, 0);
+    const collected = dayPayments
+        .filter((p) => salesIds.has(p.bookingId))
+        .reduce((s, p) => s + p.amount, 0);
     const advanceCollected = dayPayments
         .filter((p) => p.kind === "ADVANCE" && salesIds.has(p.bookingId))
         .reduce((s, p) => s + p.amount, 0);
@@ -133,8 +137,10 @@ export async function getBoard(
         stats: {
             arrivalsPending: dayDocs.filter((b) => b.bookingStatus === "CONFIRMED").length,
             checkedIn: dayDocs.filter((b) => b.bookingStatus === "CHECKED_IN").length,
+            checkedOut: dayDocs.filter((b) => b.bookingStatus === "COMPLETED").length,
             cashCollected: cash,
             totalSales,
+            collected,
             advanceCollected,
             pendingCash,
             openRequests,

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { CalendarPlus, LogIn, Wrench } from "lucide-react";
+import { CalendarPlus, LogIn, LogOut, Wrench } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatBDT, formatTime12 } from "@/lib/format";
 import type { BoardCell, BoardPitch } from "@/types/admin";
@@ -28,14 +28,17 @@ function Cell({ cell, onOpen }: { cell: BoardCell; onOpen: () => void }) {
     const interactive =
         available || !!bk || cell.status === "MAINTENANCE" || (cell.status === "HELD" && !bk);
     const checkedIn = bk?.bookingStatus === "CHECKED_IN";
+    const checkedOut = bk?.bookingStatus === "COMPLETED";
     const look = slotLook[cell.status];
-    const Icon = checkedIn ? LogIn : look.icon;
+    const Icon = checkedOut ? LogOut : checkedIn ? LogIn : look.icon;
     // Tell a staff hold apart from a customer's online hold (they pay within minutes).
-    const label = checkedIn
-        ? "Checked in"
-        : cell.status === "HELD"
-            ? bk ? "Held · customer paying" : "Held by staff"
-            : look.label;
+    const label = checkedOut
+        ? "Checked out"
+        : checkedIn
+            ? "Checked in"
+            : cell.status === "HELD"
+                ? bk ? "Held · customer paying" : "Held by staff"
+                : look.label;
 
     return (
         // The card hugs its text and padding (w-fit), so it is only as wide as its
@@ -48,7 +51,7 @@ function Cell({ cell, onOpen }: { cell: BoardCell; onOpen: () => void }) {
             onClick={onOpen}
             className={cn(
                 "flex min-h-[5.75rem] w-fit min-w-0 max-w-full flex-col items-start justify-between rounded-xl border-2 px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed",
-                checkedIn ? "border-teal/40 bg-mint text-teal" : look.cls
+                checkedOut ? "border-teal/60 bg-teal/15 text-teal" : checkedIn ? "border-teal/40 bg-mint text-teal" : look.cls
             )}
         >
             <span className="font-heading text-base font-bold leading-tight">{formatTime12(cell.start)}</span>
@@ -144,6 +147,7 @@ export function DeskBoard({
                     ["Held (by staff, or a customer paying online)", "border-held/40 bg-held-soft text-held"],
                     ["Booked", "border-booked/40 bg-booked-soft text-booked"],
                     ["Checked in", "border-teal/40 bg-mint text-teal"],
+                    ["Checked out (payment complete)", "border-teal/60 bg-teal/15 text-teal"],
                     ["Maintenance", "border-maint/40 bg-maint-soft text-maint"],
                 ].map(([text, cls]) => (
                     <li key={text} className={`rounded-full border px-2.5 py-1 ${cls}`}>

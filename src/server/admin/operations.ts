@@ -1,4 +1,4 @@
-// Check-in, balance, cancellation, refund state, change requests and maintenance blocks.
+// Check-in, check-out, balance, cancellation, refund state, change requests and maintenance blocks.
 // Every state change is a conditional update, so two phones tapping at once cannot both win.
 import "server-only";
 import { randomUUID } from "crypto";
@@ -22,7 +22,7 @@ import { AppError } from "@/server/http";
 import type { AdminBookingDto } from "@/types/admin";
 import type { Booking } from "@/types/booking";
 import { assertSuperAdmin, findBookingForStaff } from "./access";
-import { canCollectBalance, checkInState, toAdminDto } from "./dto";
+import { canCheckOut, canCollectBalance, checkInState, toAdminDto } from "./dto";
 
 const fresh = async (b: Booking) => (await findBookingById(b.id)) ?? b;
 
@@ -52,10 +52,12 @@ function assertStaffMayLowerTotal(
     }
 }
 
-/** Marks the balance paid and records the cash, inside the caller's transaction. */
+/** Marks the balance paid and records the cash, inside the caller's transaction.
+ *  Works on Booked, Checked in AND Checked-out bookings (a past booking whose balance
+ *  was never taken can still be settled at the counter). */
 async function cashIn(b: Booking, user: ServerUser, now: Date, s: ClientSession): Promise<number> {
     const r = await BookingModel.updateOne(
-        { id: b.id, paymentStatus: "PARTIALLY_PAID", bookingStatus: { $in: ["CONFIRMED", "CHECKED_IN"] } },
+        { id: b.id, paymentStatus: "PARTIALLY_PAID", bookingStatus: { $in: ["CONFIRMED", "CHECKED_IN", "COMPLETED"] } },
         { $set: { paymentStatus: "PAID" } },
         { session: s }
     );
@@ -96,8 +98,8 @@ export async function collectBalance(user: ServerUser, code: string, now: Date =
 
 export async function checkIn(user: ServerUser, code: string, input: CheckInInput, now: Date = new Date()): Promise<AdminBookingDto> {
     const b = await settle(await findBookingForStaff(user, code), now);
-    // A booking whose check-in was undone counts as already checked in once: checking it in
-    // again is a re-check-in, so "undo + check in" cannot get around the Super Admin rule.
+    // A booking whose check-in was undone counts as already checked in once: checking it
+    // in again is a re-check-in, so "undo + check in" cannot get around the Super Admin rule.
     // The CheckIn history also covers bookings undone before checkInUndoneAt existed.
     const wasUndone =
         b.bookingStatus === "CONFIRMED" &&
@@ -166,6 +168,101 @@ export async function checkIn(user: ServerUser, code: string, input: CheckInInpu
                     verifiedBy: input.identity.method,
                     ...(result === "OVERRIDE" ? { rule: state.message } : {}),
                     ...(overrideReason ? { reason: overrideReason } : {}),
+                },
+            },
+            { session: s }
+        );
+    });
+
+    return toAdminDto(await fresh(b), user, now);
+}
+
+/**
+ * Check out: the game is over and the money is settled — the booking is closed
+ * (COMPLETED). Any remaining balance is collected in cash in the same action, so a
+ * checked-out booking is always fully paid. The slot claims are NOT released: the
+ * booking keeps its slots on the board and in every list. Undoing a check-out puts
+ * the booking back to Checked in (or Booked, if it was never checked in).
+ */
+export async function checkOut(user: ServerUser, code: string, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await settle(await findBookingForStaff(user, code), now);
+    if (!canCheckOut(b)) {
+        throw new AppError(
+            "NOT_CHECKOUTABLE",
+            b.bookingStatus === "COMPLETED"
+                ? "This booking is already checked out."
+                : b.bookingStatus === "PENDING_PAYMENT"
+                    ? "The advance payment is not verified yet."
+                    : "Only a Booked or Checked-in booking with a settled payment can be checked out.",
+            409
+        );
+    }
+    if (b.paymentStatus === "PENDING") {
+        throw new AppError("PAYMENT_IN_PROGRESS", "A payment is being processed. Try again shortly.", 409);
+    }
+
+    let collected = 0;
+    await tx(async (s) => {
+        // A balance still due is collected at the same moment: checked out = payment complete.
+        if (canCollectBalance(b)) collected = await cashIn(b, user, now, s);
+
+        // Conditional: if someone changed the booking in between, nothing moves.
+        const r = await BookingModel.updateOne(
+            { id: b.id, bookingStatus: b.bookingStatus, paymentStatus: b.paymentStatus },
+            { $set: { bookingStatus: "COMPLETED" } },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) {
+            throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+        }
+        await logAudit(
+            user,
+            {
+                action: "CHECKED_OUT",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: { balanceCollected: collected },
+            },
+            { session: s }
+        );
+    });
+
+    return toAdminDto(await fresh(b), user, now);
+}
+
+/**
+ * Undo a check-out: the booking goes back to Checked in (or Booked when it was never
+ * checked in, e.g. an online booking closed by mistake). Money already collected stays
+ * collected. The reason is optional and only feeds the audit trail.
+ */
+export async function undoCheckOut(user: ServerUser, code: string, reason: string | undefined, now: Date = new Date()): Promise<AdminBookingDto> {
+    const b = await findBookingForStaff(user, code);
+    if (b.bookingStatus !== "COMPLETED") {
+        throw new AppError("NOT_CHECKED_OUT", "This booking is not checked out.", 409);
+    }
+
+    const backTo: "CHECKED_IN" | "CONFIRMED" = b.checkedInAt ? "CHECKED_IN" : "CONFIRMED";
+
+    await tx(async (s) => {
+        const r = await BookingModel.updateOne(
+            { id: b.id, bookingStatus: "COMPLETED" },
+            { $set: { bookingStatus: backTo } },
+            { session: s }
+        );
+        if (r.modifiedCount === 0) {
+            throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+        }
+        await logAudit(
+            user,
+            {
+                action: "CHECKOUT_UNDONE",
+                entityType: "BOOKING",
+                entityId: b.bookingCode,
+                branchId: b.branchId,
+                meta: {
+                    backTo,
+                    ...(reason ? { reason } : {}),
                 },
             },
             { session: s }

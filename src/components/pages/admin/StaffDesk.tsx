@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, ChevronLeft, ChevronRight, HandCoins, Hourglass, Inbox, LogIn, Receipt, RefreshCw, Users } from "lucide-react";
+import { AlertTriangle, Banknote, ChevronLeft, ChevronRight, HandCoins, Hourglass, Inbox, LogIn, LogOut, Receipt, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Field";
@@ -189,18 +189,17 @@ export function StaffDesk({
                 </div>
             </Card>
 
-            <div role="group" className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Day summary">
+            {/* Day summary. Collected = advance + balances actually received on the day's
+                bookings, so Total sales = Collected + Pending cash always adds up. */}
+            <div role="group" className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Day summary">
                 <Stat icon={Users} label="Arrivals pending" value={board?.stats.arrivalsPending ?? "–"} />
                 <Stat icon={LogIn} label="Checked in" value={board?.stats.checkedIn ?? "–"} />
+                <Stat icon={LogOut} label="Checked out" value={board?.stats.checkedOut ?? "–"} />
+                <Stat icon={Inbox} label="Open requests" value={board?.stats.openRequests ?? "–"} href="/admin/bookings?request=open" />
                 <Stat icon={Receipt} label="Total sales" value={board ? formatBDT(board.stats.totalSales) : "–"} />
+                <Stat icon={Banknote} label="Collected" value={board ? formatBDT(board.stats.collected) : "–"} />
                 <Stat icon={HandCoins} label="Advance collected" value={board ? formatBDT(board.stats.advanceCollected) : "–"} />
                 <Stat icon={Hourglass} label="Pending cash" value={board ? formatBDT(board.stats.pendingCash) : "–"} />
-                <Stat
-                    icon={Inbox}
-                    label="Open requests"
-                    value={board?.stats.openRequests ?? "–"}
-                    href="/admin/bookings?request=open"
-                />
             </div>
 
             <FindBooking onPick={(code) => setDrawer({ kind: "booking", code })} />

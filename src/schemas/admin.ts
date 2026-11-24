@@ -123,6 +123,13 @@ export const undoCheckInSchema = z.object({
 });
 export type UndoCheckInInput = z.infer<typeof undoCheckInSchema>;
 
+// Undo a check-out: the booking goes back to Checked in (or Booked). The reason is
+// optional and only feeds the audit trail — same pattern as undo-check-in.
+export const undoCheckOutSchema = z.object({
+    reason: z.string().trim().max(CHECKIN_REASON_MAX).optional(),
+});
+export type UndoCheckOutInput = z.infer<typeof undoCheckOutSchema>;
+
 // Add or change (or remove, with note: null) the staff note after the booking exists.
 export const noteUpdateSchema = z.object({
     note: z.preprocess(
@@ -163,6 +170,9 @@ export const bookingSearchSchema = z.object({
     q: z.string().trim().min(3, "Type at least 3 characters").max(60).optional(),
     request: z.literal("open").optional(),
     limit: z.string().regex(/^\d{1,3}$/).optional(),
-    // Next-page cursor from the previous response: "<startAt ISO>|<booking code>".
+    // Page number for the Bookings list (?page=2). 1-based; anything else reads as page 1.
+    page: z.string().regex(/^\d{1,4}$/).optional(),
+    // Legacy next-page cursor from before numbered pagination: "<startAt ISO>|<booking code>".
+    // Still accepted so old "Load more" links keep working; it wins over ?page=.
     before: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\|KT-[A-HJ-NP-Z2-9]{6}$/).optional(),
 });

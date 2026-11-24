@@ -1,7 +1,7 @@
 // Super Admin customer list. Server-rendered: filters live in the URL (plain GET form), the
 // database does the filtering and paging, and nothing here ships extra JavaScript.
 import Link from "next/link";
-import { ChevronRight, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<string, string> = {
     PENDING_PAYMENT: "Awaiting payment",
     CONFIRMED: "Confirmed",
     CHECKED_IN: "Checked in",
-    COMPLETED: "Completed",
+    COMPLETED: "Checked out",
     CANCELLED: "Cancelled",
     EXPIRED: "Expired",
 };
@@ -34,13 +34,21 @@ function Breakdown({ s }: { s: CustomerRow["stats"] }) {
 export function CustomerList({
     customers,
     filters,
-    next,
+    total,
+    page,
+    pages,
 }: {
     customers: CustomerRow[];
     filters: CustomerFilters;
-    next: string | null;
+    /** How many customers match these filters in total (for "Showing 25 of 54"). */
+    total: number;
+    /** Current page and last page (1-based; 25 customers per page). */
+    page: number;
+    pages: number;
 }) {
     const filtered = !!(filters.q || filters.bookingStatus || filters.from || filters.to);
+    const pageHref = (p: number) => `/admin/customers${customerQueryString({ ...filters, page: p > 1 ? p : undefined })}`;
+
     return (
         <div className="space-y-5">
             <Card>
@@ -67,7 +75,9 @@ export function CustomerList({
             <p className="text-sm text-evergreen/80" aria-live="polite">
                 {customers.length === 0
                     ? ""
-                    : `Showing ${customers.length} ${customers.length === 1 ? "customer" : "customers"}${filters.before ? " (older registrations)" : ""}${next ? ". More match these filters." : ""}`}
+                    : pages > 1
+                        ? `Showing ${customers.length} of ${total} customers · Page ${page} of ${pages}`
+                        : `${total} ${total === 1 ? "customer" : "customers"}`}
             </p>
 
             {customers.length === 0 ? (
@@ -150,20 +160,34 @@ export function CustomerList({
                             </li>
                         ))}
                     </ul>
-                </>
-            )}
 
-            {(next || filters.before) && (
-                <div className="flex flex-wrap justify-center gap-2">
-                    {filters.before && (
-                        <Button href={`/admin/customers${customerQueryString(filters)}`} variant="ghost">Back to newest</Button>
+                    {/* Pagination: 25 per page, Previous / Next with the page counter. */}
+                    {pages > 1 && (
+                        <nav className="flex items-center justify-center gap-2" aria-label="Customer pages">
+                            {page > 1 ? (
+                                <Button href={pageHref(page - 1)} variant="outline">
+                                    <ChevronLeft size={18} aria-hidden /> Previous
+                                </Button>
+                            ) : (
+                                <Button variant="outline" disabled>
+                                    <ChevronLeft size={18} aria-hidden /> Previous
+                                </Button>
+                            )}
+                            <span className="min-w-28 text-center text-sm font-semibold">
+                                Page {page} of {pages}
+                            </span>
+                            {page < pages ? (
+                                <Button href={pageHref(page + 1)} variant="outline">
+                                    Next <ChevronRight size={18} aria-hidden />
+                                </Button>
+                            ) : (
+                                <Button variant="outline" disabled>
+                                    Next <ChevronRight size={18} aria-hidden />
+                                </Button>
+                            )}
+                        </nav>
                     )}
-                    {next && (
-                        <Button href={`/admin/customers${customerQueryString(filters, { before: next })}`} variant="outline">
-                            Next customers
-                        </Button>
-                    )}
-                </div>
+                </>
             )}
         </div>
     );

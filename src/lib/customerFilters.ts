@@ -1,4 +1,4 @@
-// Customer list / history filters from the URL (?q=&bookingStatus=&from=&to=&before=).
+// Customer list / history filters from the URL (?q=&bookingStatus=&from=&to=&page=).
 // Pure, shared by the pages and tests. Anything malformed is ignored, never an error.
 import { BOOKING_STATUSES } from "@/schemas/admin";
 import type { BookingStatus } from "@/types";
@@ -10,7 +10,8 @@ const one = (sp: Query, k: string) => {
     return Array.isArray(v) ? v[0] : v;
 };
 const isDate = (v?: string): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
-/** "<ISO time>|<id or booking code>", as produced by the list functions. */
+
+/** Legacy keyset cursor from before numbered pagination ("<ISO time>|<id>"); still accepted. */
 const CURSOR = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z\|[A-Za-z0-9_-]{1,80}$/;
 
 export function customerFiltersFromQuery(sp: Query): CustomerFilters {
@@ -23,15 +24,26 @@ export function customerFiltersFromQuery(sp: Query): CustomerFilters {
     const to = one(sp, "to");
     if (isDate(from)) f.from = from;
     if (isDate(to)) f.to = to;
+    const page = Number.parseInt(one(sp, "page") ?? "1", 10);
+    if (Number.isFinite(page) && page > 1) f.page = page;
+    // Legacy cursor links ("Next customers" from an older page) keep working: they map
+    // onto whatever page the customer asked for otherwise.
     const before = one(sp, "before");
-    if (before && CURSOR.test(before)) f.before = before;
+    if (before && CURSOR.test(before)) f.page = f.page ?? 2;
     return f;
 }
 
-/** The same filters as a query string (for "next page" links and the booking history pager). */
+/** The same filters as a query string (for pagination links and the booking history pager). */
 export function customerQueryString(f: CustomerFilters, extra: Record<string, string | undefined> = {}): string {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ q: f.q, bookingStatus: f.bookingStatus, from: f.from, to: f.to, ...extra })) {
+    for (const [k, v] of Object.entries({
+        q: f.q,
+        bookingStatus: f.bookingStatus,
+        from: f.from,
+        to: f.to,
+        page: f.page && f.page > 1 ? String(f.page) : undefined,
+        ...extra,
+    })) {
         if (v) p.set(k, v);
     }
     const s = p.toString();

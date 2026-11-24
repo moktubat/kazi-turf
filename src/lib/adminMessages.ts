@@ -1,14 +1,17 @@
 // Admin feedback copy, kept in one place so the screens say the same thing and tests can check it.
 
-/** Count line above the Bookings list. `more`: another page exists ("Load more"). */
-export function countLabel(shown: number, more: boolean): string {
-    const noun = shown === 1 ? "booking" : "bookings";
-    return more ? `Showing ${shown} ${noun}. More match these filters.` : `${shown} ${noun}`;
+/** Count line above the Bookings list: numbered pagination with a known total. */
+export function countLabel(shown: number, total: number, page: number, pages: number): string {
+    const noun = total === 1 ? "booking" : "bookings";
+    if (pages <= 1) return `${total} ${noun}`;
+    return `Showing ${shown} of ${total} ${noun} · Page ${page} of ${pages}`;
 }
 
 /** Booking actions in the booking drawer (the last part of /api/admin/bookings/[code]/…). */
 export type BookingAction =
     | "check-in"
+    | "check-out"
+    | "undo-check-out"
     | "collect-balance"
     | "cancel"
     | "refund"
@@ -23,6 +26,10 @@ export function actionSuccessMessage(action: BookingAction): string {
     switch (action) {
         case "check-in":
             return "Checked in.";
+        case "check-out":
+            return "Checked out. Payment complete and the booking is closed.";
+        case "undo-check-out":
+            return "Check-out undone. The booking is back to Checked in.";
         case "collect-balance":
             return "Balance collected.";
         case "cancel":
