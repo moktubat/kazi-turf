@@ -31,7 +31,7 @@ export interface CustomerPayment {
     kind: "ADVANCE" | "BALANCE";
     provider: "BKASH" | "CASH";
     amount: number;
-    status: "PENDING" | "SUCCESS" | "FAILED";
+    status: "PENDING" | "SUCCESS" | "FAILED" | "VOIDED";
     reference: string | null;
     at: string;
 }

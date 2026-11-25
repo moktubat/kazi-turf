@@ -1,6 +1,7 @@
 import "server-only";
 import { policies } from "@/data/site";
 import { formatTime } from "@/lib/format";
+import { dhakaParts } from "@/lib/time";
 import { ChangeRequestModel, PaymentModel } from "@/models";
 import type { ServerUser } from "@/server/auth/session";
 import { settle, toDto } from "@/server/bookings";
@@ -118,8 +119,33 @@ export function canCheckOut(b: Booking): boolean {
 type OpenRequestDoc = { bookingCode: string; kind: "CANCEL" | "RESCHEDULE"; reason: string; createdAt: string };
 type PaymentDoc = {
     id: string; bookingId: string; provider: "BKASH" | "CASH"; kind: "ADVANCE" | "BALANCE"; amount: number;
-    status: "PENDING" | "SUCCESS" | "FAILED"; providerTxnId?: string; verifiedAt?: string; createdAt: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "VOIDED"; providerTxnId?: string; verifiedAt?: string; createdAt: string;
+    receivedBy?: string;
 };
+
+/**
+ * May this viewer reverse this recorded cash balance payment (undo check-out, "it was
+ * never actually received")? A Super Admin may always. Staff only cash they recorded
+ * themselves, on the same day (Dhaka): taking back someone else's or an older cash
+ * record would let collected cash disappear, so that stays a Super Admin decision.
+ */
+export function mayReverseCash(
+    viewer: ServerUser,
+    p: Pick<PaymentDoc, "provider" | "kind" | "status" | "receivedBy" | "verifiedAt" | "createdAt">,
+    now: Date
+): boolean {
+    if (p.provider !== "CASH" || p.kind !== "BALANCE" || p.status !== "SUCCESS") return false;
+    if (viewer.role === "SUPER_ADMIN") return true;
+    const at = p.verifiedAt ?? p.createdAt;
+    return p.receivedBy === viewer.id && dhakaParts(new Date(at)).date === dhakaParts(now).date;
+}
+
+/** The latest cash balance payment on a checked-out, fully paid booking, if the viewer may reverse it. */
+export function reversibleCashOf(b: Booking, pays: PaymentDoc[], viewer: ServerUser, now: Date): PaymentDoc | null {
+    if (b.bookingStatus !== "COMPLETED" || b.paymentStatus !== "PAID") return null;
+    const last = [...pays].reverse().find((p) => p.provider === "CASH" && p.kind === "BALANCE" && p.status === "SUCCESS");
+    return last && mayReverseCash(viewer, last, now) ? last : null;
+}
 /** A booking's open change request and its payments (oldest first), loaded ahead of time. */
 interface Related {
     openReq: OpenRequestDoc | null;
@@ -171,6 +197,7 @@ export async function toAdminDto(
 
     const base = toDto(b, now);
     const check = checkInState(b, now);
+    const reversible = reversibleCashOf(b, pays, viewer, now);
 
     return {
         ...base,
@@ -248,6 +275,10 @@ export async function toAdminDto(
 
             undoCheckIn: b.bookingStatus === "CHECKED_IN",
         },
+
+        reversibleCash: reversible
+            ? { id: reversible.id, amount: reversible.amount, at: reversible.verifiedAt ?? reversible.createdAt }
+            : null,
 
         // The discount as entered (type + value), so the panel's discount form can prefill
         // it; null when the booking has no counter discount.

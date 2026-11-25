@@ -26,6 +26,10 @@ const chip = {
     BLOCKED: { cls: "bg-booked-soft text-booked", Icon: XCircle },
 } as const;
 
+/** A payment that does not count towards "Paid so far". VOIDED = staff reversed recorded cash that was not received. */
+export const paymentStatusLabel = (s: "PENDING" | "FAILED" | "VOIDED" | "SUCCESS") =>
+    s === "PENDING" ? "Pending" : s === "VOIDED" ? "Reversed (not received)" : s === "FAILED" ? "Failed" : "";
+
 function Line({
     label,
     value,
@@ -239,7 +243,7 @@ export function BookingPanel({
                                 <span className="min-w-0 break-words">
                                     {p.kind === "ADVANCE" ? "Advance" : "Balance"} · {p.provider === "CASH" ? "Cash" : "bKash"}
                                     {/* Only successful payments count towards "Paid so far". */}
-                                    {p.status !== "SUCCESS" && <span className="text-xs font-semibold"> · {p.status === "PENDING" ? "Pending" : "Failed"}</span>}
+                                    {p.status !== "SUCCESS" && <span className="text-xs font-semibold"> · {paymentStatusLabel(p.status)}</span>}
                                     {p.reference && <span className="font-mono text-xs"> {p.reference}</span>}
                                     <span className="block text-xs text-evergreen/70">{formatDateTime(p.at)}</span>
                                 </span>
@@ -323,7 +327,7 @@ export function BookingPanel({
                     )}
                     {b.can.undoCheckOut && (
                         <Button variant="outline" onClick={() => open("undocheckout")}>
-                            <Undo2 size={18} aria-hidden /> Undo check-out (back to Checked in)
+                            <Undo2 size={18} aria-hidden /> Undo check-out (back to {b.checkedInAt ? "Checked in" : "Booked"})
                         </Button>
                     )}
                     {b.can.cancel && (

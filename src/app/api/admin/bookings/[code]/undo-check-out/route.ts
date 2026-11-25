@@ -7,13 +7,14 @@ import { handleError, ok, readJson } from "@/server/http";
 type Ctx = { params: Promise<{ code: string }> };
 
 // Undo a check-out: the booking goes back to Checked in (or Booked, when it was never
-// checked in). Money already collected stays collected; it can be checked out again.
+// checked in). Money already collected stays collected unless reverseBalance is set: then
+// the cash balance payment is reversed and the balance shows as due again.
 export async function POST(req: NextRequest, { params }: Ctx) {
     try {
         const user = await staffGuard(req, true);
         const { code } = await params;
         const input = undoCheckOutSchema.parse(await readJson(req));
-        return ok({ booking: await undoCheckOut(user, code, input.reason) });
+        return ok({ booking: await undoCheckOut(user, code, input.reason, new Date(), input.reverseBalance === true) });
     } catch (e) {
         return handleError(e);
     }

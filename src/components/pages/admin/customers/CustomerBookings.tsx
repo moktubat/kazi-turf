@@ -20,7 +20,7 @@ function Payments({ b }: { b: CustomerBooking }) {
                 <li key={p.id} className={`flex flex-wrap justify-between gap-x-3 ${p.status === "SUCCESS" ? "" : "text-evergreen/60"}`}>
                     <span className="min-w-0 break-words">
                         {p.kind === "ADVANCE" ? "Advance" : "Balance"} · {p.provider === "CASH" ? "Cash" : "bKash"}
-                        {p.status !== "SUCCESS" && <span className="font-semibold"> · {p.status === "PENDING" ? "Pending" : "Failed"}</span>}
+                        {p.status !== "SUCCESS" && <span className="font-semibold"> · {p.status === "PENDING" ? "Pending" : p.status === "VOIDED" ? "Reversed (not received)" : "Failed"}</span>}
                         {p.reference && <span className="font-mono"> {p.reference}</span>} · {formatDateTime(p.at)}
                     </span>
                     <span className="shrink-0 font-semibold">{formatBDT(p.amount)}</span>

@@ -21,8 +21,9 @@ import { connectDb, tx } from "@/server/db/connect";
 import { AppError } from "@/server/http";
 import type { AdminBookingDto } from "@/types/admin";
 import type { Booking } from "@/types/booking";
+import type { Payment } from "@/types/ops";
 import { assertSuperAdmin, findBookingForStaff } from "./access";
-import { canCheckOut, canCollectBalance, checkInState, toAdminDto } from "./dto";
+import { canCheckOut, canCollectBalance, checkInState, mayReverseCash, toAdminDto } from "./dto";
 
 const fresh = async (b: Booking) => (await findBookingById(b.id)) ?? b;
 
@@ -235,9 +236,19 @@ export async function checkOut(user: ServerUser, code: string, now: Date = new D
 /**
  * Undo a check-out: the booking goes back to Checked in (or Booked when it was never
  * checked in, e.g. an online booking closed by mistake). Money already collected stays
- * collected. The reason is optional and only feeds the audit trail.
+ * collected, unless `reverseBalance` is set: then the latest cash balance payment is
+ * reversed (marked VOIDED, never deleted) because it was not actually received, and the
+ * balance shows as due again ("Checked in · Due" / "Booked · Due"). Staff may reverse only
+ * cash they recorded themselves today; anything else needs a Super Admin (mayReverseCash).
+ * The reason is optional and only feeds the audit trail.
  */
-export async function undoCheckOut(user: ServerUser, code: string, reason: string | undefined, now: Date = new Date()): Promise<AdminBookingDto> {
+export async function undoCheckOut(
+    user: ServerUser,
+    code: string,
+    reason: string | undefined,
+    now: Date = new Date(),
+    reverseBalance = false
+): Promise<AdminBookingDto> {
     const b = await findBookingForStaff(user, code);
     if (b.bookingStatus !== "COMPLETED") {
         throw new AppError("NOT_CHECKED_OUT", "This booking is not checked out.", 409);
@@ -245,7 +256,53 @@ export async function undoCheckOut(user: ServerUser, code: string, reason: strin
 
     const backTo: "CHECKED_IN" | "CONFIRMED" = b.checkedInAt ? "CHECKED_IN" : "CONFIRMED";
 
+    // The cash payment to reverse, checked before anything moves.
+    let reverse: Payment | null = null;
+    let pays: Payment[] = [];
+    if (reverseBalance) {
+        await connectDb();
+        pays = await PaymentModel.find({ bookingId: b.id }).sort({ createdAt: 1 }).lean<Payment[]>();
+        const last = [...pays].reverse().find((p) => p.provider === "CASH" && p.kind === "BALANCE" && p.status === "SUCCESS");
+        if (!last || b.paymentStatus !== "PAID") {
+            throw new AppError("NOTHING_TO_REVERSE", "There is no cash balance payment to reverse on this booking.", 409);
+        }
+        if (!mayReverseCash(user, last, now)) {
+            const message = "Only a Super Admin can reverse this payment (staff can reverse only cash they recorded themselves today).";
+            throw new AppError("SUPER_ADMIN_REQUIRED", message, 403);
+        }
+        reverse = last;
+    }
+
     await tx(async (s) => {
+        if (reverse) {
+            // Conditional: a payment reversed twice (two phones) changes nothing the second time.
+            const v = await PaymentModel.updateOne(
+                { id: reverse.id, status: "SUCCESS" },
+                { $set: { status: "VOIDED", voidedAt: now.toISOString(), voidedBy: user.id, voidReason: reason ?? "Not received" } },
+                { session: s }
+            );
+            if (v.modifiedCount === 0) throw new AppError("CHANGED", "This payment just changed. Refresh and try again.", 409);
+            const paidLeft = pays.filter((p) => p.status === "SUCCESS" && p.id !== reverse.id).reduce((sum, p) => sum + p.amount, 0);
+            const balance = Math.max(0, b.total - paidLeft);
+            const m = await BookingModel.updateOne(
+                { id: b.id, bookingStatus: "COMPLETED", paymentStatus: "PAID" },
+                { $set: { paymentStatus: balance > 0 ? "PARTIALLY_PAID" : "PAID", balanceAmount: balance } },
+                { session: s }
+            );
+            if (m.modifiedCount === 0 && balance > 0) throw new AppError("CHANGED", "This booking just changed. Refresh and try again.", 409);
+            await logAudit(
+                user,
+                {
+                    action: "PAYMENT_REVERSED",
+                    entityType: "BOOKING",
+                    entityId: b.bookingCode,
+                    branchId: b.branchId,
+                    meta: { amount: reverse.amount, balanceDue: balance, ...(reason ? { reason } : {}) },
+                },
+                { session: s }
+            );
+        }
+
         const r = await BookingModel.updateOne(
             { id: b.id, bookingStatus: "COMPLETED" },
             { $set: { bookingStatus: backTo } },
@@ -263,6 +320,7 @@ export async function undoCheckOut(user: ServerUser, code: string, reason: strin
                 branchId: b.branchId,
                 meta: {
                     backTo,
+                    ...(reverse ? { reversed: reverse.amount } : {}),
                     ...(reason ? { reason } : {}),
                 },
             },

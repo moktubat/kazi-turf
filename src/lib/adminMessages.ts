@@ -29,7 +29,7 @@ export function actionSuccessMessage(action: BookingAction): string {
         case "check-out":
             return "Checked out. Payment complete and the booking is closed.";
         case "undo-check-out":
-            return "Check-out undone. The booking is back to Checked in.";
+            return "Check-out undone. The booking is open again.";
         case "collect-balance":
             return "Balance collected.";
         case "cancel":

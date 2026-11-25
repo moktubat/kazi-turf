@@ -127,6 +127,9 @@ export type UndoCheckInInput = z.infer<typeof undoCheckInSchema>;
 // optional and only feeds the audit trail — same pattern as undo-check-in.
 export const undoCheckOutSchema = z.object({
     reason: z.string().trim().max(CHECKIN_REASON_MAX).optional(),
+    // Also reverse the cash balance payment (it was never actually received): the balance
+    // shows as due again. Omitted or false: money already collected stays collected.
+    reverseBalance: z.boolean().optional(),
 });
 export type UndoCheckOutInput = z.infer<typeof undoCheckOutSchema>;
 

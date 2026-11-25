@@ -7,6 +7,7 @@ export const AUDIT_ACTIONS = [
     "CHECKED_IN",
     "CHECKED_OUT", // NEW: staff closed the booking after the game (payment complete)
     "CHECKOUT_UNDONE", // NEW: a check-out was undone (booking went back to Checked in)
+    "PAYMENT_REVERSED", // a recorded cash balance was reversed on undo check-out (it shows as due again)
     "CHECKIN_OVERRIDE",
     "CHECKIN_BLOCKED",
     "CHECKIN_UNDONE",
@@ -81,7 +82,11 @@ export interface Payment {
     invoice?: string; // merchantInvoiceNumber we sent
     amount: number;
     currency: "BDT";
-    status: "PENDING" | "SUCCESS" | "FAILED";
+    /** VOIDED: a recorded cash payment staff reversed (it was never actually received). Counts as nothing. */
+    status: "PENDING" | "SUCCESS" | "FAILED" | "VOIDED";
+    voidedAt?: string;
+    voidedBy?: string;
+    voidReason?: string;
     failureReason?: "FAILED" | "CANCELLED" | "ABANDONED" | "CREATE_FAILED" | "MISMATCH";
     anomaly?: string; // needs a human: shown in Insights > Needs attention
     verifiedAt?: string;

@@ -11,7 +11,7 @@ export interface PaymentDto {
     provider: "BKASH" | "CASH";
     kind: "ADVANCE" | "BALANCE";
     amount: number;
-    status: "PENDING" | "SUCCESS" | "FAILED";
+    status: "PENDING" | "SUCCESS" | "FAILED" | "VOIDED";
     reference: string | null;
     at: string;
 }
@@ -47,6 +47,12 @@ export interface AdminBookingDto extends BookingDto {
         /** Staff may undo a check-in: the booking goes back to Booked. */
         undoCheckIn: boolean;
     };
+    /**
+     * On a checked-out booking: the latest cash balance payment this viewer may reverse when
+     * undoing the check-out (so the balance shows as due again). Null when there is none, or
+     * when the viewer may not reverse it (staff: only cash they recorded themselves, today).
+     */
+    reversibleCash: { id: string; amount: number; at: string } | null;
     /** The discount as staff entered it (null when none) — prefills the panel's discount form. */
     discountType: "FIXED" | "PERCENT" | null;
     discountValue: number | null;

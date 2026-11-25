@@ -133,8 +133,12 @@ const payment = new Schema(
         invoice: String,
         amount: { type: Number, required: true },
         currency: { type: String, default: "BDT" },
-        status: { type: String, enum: ["PENDING", "SUCCESS", "FAILED"], required: true },
+        status: { type: String, enum: ["PENDING", "SUCCESS", "FAILED", "VOIDED"], required: true },
         failureReason: String,
+        // Set when staff reverse a recorded cash payment (status VOIDED): who, when and why.
+        voidedAt: String,
+        voidedBy: String,
+        voidReason: String,
         anomaly: String,
         verifiedAt: String,
         receivedBy: String,

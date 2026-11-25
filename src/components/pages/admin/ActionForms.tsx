@@ -175,7 +175,7 @@ export function CheckOutForm({ b, busy, onSubmit, onBack }: FormProps) {
                 </p>
             )}
             <p className="text-xs text-evergreen/70">
-                The booking keeps its slots on the board. If you tap it by mistake, &apos;Undo check-out&apos; puts it back to Checked in.
+                The booking keeps its slots on the board. If you tap it by mistake, &apos;Undo check-out&apos; opens it again, and can also reverse a balance that was not really received.
             </p>
             <Actions busy={busy} label={due > 0 ? `Collect ${formatBDT(due)} and check out` : "Check out"} onBack={onBack} />
         </form>
@@ -185,23 +185,47 @@ export function CheckOutForm({ b, busy, onSubmit, onBack }: FormProps) {
 /** Quick reasons for the audit trail when undoing a check-out. */
 const UNDO_CHECKOUT_PICKS = ["Checked out by mistake", "Customer came back to pay or play", "Fixing the payment"] as const;
 
-export function UndoCheckOutForm({ busy, onSubmit, onBack }: FormProps) {
+export const UNDO_CHECKOUT_MONEY_PROMPT = "Choose whether the customer really paid the balance.";
+
+export function UndoCheckOutForm({ b, busy, onSubmit, onBack }: FormProps) {
     const [reason, setReason] = useState("");
+    // When a cash balance can be reversed, staff must say whether it was really received.
+    // Nothing is pre-selected, so cash is never taken back (or kept) by accident.
+    const cash = b.reversibleCash;
+    const [money, setMoney] = useState<"keep" | "reverse" | null>(null);
+    const [err, setErr] = useState<string | null>(null);
+    const backTo = b.checkedInAt ? "Checked in" : "Booked";
     return (
         <form
             onSubmit={(e) => {
                 e.preventDefault();
-                onSubmit({ reason: reason.trim() || undefined });
+                if (cash && money === null) return setErr(UNDO_CHECKOUT_MONEY_PROMPT);
+                setErr(null);
+                onSubmit({ reason: reason.trim() || undefined, ...(cash && money === "reverse" ? { reverseBalance: true } : {}) });
             }}
             noValidate
             className="space-y-4"
             aria-label="Undo check-out"
         >
             <p className="rounded-xl bg-mint p-3 text-sm">
-                This opens the booking again — it goes back to <strong>Checked in</strong> (or <strong>Booked</strong>, if it
-                was never checked in). Money already collected stays collected, and the booking can be checked out again
+                This opens the booking again: it goes back to <strong>{backTo}</strong>, and it can be checked out again
                 afterwards.
             </p>
+            {cash && (
+                <fieldset className="space-y-2">
+                    <legend className="text-sm font-semibold">The {formatBDT(cash.amount)} balance recorded in cash</legend>
+                    <label className="flex min-h-11 items-start gap-3 text-sm">
+                        <input type="radio" name="undo-money" className="mt-1 size-5 accent-teal" checked={money === "keep"} onChange={() => setMoney("keep")} />
+                        <span>Keep it: the customer paid {formatBDT(cash.amount)}</span>
+                    </label>
+                    <label className="flex min-h-11 items-start gap-3 text-sm">
+                        <input type="radio" name="undo-money" className="mt-1 size-5 accent-teal" checked={money === "reverse"} onChange={() => setMoney("reverse")} />
+                        <span>
+                            Reverse it: not received. Show <span className="font-semibold text-booked">{formatBDT(cash.amount)} due</span> again
+                        </span>
+                    </label>
+                </fieldset>
+            )}
             <Textarea
                 label="Reason (optional)"
                 rows={2}
@@ -226,7 +250,8 @@ export function UndoCheckOutForm({ busy, onSubmit, onBack }: FormProps) {
                     );
                 })}
             </div>
-            <Actions busy={busy} label="Undo check-out" onBack={onBack} />
+            {err && <p role="alert" className="rounded-xl bg-booked-soft p-3 text-sm font-medium text-booked">{err}</p>}
+            <Actions busy={busy} label={money === "reverse" && cash ? `Undo check-out and reverse ${formatBDT(cash.amount)}` : "Undo check-out"} onBack={onBack} />
         </form>
     );
 }

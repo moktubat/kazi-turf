@@ -76,6 +76,31 @@ describe("Balance due colour", () => {
     });
 });
 
+describe("after undo check-out with the balance reversed", () => {
+    it("Booked · Due: the reversed payment is listed but not counted; undo label names Booked", async () => {
+        await show(
+            booking({
+                checkedInAt: null,
+                payments: [
+                    { id: "p1", provider: "CASH", kind: "ADVANCE", amount: 1000, status: "SUCCESS", reference: null, at: "2026-11-25T06:33:00.000Z" },
+                    { id: "p2", provider: "CASH", kind: "BALANCE", amount: 900, status: "VOIDED", reference: null, at: "2026-11-25T06:34:00.000Z" },
+                ],
+                total: 1900, balanceDue: 900, advancePaid: 1000,
+                can: can({ collectBalance: true }),
+            })
+        );
+        expect(screen.getByText(/Reversed \(not received\)/)).toBeTruthy();
+        expect(screen.getByText("Paid so far").nextElementSibling?.textContent).toBe("৳1,000");
+        expect(screen.getByText("Balance due").parentElement?.className).toContain("text-booked");
+        expect(screen.getByRole("button", { name: /Collect balance \(cash ৳900\)/ })).toBeTruthy();
+    });
+
+    it("a checked-out booking that was never checked in says undo goes back to Booked", async () => {
+        await show(booking({ bookingStatus: "COMPLETED", paymentStatus: "PAID", balanceDue: 0, checkedInAt: null, can: can({ undoCheckOut: true }) }));
+        expect(screen.getByRole("button", { name: /Undo check-out \(back to Booked\)/ })).toBeTruthy();
+    });
+});
+
 describe("Checked in · Due", () => {
     const checkedIn = (over: Partial<AdminBookingDto>) =>
         booking({
