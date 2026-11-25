@@ -137,6 +137,8 @@ export async function getBoard(
         stats: {
             arrivalsPending: dayDocs.filter((b) => b.bookingStatus === "CONFIRMED").length,
             checkedIn: dayDocs.filter((b) => b.bookingStatus === "CHECKED_IN").length,
+            // Checked in · Due: playing (or played) with money still owed on the booking.
+            checkedInDue: dayDocs.filter((b) => b.bookingStatus === "CHECKED_IN" && b.total - (paidById.get(b.id) ?? 0) > 0).length,
             checkedOut: dayDocs.filter((b) => b.bookingStatus === "COMPLETED").length,
             cashCollected: cash,
             totalSales,

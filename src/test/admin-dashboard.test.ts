@@ -9,7 +9,7 @@ import { todayDhaka } from "@/lib/time.server";
 import { BookingModel, PaymentModel } from "@/models";
 import { bookingSearchSchema } from "@/schemas/admin";
 import { getAttention } from "@/server/admin/insights";
-import { searchBookingsPage, type BookingFilters } from "@/server/admin/search";
+import { BOOKINGS_PAGE_SIZE, searchBookingsPage, type BookingFilters } from "@/server/admin/search";
 import type { ServerUser } from "@/server/auth/session";
 import { startDb, stopDb } from "./helpers";
 
@@ -34,15 +34,15 @@ function booking(over: Record<string, unknown>) {
     };
 }
 
-async function allPages(f: BookingFilters, limit: number) {
+/** Walks the numbered pages (1, 2, … pages) and returns every booking code in order. */
+async function allPages(f: BookingFilters, limit = BOOKINGS_PAGE_SIZE) {
     const codes: string[] = [];
-    let before: string | undefined;
-    for (let i = 0; i < 50; i++) {
-        const page = await searchBookingsPage(admin, { ...f, limit, before });
-        codes.push(...page.bookings.map((b) => b.code));
-        if (!page.next) return codes;
-        expect(page.bookings).toHaveLength(limit);
-        before = page.next;
+    for (let page = 1; page <= 50; page++) {
+        const r = await searchBookingsPage(admin, { ...f, limit, page });
+        expect(r.page).toBe(page);
+        codes.push(...r.bookings.map((b) => b.code));
+        if (page >= r.pages) return codes;
+        expect(r.bookings).toHaveLength(limit);
     }
     throw new Error("paging did not end");
 }
@@ -77,24 +77,32 @@ afterAll(stopDb);
 describe("Bookings list paging", () => {
     it("pages cover every booking exactly once, in order, even when start times tie", async () => {
         const window = { from: addDays(TODAY, -10), to: TODAY };
-        const one = await searchBookingsPage(admin, { ...window, limit: 200 });
-        expect(one.next).toBeNull();
-        expect(one.bookings).toHaveLength(30);
+        const first = await searchBookingsPage(admin, window);
+        expect(first).toMatchObject({ total: 30, page: 1, pages: 2 });
+        expect(first.bookings).toHaveLength(BOOKINGS_PAGE_SIZE); // 25 per page, never more
 
         const paged = await allPages(window, 7);
-        expect(paged).toEqual(one.bookings.map((b) => b.code));
+        expect(paged).toEqual(await allPages(window));
+        expect(paged.slice(0, BOOKINGS_PAGE_SIZE)).toEqual(first.bookings.map((b) => b.code));
         expect(new Set(paged).size).toBe(30);
     });
 
     it("paging works together with a text search", async () => {
         const f = { from: addDays(TODAY, -10), to: TODAY, q: "Customer 1" }; // Customer 1, 10–19
-        const one = await searchBookingsPage(admin, { ...f, limit: 200 });
+        const one = await searchBookingsPage(admin, f);
+        expect(one.total).toBe(11); // Customer 1 and Customer 10–19
         expect(await allPages(f, 3)).toEqual(one.bookings.map((b) => b.code));
     });
 
-    it("the last page has no cursor, and the API only accepts a well-formed cursor", async () => {
-        const page = await searchBookingsPage(admin, { from: addDays(TODAY, -10), to: TODAY, limit: 30 });
-        expect(page.next).toBeNull(); // exactly 30 match: no phantom "Load more"
+    it("a limit above 25 is capped, a page past the end shows the last page, and the API validates its params", async () => {
+        const window = { from: addDays(TODAY, -10), to: TODAY };
+        const capped = await searchBookingsPage(admin, { ...window, limit: 200 });
+        expect(capped.bookings).toHaveLength(BOOKINGS_PAGE_SIZE);
+        const last = await searchBookingsPage(admin, { ...window, page: 999 });
+        expect(last).toMatchObject({ page: 2, pages: 2 });
+        expect(last.bookings).toHaveLength(5);
+        expect(bookingSearchSchema.safeParse({ page: "2" }).success).toBe(true);
+        expect(bookingSearchSchema.safeParse({ page: "two" }).success).toBe(false);
         expect(bookingSearchSchema.safeParse({ before: `${new Date().toISOString()}|KT-ABC234` }).success).toBe(true);
         for (const bad of ["x", "2026-01-01|KT-ABC234", `${new Date().toISOString()}|DROP`, `${new Date().toISOString()}|KT-ABC234|x`]) {
             expect(bookingSearchSchema.safeParse({ before: bad }).success).toBe(false);
@@ -105,7 +113,7 @@ describe("Bookings list paging", () => {
 describe("refunds on expired holds are findable", () => {
     it("shown by default and under 'Refund pending'; a plain expired hold stays hidden", async () => {
         const names = async (f: BookingFilters) =>
-            (await searchBookingsPage(admin, { ...f, limit: 200 })).bookings.map((b) => b.customerName);
+            (await searchBookingsPage(admin, f)).bookings.map((b) => b.customerName);
         const window = { from: TODAY, to: addDays(TODAY, 5) };
         expect(await names(window)).toContain("Late Payer");
         expect(await names(window)).not.toContain("Gave Up");
@@ -126,9 +134,7 @@ describe("Needs Attention 'View all' links", () => {
         for (const id of ["refunds", "balances"] as const) {
             const g = groups.find((x) => x.id === id)!;
             expect(g.viewAll, id).toBeTruthy();
-            const listed = new Set(
-                (await searchBookingsPage(admin, { ...filtersOf(g.viewAll!), limit: 200 })).bookings.map((b) => b.code)
-            );
+            const listed = new Set(await allPages(filtersOf(g.viewAll!)));
             expect(g.count, id).toBeGreaterThan(0);
             for (const item of g.items) expect(listed.has(item.code), `${id}: ${item.code}`).toBe(true);
             expect(listed.size).toBeGreaterThanOrEqual(g.count);
@@ -160,10 +166,10 @@ describe("Bookings filters from the URL", () => {
 
 describe("admin feedback copy", () => {
     it("count line says when more bookings exist, and every booking action has a confirmation", () => {
-        expect(countLabel(1, false)).toBe("1 booking");
-        expect(countLabel(100, false)).toBe("100 bookings");
-        expect(countLabel(100, true)).toBe("Showing 100 bookings. More match these filters.");
-        for (const a of ["check-in", "collect-balance", "cancel", "refund", "request"] as const) {
+        expect(countLabel(1, 1, 1, 1)).toBe("1 booking");
+        expect(countLabel(20, 20, 1, 1)).toBe("20 bookings");
+        expect(countLabel(25, 54, 1, 3)).toBe("Showing 25 of 54 bookings · Page 1 of 3");
+        for (const a of ["check-in", "check-out", "undo-check-out", "collect-balance", "cancel", "refund", "request"] as const) {
             expect(actionSuccessMessage(a)).toMatch(/\.$/);
         }
     });

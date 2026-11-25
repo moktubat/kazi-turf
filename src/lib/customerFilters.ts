@@ -11,7 +11,7 @@ const one = (sp: Query, k: string) => {
 };
 const isDate = (v?: string): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
 
-/** Legacy keyset cursor from before numbered pagination ("<ISO time>|<id>"); still accepted. */
+/** Booking-history cursor on the customer page ("<ISO time>|<booking code>"). */
 const CURSOR = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z\|[A-Za-z0-9_-]{1,80}$/;
 
 export function customerFiltersFromQuery(sp: Query): CustomerFilters {
@@ -26,10 +26,9 @@ export function customerFiltersFromQuery(sp: Query): CustomerFilters {
     if (isDate(to)) f.to = to;
     const page = Number.parseInt(one(sp, "page") ?? "1", 10);
     if (Number.isFinite(page) && page > 1) f.page = page;
-    // Legacy cursor links ("Next customers" from an older page) keep working: they map
-    // onto whatever page the customer asked for otherwise.
+    // The customer page's "Older bookings" pager (one customer's history) uses a cursor.
     const before = one(sp, "before");
-    if (before && CURSOR.test(before)) f.page = f.page ?? 2;
+    if (before && CURSOR.test(before)) f.before = before;
     return f;
 }
 

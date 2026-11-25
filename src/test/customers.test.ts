@@ -86,13 +86,10 @@ describe("permissions", () => {
     });
 
     it("lists registered customers only (never staff, admins or walk-in placeholders)", async () => {
-        const all = [];
-        let before: string | undefined;
-        do {
-            const page = await listCustomers(admin, { before });
-            all.push(...page.customers);
-            before = page.next ?? undefined;
-        } while (before);
+        const first = await listCustomers(admin, {});
+        const all = [...first.customers];
+        for (let page = 2; page <= first.pages; page++) all.push(...(await listCustomers(admin, { page })).customers);
+        expect(first.total).toBe(30);
         expect(all).toHaveLength(30);
         expect(all.some((c) => c.name === "Staff Person" || c.id.startsWith("walkin:"))).toBe(false);
         await expect(getCustomerDetail(admin, "staff-user")).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -143,9 +140,13 @@ describe("search, filters and paging", () => {
     it("pages cover every customer exactly once, newest registrations first", async () => {
         const first = await listCustomers(admin, {});
         expect(first.customers).toHaveLength(CUSTOMER_PAGE);
+        expect(first).toMatchObject({ total: 30, page: 1, pages: 2 });
         expect(first.customers[0].name).toBe("Customer 29");
-        const second = await listCustomers(admin, { before: first.next! });
-        expect(second.next).toBeNull();
+        const second = await listCustomers(admin, { page: 2 });
+        expect(second).toMatchObject({ page: 2, pages: 2 });
+        expect(second.customers).toHaveLength(5);
+        // A page past the end shows the last real page.
+        expect((await listCustomers(admin, { page: 99 })).page).toBe(2);
         const ids = [...first.customers, ...second.customers].map((c) => c.id);
         expect(new Set(ids).size).toBe(30);
     });
@@ -158,7 +159,7 @@ describe("search, filters and paging", () => {
         } finally {
             mongoose.set("debug", false);
         }
-        expect(ops.filter((o) => !o.startsWith("configs.")).length).toBeLessThanOrEqual(3); // users, bookings, payments
+        expect(ops.filter((o) => !o.startsWith("configs.")).length).toBeLessThanOrEqual(4); // users count, users, bookings, payments
     });
 });
 

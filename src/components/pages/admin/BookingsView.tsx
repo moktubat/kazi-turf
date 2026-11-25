@@ -265,7 +265,7 @@ export function BookingsView({
                                         </td>
                                         <td className="px-3 py-3 font-semibold">
                                             {formatBDT(b.total)}
-                                            {b.balanceDue > 0 && <span className="block text-xs font-medium text-held">Due {formatBDT(b.balanceDue)}</span>}
+                                            {b.balanceDue > 0 && <span className="block text-xs font-semibold text-booked">Due {formatBDT(b.balanceDue)}</span>}
                                         </td>
                                         <td className="px-3 py-3">{sourceBadge(b.source)}</td>
                                     </tr>
@@ -297,7 +297,7 @@ export function BookingsView({
                                     </div>
                                     <p className="text-sm font-semibold">
                                         {formatBDT(b.total)}
-                                        {b.balanceDue > 0 && <span className="ml-2 font-medium text-held">Due {formatBDT(b.balanceDue)}</span>}
+                                        {b.balanceDue > 0 && <span className="ml-2 font-semibold text-booked">Due {formatBDT(b.balanceDue)}</span>}
                                     </p>
                                 </button>
                             </li>

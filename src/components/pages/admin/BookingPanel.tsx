@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { BookingStatusBadge, PaymentStatusBadge } from "@/components/ui/StatusBadge";
 import { actionSuccessMessage, type BookingAction } from "@/lib/adminMessages";
 import { ApiError, api, isAbort } from "@/lib/api";
-import { formatBDT, formatDateLong, formatDiscount, formatTime12 } from "@/lib/format";
+import { formatBDT, formatDateLong, formatDiscount, formatTime, formatTime12 } from "@/lib/format";
 import { formatDateTime } from "@/lib/formatAdmin";
 import { hasVerifiedPayment, printReceipt } from "@/lib/printReceipt";
 import type { Role } from "@/types";
@@ -26,10 +26,21 @@ const chip = {
     BLOCKED: { cls: "bg-booked-soft text-booked", Icon: XCircle },
 } as const;
 
-function Line({ label, value, strong }: { label: string; value: React.ReactNode; strong?: boolean }) {
+function Line({
+    label,
+    value,
+    strong,
+    alert,
+}: {
+    label: string;
+    value: React.ReactNode;
+    strong?: boolean;
+    /** Money still owed: label and amount in red. */
+    alert?: boolean;
+}) {
     return (
-        <div className={`flex items-baseline justify-between gap-4 ${strong ? "font-bold" : ""}`}>
-            <dt className={strong ? "shrink-0" : "shrink-0 text-evergreen/80"}>{label}</dt>
+        <div className={`flex items-baseline justify-between gap-4 ${strong ? "font-bold" : ""} ${alert ? "text-booked" : ""}`}>
+            <dt className={strong || alert ? "shrink-0" : "shrink-0 text-evergreen/80"}>{label}</dt>
             <dd className="min-w-0 break-words text-right font-semibold">{value}</dd>
         </div>
     );
@@ -126,6 +137,8 @@ export function BookingPanel({
 
     const { booking: b, audit } = state;
     const c = chip[b.checkIn.state];
+    // "Checked in · Due": the customer arrived but the balance is still unpaid.
+    const dueAfterArrival = (b.bookingStatus === "CHECKED_IN" || b.bookingStatus === "COMPLETED") && b.balanceDue > 0;
     const formProps = { b, busy, onBack: () => { setMode(null); setActionError(null); } };
     const open = (m: Exclude<Mode, null>) => {
         setNotice(null);
@@ -140,10 +153,18 @@ export function BookingPanel({
                     <BookingStatusBadge status={b.bookingStatus} />
                     <PaymentStatusBadge status={b.paymentStatus} paid={b.advancePaid} />
                     <Badge tone={b.source === "counter" ? "info" : "neutral"}>{b.source === "counter" ? "Counter" : "Online"}</Badge>
+                    {dueAfterArrival && <Badge tone="booked">Due {formatBDT(b.balanceDue)}</Badge>}
                 </div>
             </div>
 
-            {b.bookingStatus !== "COMPLETED" && (
+            {dueAfterArrival ? (
+                // Checked in (or out) without paying the balance: say so plainly, in red.
+                <p role="status" className="flex items-start gap-2 rounded-xl bg-booked-soft p-3 text-sm font-semibold text-booked">
+                    <AlertTriangle size={18} aria-hidden className="mt-0.5 shrink-0" />
+                    {b.bookingStatus === "CHECKED_IN" ? "Checked in" : "Checked out"}
+                    {b.checkedInAt ? ` at ${formatTime(b.checkedInAt)}` : ""} · Due {formatBDT(b.balanceDue)}. The balance is not paid yet. Collect it before the customer leaves.
+                </p>
+            ) : b.bookingStatus !== "COMPLETED" && (
                 <p className={`flex items-start gap-2 rounded-xl p-3 text-sm font-semibold ${c.cls}`}>
                     <c.Icon size={18} aria-hidden className="mt-0.5 shrink-0" /> {b.checkIn.message}
                 </p>
@@ -206,7 +227,7 @@ export function BookingPanel({
                 )}
                 <Line label="Total" value={formatBDT(b.total)} strong />
                 <Line label="Paid so far" value={formatBDT(b.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + p.amount, 0))} />
-                <Line label="Balance due" value={formatBDT(b.balanceDue)} strong />
+                <Line label="Balance due" value={formatBDT(b.balanceDue)} strong alert={b.balanceDue > 0} />
             </dl>
 
             {b.payments.length > 0 && (
@@ -253,16 +274,8 @@ export function BookingPanel({
 
             {mode === null && (
                 <div className="flex flex-col gap-2">
-                    {(b.can.checkIn || b.can.overrideCheckIn) && (
-                        <Button size="lg" onClick={() => open("checkin")}>
-                            <LogIn size={18} aria-hidden /> {b.can.overrideCheckIn ? "Override check-in" : "Check in"}
-                        </Button>
-                    )}
-                    {b.can.checkOut && (
-                        <Button size="lg" onClick={() => open("checkout")}>
-                            <LogOut size={18} aria-hidden /> Check out{b.balanceDue > 0 ? ` (collect ${formatBDT(b.balanceDue)})` : " — payment complete"}
-                        </Button>
-                    )}
+                    {/* Money first (collect, discount, charge), then the state change:
+                        check in / override check-in, then check out. */}
                     {b.can.collectBalance && (
                         <Button size="lg" variant="secondary" onClick={() => open("collect")}>
                             <Banknote size={18} aria-hidden /> Collect balance (cash {formatBDT(b.balanceDue)})
@@ -276,6 +289,16 @@ export function BookingPanel({
                     {b.can.editCharge && (
                         <Button variant="secondary" onClick={() => open("charge")}>
                             <HandCoins size={18} aria-hidden /> {b.additionalChargeAmount > 0 ? "Edit charge" : "Add charge"}
+                        </Button>
+                    )}
+                    {(b.can.checkIn || b.can.overrideCheckIn) && (
+                        <Button size="lg" onClick={() => open("checkin")}>
+                            <LogIn size={18} aria-hidden /> {b.can.overrideCheckIn ? "Override check-in" : "Check in"}
+                        </Button>
+                    )}
+                    {b.can.checkOut && (
+                        <Button size="lg" onClick={() => open("checkout")}>
+                            <LogOut size={18} aria-hidden /> Check out{b.balanceDue > 0 ? ` (collect ${formatBDT(b.balanceDue)})` : " — payment complete"}
                         </Button>
                     )}
                     {b.can.editNote && (

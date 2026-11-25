@@ -30,11 +30,14 @@ function Stat({
     label,
     value,
     href,
+    alert,
 }: {
     icon: React.ElementType;
     label: string;
     value: string | number;
     href?: string;
+    /** A short warning under the value, in red (e.g. "2 with balance due"). */
+    alert?: string;
 }) {
     const body = (
         <>
@@ -43,6 +46,7 @@ function Stat({
                 <Icon size={16} aria-hidden className="text-evergreen/40" />
             </span>
             <span className="break-words font-heading text-2xl font-extrabold sm:text-3xl">{value}</span>
+            {alert && <span className="text-xs font-semibold text-booked">{alert}</span>}
         </>
     );
     const cls = "flex flex-col gap-2 rounded-2xl border border-evergreen/10 bg-surface p-5 shadow-sm";
@@ -193,7 +197,12 @@ export function StaffDesk({
                 bookings, so Total sales = Collected + Pending cash always adds up. */}
             <div role="group" className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Day summary">
                 <Stat icon={Users} label="Arrivals pending" value={board?.stats.arrivalsPending ?? "–"} />
-                <Stat icon={LogIn} label="Checked in" value={board?.stats.checkedIn ?? "–"} />
+                <Stat
+                    icon={LogIn}
+                    label="Checked in"
+                    value={board?.stats.checkedIn ?? "–"}
+                    alert={board && board.stats.checkedInDue > 0 ? `${board.stats.checkedInDue} with balance due` : undefined}
+                />
                 <Stat icon={LogOut} label="Checked out" value={board?.stats.checkedOut ?? "–"} />
                 <Stat icon={Inbox} label="Open requests" value={board?.stats.openRequests ?? "–"} href="/admin/bookings?request=open" />
                 <Stat icon={Receipt} label="Total sales" value={board ? formatBDT(board.stats.totalSales) : "–"} />

@@ -76,18 +76,20 @@ afterAll(stopDb);
 
 describe("Bookings list (searchBookings)", () => {
     it("uses a fixed number of queries, however many rows it returns", async () => {
-        const small = await counting(() => searchBookings(admin, { limit: 10 }));
-        const large = await counting(() => searchBookings(admin, { limit: 120 }));
-        expect(small.result).toHaveLength(10);
-        expect(large.result).toHaveLength(120);
-        // Before the fix: 2 + 2 per row (242 for 120 rows).
+        const small = await counting(() => searchBookings(admin, { limit: 5 }));
+        const large = await counting(() => searchBookings(admin, { limit: 25 }));
+        expect(small.result).toHaveLength(5);
+        expect(large.result).toHaveLength(25); // a full page (the list never shows more than 25)
+        // Before the fix: 2 + 2 per row.
         expect(large.ops.length).toBe(small.ops.length);
         expect(large.ops.length).toBeLessThanOrEqual(5);
     });
 
     it("returns exactly what the per-booking builder returns (payments order, open requests)", async () => {
         const now = new Date();
-        const listed = await searchBookings(admin, { limit: 120 }, now);
+        // 120 bookings, 25 a page, newest first: page 5 holds the oldest 20 (KT-000001…).
+        const listed = await searchBookings(admin, { page: 5 }, now);
+        expect(listed).toHaveLength(20);
         const docs = await BookingModel.find({ bookingCode: { $in: listed.map((b) => b.code) } }).lean<Booking[]>();
         const byCode = new Map(docs.map((d) => [d.bookingCode, d]));
         for (const row of listed) {

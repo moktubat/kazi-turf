@@ -29,13 +29,15 @@ function Cell({ cell, onOpen }: { cell: BoardCell; onOpen: () => void }) {
         available || !!bk || cell.status === "MAINTENANCE" || (cell.status === "HELD" && !bk);
     const checkedIn = bk?.bookingStatus === "CHECKED_IN";
     const checkedOut = bk?.bookingStatus === "COMPLETED";
+    // Checked in without paying the balance yet: money still to collect.
+    const checkedInDue = checkedIn && (bk?.balanceDue ?? 0) > 0;
     const look = slotLook[cell.status];
     const Icon = checkedOut ? LogOut : checkedIn ? LogIn : look.icon;
     // Tell a staff hold apart from a customer's online hold (they pay within minutes).
     const label = checkedOut
         ? "Checked out"
         : checkedIn
-            ? "Checked in"
+            ? checkedInDue ? "Checked in · Due" : "Checked in"
             : cell.status === "HELD"
                 ? bk ? "Held · customer paying" : "Held by staff"
                 : look.label;
@@ -51,7 +53,13 @@ function Cell({ cell, onOpen }: { cell: BoardCell; onOpen: () => void }) {
             onClick={onOpen}
             className={cn(
                 "flex min-h-[5.75rem] w-fit min-w-0 max-w-full flex-col items-start justify-between rounded-xl border-2 px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed",
-                checkedOut ? "border-teal/60 bg-teal/15 text-teal" : checkedIn ? "border-teal/40 bg-mint text-teal" : look.cls
+                checkedOut
+                    ? "border-teal/60 bg-teal/15 text-teal"
+                    : checkedInDue
+                        ? "border-booked/60 bg-mint text-teal"
+                        : checkedIn
+                            ? "border-teal/40 bg-mint text-teal"
+                            : look.cls
             )}
         >
             <span className="font-heading text-base font-bold leading-tight">{formatTime12(cell.start)}</span>
@@ -61,7 +69,7 @@ function Cell({ cell, onOpen }: { cell: BoardCell; onOpen: () => void }) {
             {bk ? (
                 <span className="w-full min-w-0">
                     <span className="block truncate text-xs font-medium">{bk.customerName}</span>
-                    {bk.balanceDue > 0 && <span className="block text-xs font-bold">Due {formatBDT(bk.balanceDue)}</span>}
+                    {bk.balanceDue > 0 && <span className="block text-xs font-bold text-booked">Due {formatBDT(bk.balanceDue)}</span>}
                 </span>
             ) : cell.reason ? (
                 <span className="block w-full truncate text-xs">{cell.reason}</span>
@@ -147,6 +155,7 @@ export function DeskBoard({
                     ["Held (by staff, or a customer paying online)", "border-held/40 bg-held-soft text-held"],
                     ["Booked", "border-booked/40 bg-booked-soft text-booked"],
                     ["Checked in", "border-teal/40 bg-mint text-teal"],
+                    ["Checked in · Due (balance not paid)", "border-booked/60 bg-mint text-teal"],
                     ["Checked out (payment complete)", "border-teal/60 bg-teal/15 text-teal"],
                     ["Maintenance", "border-maint/40 bg-maint-soft text-maint"],
                 ].map(([text, cls]) => (

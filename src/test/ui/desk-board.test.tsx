@@ -86,6 +86,19 @@ describe("DeskBoard", () => {
         expect(screen.getByText("Due ৳500")).toBeTruthy();
     });
 
+    it("a checked-in booking with money owed reads 'Checked in · Due'; a paid one reads 'Checked in'", () => {
+        setup([pitch([
+            c(10, "BOOKED", { booking: { code: "KT-DUE", customerName: "Jitu", bookingStatus: "CHECKED_IN", paymentStatus: "PARTIALLY_PAID", balanceDue: 1700 } }),
+            c(11, "BOOKED", { booking: { code: "KT-PAID", customerName: "Nabil", bookingStatus: "CHECKED_IN", paymentStatus: "PAID", balanceDue: 0 } }),
+        ])]);
+        const [due, paid] = slotButtons();
+        expect(due.getAttribute("aria-label")).toContain("Checked in · Due");
+        expect(due.className).toContain("border-booked/60");
+        expect(due.textContent).toContain("Due ৳1,700");
+        expect(paid.getAttribute("aria-label")).toContain("Checked in,");
+        expect(paid.getAttribute("aria-label")).not.toContain("Due");
+    });
+
     it("the walk-in hint points to Hold or maintenance", () => {
         setup([pitch([c(10, "AVAILABLE")])]);
         expect(screen.getByText(/To hold or block a slot instead, switch to Hold or maintenance\./)).toBeTruthy();

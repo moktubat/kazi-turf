@@ -61,4 +61,6 @@ export interface CustomerFilters {
     to?: string; // ...dated on or before
     /** Page number for the customer list (1-based). The list is 25 per page. */
     page?: number;
+    /** Paging cursor for ONE customer's booking history ("<startAt>|<bookingCode>"). Not used by the list. */
+    before?: string;
 }

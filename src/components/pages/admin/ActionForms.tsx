@@ -11,6 +11,8 @@ import { vatTotals } from "@/lib/pricing";
 import { WALKIN_NOTE_MAX, WALKIN_NOTE_PICKS, hasNotePick, toggleNotePick } from "@/lib/walkInNote";
 import type { AdminBookingDto } from "@/types/admin";
 
+export const CHECKIN_BALANCE_PROMPT = "Choose whether the customer paid the balance now or will pay later.";
+
 interface FormProps {
     b: AdminBookingDto;
     busy: boolean;
@@ -34,7 +36,10 @@ function Actions({ busy, label, onBack, danger }: { busy: boolean; label: string
 export function CheckInForm({ b, busy, onSubmit, onBack }: FormProps) {
     const [method, setMethod] = useState<"PHONE" | "NAME">("PHONE");
     const [digits, setDigits] = useState("");
-    const [collect, setCollect] = useState(b.can.collectBalance);
+    // Balance at check-in: nothing is pre-selected. Staff must say whether the customer
+    // actually paid now, so cash is never recorded by accident. "Not paid yet" checks the
+    // customer in with the balance still due (Checked in · Due); it is collected later.
+    const [collect, setCollect] = useState<"now" | "later" | null>(null);
     const [reason, setReason] = useState("");
     const [err, setErr] = useState<string | null>(null);
     // A Super Admin re-check-in still needs a reason; outside the window it is optional.
@@ -47,11 +52,12 @@ export function CheckInForm({ b, busy, onSubmit, onBack }: FormProps) {
         if (method === "PHONE" && !/^\d{4}$/.test(digits)) return setErr("Enter the last 4 digits of the phone number.");
         if (showReason && reasonRequired && reason.trim().length === 0) return setErr(CHECKIN_OUTSIDE_PROMPT);
         if (showReason && reasonErr) return setErr(reasonErr);
+        if (b.can.collectBalance && collect === null) return setErr(CHECKIN_BALANCE_PROMPT);
         setErr(null);
         const r = reason.trim();
         onSubmit({
             identity: method === "PHONE" ? { method, digits } : { method },
-            collectBalance: collect && b.can.collectBalance,
+            collectBalance: collect === "now" && b.can.collectBalance,
             ...(showReason && r ? { overrideReason: r } : {}),
         });
     }
@@ -74,10 +80,19 @@ export function CheckInForm({ b, busy, onSubmit, onBack }: FormProps) {
             </fieldset>
 
             {b.can.collectBalance && (
-                <label className="flex min-h-11 items-start gap-3 text-sm font-medium">
-                    <input type="checkbox" className="mt-1 size-5 accent-teal" checked={collect} onChange={(e) => setCollect(e.target.checked)} />
-                    <span>Collect the balance in cash now ({formatBDT(b.balanceDue)})</span>
-                </label>
+                <fieldset className="space-y-2">
+                    <legend className="text-sm font-semibold">
+                        Balance due: <span className="text-booked">{formatBDT(b.balanceDue)}</span>
+                    </legend>
+                    <label className="flex min-h-11 items-start gap-3 text-sm">
+                        <input type="radio" name="balance" className="mt-1 size-5 accent-teal" checked={collect === "now"} onChange={() => setCollect("now")} />
+                        <span>Paid now: I received {formatBDT(b.balanceDue)} in cash</span>
+                    </label>
+                    <label className="flex min-h-11 items-start gap-3 text-sm">
+                        <input type="radio" name="balance" className="mt-1 size-5 accent-teal" checked={collect === "later"} onChange={() => setCollect("later")} />
+                        <span>Not paid yet: check in with {formatBDT(b.balanceDue)} due and collect it later</span>
+                    </label>
+                </fieldset>
             )}
 
             {showReason && (

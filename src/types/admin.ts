@@ -94,6 +94,8 @@ export interface BoardResponse {
     stats: {
         arrivalsPending: number;
         checkedIn: number;
+        /** Of the checked-in bookings, how many still have a balance due ("Checked in · Due"). */
+        checkedInDue: number;
         /** NEW: bookings of the day that are checked out (payment complete, closed). */
         checkedOut: number;
         /** Kept for the API; the desk now shows the collected/sales/advance/pending quartet below. */

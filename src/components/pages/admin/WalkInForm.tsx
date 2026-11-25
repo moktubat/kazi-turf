@@ -201,7 +201,7 @@ export function WalkInForm({
                     )}
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Total</dt><dd className="font-semibold">{formatBDT(created.total)}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-evergreen/80">Cash received</dt><dd className="font-semibold">{formatBDT(created.advancePaid)}</dd></div>
-                    <div className="flex justify-between gap-4 font-bold"><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
+                    <div className={`flex justify-between gap-4 font-bold ${created.balanceDue > 0 ? "text-booked" : ""}`}><dt>Balance due</dt><dd>{formatBDT(created.balanceDue)}</dd></div>
                     {created.note && (
                         <div className="flex justify-between gap-4"><dt className="shrink-0 text-evergreen/80">Note</dt><dd className="min-w-0 break-words text-right font-semibold">{created.note}</dd></div>
                     )}

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
         const user = await superAdminGuard(req, false);
         const q = bookingSearchSchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-        const csv = await bookingsCsv(user, { ...q, before: undefined, limit: undefined }); // the export is never paged
+        const csv = await bookingsCsv(user, { ...q, before: undefined, limit: undefined, page: undefined }); // the export is never paged
         return new NextResponse(csv, {
             headers: {
                 "Content-Type": "text/csv; charset=utf-8",

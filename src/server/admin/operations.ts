@@ -206,9 +206,10 @@ export async function checkOut(user: ServerUser, code: string, now: Date = new D
         // A balance still due is collected at the same moment: checked out = payment complete.
         if (canCollectBalance(b)) collected = await cashIn(b, user, now, s);
 
-        // Conditional: if someone changed the booking in between, nothing moves.
+        // Conditional: if someone changed the booking in between, nothing moves. cashIn
+        // (same transaction) has just moved PARTIALLY_PAID → PAID, so match on that.
         const r = await BookingModel.updateOne(
-            { id: b.id, bookingStatus: b.bookingStatus, paymentStatus: b.paymentStatus },
+            { id: b.id, bookingStatus: b.bookingStatus, paymentStatus: collected > 0 ? "PAID" : b.paymentStatus },
             { $set: { bookingStatus: "COMPLETED" } },
             { session: s }
         );

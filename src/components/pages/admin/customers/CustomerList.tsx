@@ -119,7 +119,7 @@ export function CustomerList({
                                             <Breakdown s={c.stats} />
                                         </td>
                                         <td className="px-3 py-3 font-semibold">{formatBDT(c.stats.paid)}</td>
-                                        <td className="px-3 py-3">{c.stats.outstanding > 0 ? <span className="font-semibold text-held">{formatBDT(c.stats.outstanding)}</span> : "–"}</td>
+                                        <td className="px-3 py-3">{c.stats.outstanding > 0 ? <span className="font-semibold text-booked">{formatBDT(c.stats.outstanding)}</span> : "–"}</td>
                                         <td className="px-3 py-3">
                                             {c.stats.refunds > 0 ? (
                                                 <>
@@ -151,7 +151,7 @@ export function CustomerList({
                                         {c.email && <span className="block break-all text-xs text-evergreen/70">{c.email}</span>}
                                         <span className="block text-sm">
                                             {c.stats.bookings} {c.stats.bookings === 1 ? "booking" : "bookings"} · Paid {formatBDT(c.stats.paid)}
-                                            {c.stats.outstanding > 0 && <span className="font-semibold text-held">{" "}· Due {formatBDT(c.stats.outstanding)}</span>}
+                                            {c.stats.outstanding > 0 && <span className="font-semibold text-booked">{" "}· Due {formatBDT(c.stats.outstanding)}</span>}
                                         </span>
                                         <span className="block text-xs text-evergreen/70">Last booking {dayOf(c.stats.lastBookingAt)} · Joined {dayOf(c.registeredAt)}</span>
                                     </span>

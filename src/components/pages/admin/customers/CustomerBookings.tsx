@@ -82,7 +82,7 @@ export function CustomerBookings({ bookings }: { bookings: CustomerBooking[] }) 
                             </div>
                             <div>
                                 <dt className="text-xs text-evergreen/70">Balance due</dt>
-                                <dd className={`font-semibold ${b.balanceDue > 0 ? "text-held" : ""}`}>{formatBDT(b.balanceDue)}</dd>
+                                <dd className={`font-semibold ${b.balanceDue > 0 ? "text-booked" : ""}`}>{formatBDT(b.balanceDue)}</dd>
                             </div>
                         </dl>
                         <div>
